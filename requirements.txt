@@ -1,0 +1,10 @@
+Flask>=2.0
+openai-whisper
+pydub
+numpy
+torch
+soundfile
+# Optional (needed for diarization and enrollment):
+pyannote.audio>=2.0
+resemblyzer
+huggingface_hub==0.13.4

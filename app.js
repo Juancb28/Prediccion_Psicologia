@@ -576,10 +576,10 @@ function showPatient(id) {
                 <input id="_consent_file" type="file" accept=".pdf,.doc,.docx,.jpg,.png">
                 ${existingConsent && existingConsent.file ? `<div style="margin-top:8px; font-size:12px; color:#666;">Archivo actual: <a href="${existingConsent.file}" target="_blank" style="color:#00838f;">ver archivo</a></div>` : ''}
             </div>
-            <div id="_toggle_section" style="display:${existingConsent && existingConsent.file ? 'block' : 'none'}; margin-top:16px; padding:12px; background:#e0f7fa; border-radius:8px; border-left:4px solid #00bcd4;">
-                <label class="toggle-container" style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+            <div id="_toggle_section" style="display:block; margin-top:16px; padding:12px; background:#e0f7fa; border-radius:8px; border-left:4px solid #00bcd4;">
+                <label class="toggle-container" style="display:flex; align-items:center; justify-content:space-between;">
                     <span style="font-weight:500; color:#00838f;">Autoriza grabación de sesiones</span>
-                    <div class="toggle-switch" id="_toggle_switch">
+                    <div class="toggle-switch" style="pointer-events:none;">
                         <span class="toggle-slider ${existingConsent && existingConsent.grabacionAutorizada ? 'active' : ''}" id="_toggle_slider"></span>
                     </div>
                 </label>
@@ -594,30 +594,18 @@ function showPatient(id) {
         
         const fileInput = modal.backdrop.querySelector('#_consent_file');
         const toggleSection = modal.backdrop.querySelector('#_toggle_section');
-        const toggleSwitch = modal.backdrop.querySelector('#_toggle_switch');
         const toggleSlider = modal.backdrop.querySelector('#_toggle_slider');
         let authRecording = existingConsent ? existingConsent.grabacionAutorizada : false;
         
         // Detectar cuando se carga archivo y activar toggle automáticamente
         fileInput.addEventListener('change', (e)=>{
             if(e.target.files && e.target.files[0]){
-                toggleSection.style.display = 'block';
                 // Activar automáticamente el toggle cuando se carga el archivo
                 authRecording = true;
                 toggleSlider.classList.add('active');
-            } else if(!existingConsent || !existingConsent.file){
-                toggleSection.style.display = 'none';
-                authRecording = false;
-                toggleSlider.classList.remove('active');
-            }
-        });
-        
-        // Toggle click handler
-        toggleSwitch.addEventListener('click', ()=>{
-            authRecording = !authRecording;
-            if(authRecording){
-                toggleSlider.classList.add('active');
             } else {
+                // Si quita el archivo, desactivar toggle
+                authRecording = false;
                 toggleSlider.classList.remove('active');
             }
         });
@@ -673,14 +661,24 @@ async function quickRegisterSession(){
 }
 
 async function quickCreateCita(){
-    const form = `<div class="row"><input name="pid" placeholder="ID paciente (ej:1)"></div><div class="row"><input name="fecha" type="date"></div><div class="row"><input name="hora" type="time"></div>`;
-    const data = await modalForm('Crear cita', form);
-    if(!data) return;
-    if(!data.pid || !data.fecha || !data.hora) return alert('Datos incompletos');
-    mockAgenda.push({ fecha: data.fecha, hora: data.hora, pacienteId: parseInt(data.pid), estado: 'Pendiente' });
+    const patientOptions = mockPacientes.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+    const form = `
+        <div class="row">
+            <select name="pid" style="width:100%; padding:8px; border:2px solid #b2ebf2; border-radius:4px; font-size:14px;">
+                <option value="">Seleccionar paciente...</option>
+                ${patientOptions}
+            </select>
+        </div>
+        <div class="row"><input name="fecha" type="date"></div>
+        <div class="row"><input name="hora" type="time"></div>
+    `;
+    const formData = await modalForm('Crear cita', form);
+    if(!formData) return;
+    if(!formData.pid || !formData.fecha || !formData.hora) return alert('Datos incompletos');
+    mockAgenda.push({ fecha: formData.fecha, hora: formData.hora, pacienteId: parseInt(formData.pid), estado: 'Pendiente' });
     await saveData();
-    alert('Cita creada (mock)');
-    loadModule('dashboard');
+    alert('✅ Cita creada correctamente');
+    loadModule('agenda');
 }
 
 // Session / PIN logic for demo
@@ -732,17 +730,11 @@ async function createNewSessionForPatient(patientId){
                 <small style="display:block; margin-top:8px; color:#00838f; font-weight:500;">✅ Paciente autorizado para grabación (consentimiento firmado)</small>
             </div>
         ` : `
-            <div class="row" style="margin-top:16px; padding:12px; background:#fff3e0; border-radius:8px; border-left:4px solid #ff9800;">
-                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                    <input type="checkbox" name="grabar" id="grabar_check" style="width:auto;">
-                    <span>🎥 Grabar esta sesión</span>
-                </label>
-                <div id="pin_section" style="display:none; margin-top:12px;">
-                    <label>PIN de autorización</label>
-                    <input name="pin" type="password" placeholder="Ingrese PIN del paciente" maxlength="4">
-                    <small style="display:block; margin-top:4px; color:#666;">PIN requerido: ${p.recordingPin}</small>
+            <div class="row" style="margin-top:16px; padding:12px; background:#ffebee; border-radius:8px; border:2px solid #f44336;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                    <span style="color:#d32f2f; font-weight:600;">🚫 Grabación no disponible</span>
                 </div>
-                <small style="display:block; margin-top:8px; color:#f57c00;">⚠️ No hay consentimiento firmado para grabación</small>
+                <small style="display:block; color:#d32f2f; font-weight:500;">❌ No hay consentimiento firmado con autorización para grabación. Por favor, suba el consentimiento primero.</small>
             </div>
         `}
     `;
@@ -758,16 +750,6 @@ async function createNewSessionForPatient(patientId){
     
     const modal = createModal(modalHtml);
     
-    // Toggle PIN section (solo si no está autorizado)
-    const grabarCheck = modal.backdrop.querySelector('#grabar_check');
-    const pinSection = modal.backdrop.querySelector('#pin_section');
-    
-    if(pinSection && grabarCheck){
-        grabarCheck.addEventListener('change', (e)=>{
-            pinSection.style.display = e.target.checked ? 'block' : 'none';
-        });
-    }
-    
     // Cancel handler
     modal.backdrop.querySelector('#_m_cancel').onclick = ()=>{
         modal.close();
@@ -779,19 +761,13 @@ async function createNewSessionForPatient(patientId){
         const data = {};
         inputs.forEach(i=>{ if(i.name && i.type !== 'checkbox') data[i.name]=i.value; });
         
-        const grabar = modal.backdrop.querySelector('#grabar_check').checked;
+        const grabarCheckbox = modal.backdrop.querySelector('#grabar_check');
+        const grabar = grabarCheckbox ? grabarCheckbox.checked : false;
         
-        // Si hay autorización previa, no pedir PIN
+        // Solo permitir grabación si hay consentimiento autorizado
         if(grabar && !hasAuthorizedRecording){
-            const pin = data.pin;
-            if(!pin){
-                alert('⚠️ Debe ingresar el PIN para grabar la sesión');
-                return;
-            }
-            if(pin !== p.recordingPin){
-                alert('❌ PIN incorrecto. No se puede grabar la sesión.');
-                return;
-            }
+            alert('❌ No se puede grabar la sesión. Debe subir un consentimiento firmado con autorización de grabación primero.');
+            return;
         }
         
         const newSession = {
@@ -840,8 +816,16 @@ async function openSessionDetail(sessionIndex, patientId){
     
     const sessionDetailHtml = `
         <div style="max-height:70vh; overflow-y:auto; padding:20px;">
-            <h2 style="color:#00838f; margin-bottom:8px;">Sesión: ${s.fecha}</h2>
-            <p style="color:#666; margin-bottom:16px;"><strong>Paciente:</strong> ${p.nombre}</p>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <div>
+                    <h2 style="color:#00838f; margin:0;">Sesión: ${s.fecha}</h2>
+                    <p style="color:#666; margin:4px 0 0 0;"><strong>Paciente:</strong> ${p.nombre}</p>
+                </div>
+                <button id="_start_recording_btn" class="btn" style="background:linear-gradient(135deg, #f44336 0%, #d32f2f 100%); color:white; display:flex; align-items:center; gap:8px; padding:10px 16px;">
+                    <span style="font-size:20px;">🔴</span>
+                    <span>Iniciar grabación</span>
+                </button>
+            </div>
             <p style="background:#e0f7fa; padding:12px; border-radius:8px; border-left:4px solid #00bcd4;"><strong>Notas:</strong> ${s.notas}</p>
             <hr style="margin:20px 0; border:none; border-top:2px solid #b2ebf2;">
             
@@ -864,24 +848,22 @@ async function openSessionDetail(sessionIndex, patientId){
             
             <!-- SOAP -->
             <div style="margin-bottom:24px;">
-                <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:24px;">📋</span> SOAP
-                </h3>
-                <div style="padding:16px; background:linear-gradient(135deg, #f0f0f0 0%, #fafafa 100%); border-radius:12px; border:2px solid #b2ebf2;">
-                    <div style="margin-bottom:12px; padding:10px; background:white; border-radius:6px; border-left:3px solid #00bcd4;">
-                        <strong style="color:#00838f;">Subjetivo:</strong> ${s.soap?.s || '<em style="color:#999;">(Sin datos)</em>'}
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <h3 style="color:#00838f; display:flex; align-items:center; gap:8px; margin:0;">
+                        <span style="font-size:24px;">📋</span> SOAP
+                    </h3>
+                    <button id="_generate_summary_btn" class="btn" style="background:linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%); color:white;">✨ Generar resumen de sesión</button>
+                </div>
+                <div style="margin-bottom:12px;">
+                    <div style="padding:16px; background:white; border-radius:8px; border:2px solid #b2ebf2; margin-bottom:12px;">
+                        <h4 style="color:#00838f; margin:0 0 8px 0; font-size:14px;">Subjetivo</h4>
+                        <textarea id="_soap_s" style="width:100%; min-height:80px; padding:8px; border:1px solid #b2ebf2; border-radius:4px; font-family:inherit; font-size:14px; color:#666; resize:vertical;">${s.soap?.s || ''}</textarea>
                     </div>
-                    <div style="margin-bottom:12px; padding:10px; background:white; border-radius:6px; border-left:3px solid #0097a7;">
-                        <strong style="color:#00838f;">Objetivo:</strong> ${s.soap?.o || '<em style="color:#999;">(Sin datos)</em>'}
-                    </div>
-                    <div style="margin-bottom:12px; padding:10px; background:white; border-radius:6px; border-left:3px solid #00838f;">
-                        <strong style="color:#00838f;">Análisis:</strong> ${s.soap?.a || '<em style="color:#999;">(Sin datos)</em>'}
-                    </div>
-                    <div style="padding:10px; background:white; border-radius:6px; border-left:3px solid #006b7d;">
-                        <strong style="color:#00838f;">Plan:</strong> ${s.soap?.p || '<em style="color:#999;">(Sin datos)</em>'}
+                    <div style="padding:16px; background:white; border-radius:8px; border:2px solid #b2ebf2;">
+                        <h4 style="color:#00838f; margin:0 0 8px 0; font-size:14px;">Objetivo</h4>
+                        <textarea id="_soap_o" style="width:100%; min-height:80px; padding:8px; border:1px solid #b2ebf2; border-radius:4px; font-family:inherit; font-size:14px; color:#666; resize:vertical;">${s.soap?.o || ''}</textarea>
                     </div>
                 </div>
-                <button onclick="openSoapForm(${sessionIndex})" class="btn primary" style="margin-top:12px;">Editar SOAP</button>
             </div>
             
             <!-- ENFOQUE -->
@@ -910,6 +892,29 @@ async function openSessionDetail(sessionIndex, patientId){
                 </h3>
                 <textarea id="_planificacion_text" style="width:100%; min-height:120px; padding:12px; border:2px solid #b2ebf2; border-radius:8px; font-family:'Segoe UI',Arial,sans-serif; font-size:14px; resize:vertical; transition:all 0.3s ease;" placeholder="Plan de intervención y próximos pasos...">${s.planificacion || ''}</textarea>
             </div>
+            
+            <!-- GRABACIONES -->
+            ${s.grabacion && s.grabacion.length > 0 ? `
+            <div style="margin-bottom:24px;">
+                <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:24px;">🎤</span> Grabaciones
+                </h3>
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                    ${s.grabacion.map((grab, idx) => `
+                        <div style="padding:12px; background:white; border-radius:8px; border:2px solid #b2ebf2; display:flex; align-items:center; gap:12px;">
+                            <span style="font-size:24px;">🎵</span>
+                            <div style="flex:1;">
+                                <div style="font-weight:600; color:#00838f;">Grabación ${idx + 1}</div>
+                                <div style="font-size:12px; color:#666;">
+                                    ${new Date(grab.fecha).toLocaleString('es-ES')} • ${grab.duracion ? grab.duracion + 's' : 'Duración no disponible'}
+                                </div>
+                            </div>
+                            <audio controls src="${grab.audio}" style="max-width:300px;"></audio>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            ` : ''}
         </div>
         
         <div class="actions" style="margin-top:16px; padding:0 20px 20px; display:flex; gap:8px;">
@@ -935,10 +940,17 @@ async function openSessionDetail(sessionIndex, patientId){
     
     // Save handler
     modal.backdrop.querySelector('#_session_save').onclick = async ()=>{
+        const soapS = modal.backdrop.querySelector('#_soap_s').value;
+        const soapO = modal.backdrop.querySelector('#_soap_o').value;
         const enfoque = modal.backdrop.querySelector('#_enfoque_select').value;
         const analisis = modal.backdrop.querySelector('#_analisis_text').value;
         const planificacion = modal.backdrop.querySelector('#_planificacion_text').value;
         
+        if (!s.soap) {
+            s.soap = {};
+        }
+        s.soap.s = soapS;
+        s.soap.o = soapO;
         s.enfoque = enfoque;
         s.analisis = analisis;
         s.planificacion = planificacion;
@@ -950,6 +962,115 @@ async function openSessionDetail(sessionIndex, patientId){
     };
     
     modal.backdrop.querySelector('#_session_close').onclick = ()=> modal.close();
+    
+    // Recording button handler
+    const recordingBtn = modal.backdrop.querySelector('#_start_recording_btn');
+    let isRecording = false;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    
+    if(recordingBtn){
+        recordingBtn.addEventListener('click', async ()=>{
+            if(!isRecording){
+                // Iniciar grabación
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            audioChunks.push(event.data);
+                        }
+                    };
+                    
+                    mediaRecorder.onstop = async () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            const base64Audio = reader.result;
+                            if (!s.grabacion) {
+                                s.grabacion = [];
+                            }
+                            s.grabacion.push({
+                                fecha: new Date().toISOString(),
+                                audio: base64Audio,
+                                duracion: Math.floor((Date.now() - startTime) / 1000)
+                            });
+                            saveData();
+                            alert('✅ Grabación guardada correctamente');
+                        };
+                        reader.readAsDataURL(audioBlob);
+                        
+                        // Detener el stream
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+                    
+                    const startTime = Date.now();
+                    mediaRecorder.start();
+                    isRecording = true;
+                    
+                    recordingBtn.innerHTML = '<span style="font-size:20px;">⏹️</span><span>Detener grabación</span>';
+                    recordingBtn.style.background = 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)';
+                    
+                } catch (error) {
+                    console.error('Error al acceder al micrófono:', error);
+                    alert('❌ No se pudo acceder al micrófono. Por favor, permite el acceso al micrófono en tu navegador.');
+                }
+            } else {
+                // Detener grabación
+                if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                    mediaRecorder.stop();
+                    isRecording = false;
+                    
+                    recordingBtn.innerHTML = '<span style="font-size:20px;">🔴</span><span>Iniciar grabación</span>';
+                    recordingBtn.style.background = 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)';
+                }
+            }
+        });
+    }
+    
+    // Generate summary button handler
+    const summaryBtn = modal.backdrop.querySelector('#_generate_summary_btn');
+    
+    if(summaryBtn){
+        summaryBtn.addEventListener('click', async ()=>{
+            summaryBtn.disabled = true;
+            summaryBtn.innerHTML = '⏳ Generando resumen...';
+            
+            // Simular generación de resumen
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            const summary = `
+                <div style="padding:20px;">
+                    <h3 style="color:#7b1fa2;">📋 Resumen de Sesión</h3>
+                    <div style="margin-top:16px; padding:16px; background:#f3e5f5; border-radius:8px; border-left:4px solid #9c27b0;">
+                        <p><strong>Paciente:</strong> ${p.nombre}</p>
+                        <p><strong>Fecha:</strong> ${s.fecha}</p>
+                        <p><strong>Enfoque:</strong> ${s.enfoque || '(No definido)'}</p>
+                        <hr style="margin:12px 0; border:none; border-top:1px solid #ce93d8;">
+                        <p><strong>Resumen generado:</strong></p>
+                        <p style="margin-top:8px; line-height:1.6;">
+                            ${s.soap?.s ? 'El paciente reporta: ' + s.soap.s + '. ' : ''}
+                            ${s.soap?.o ? 'Se observa: ' + s.soap.o + '. ' : ''}
+                            ${s.analisis ? 'Análisis: ' + s.analisis + '. ' : ''}
+                            ${s.planificacion ? 'Plan de acción: ' + s.planificacion : ''}
+                        </p>
+                    </div>
+                    <div class="actions" style="margin-top:16px;">
+                        <button class="btn primary" id="_summary_close">Cerrar</button>
+                        <button class="btn ghost" style="margin-left:8px;">📥 Descargar PDF</button>
+                    </div>
+                </div>
+            `;
+            
+            const summaryModal = createModal(summary);
+            summaryModal.backdrop.querySelector('#_summary_close').onclick = ()=> summaryModal.close();
+            
+            summaryBtn.disabled = false;
+            summaryBtn.innerHTML = '✨ Generar resumen de sesión';
+        });
+    }
 }
 
 async function viewGenograma(patientId){

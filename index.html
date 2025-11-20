@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MVP - Sistema Clínico</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <h2 class="logo">Clínica</h2>
+        <ul>
+            <li class="menu-item" data-module="dashboard">Panel</li>
+            <li class="menu-item active" data-module="pacientes">Gestión de Pacientes</li>
+            <li class="menu-item" data-module="agenda">Agenda</li>
+            <li class="menu-item" data-module="sesiones">Sesiones</li>
+        </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="content" id="mainContent">
+        <!-- AQUÍ SE CARGAN LOS MÓDULOS -->
+    </main>
+
+</div>
+
+<!-- Modals container -->
+<div id="modalRoot"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

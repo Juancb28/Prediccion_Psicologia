@@ -1,0 +1,13 @@
+Flask>=2.0
+openai-whisper
+pydub
+numpy
+torch
+soundfile
+# Optional (needed for diarization and enrollment):
+pyannote.audio>=2.0
+resemblyzer
+huggingface_hub==0.13.4
+# Servicio de análisis psicológico
+flask==3.0.0
+flask-cors==4.0.0

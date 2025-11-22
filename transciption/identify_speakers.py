@@ -24,7 +24,7 @@ def extract_speaker_embeddings(audio_path, labeled_segments, output_dir="outputs
     Returns:
         dict: {speaker_id: embedding_vector}
     """
-    print("Extrayendo embeddings de hablantes detectados...")
+    # print("Extrayendo embeddings de hablantes detectados...")
     
     encoder = VoiceEncoder()
     audio = Audio(sample_rate=16000, mono=True)
@@ -41,7 +41,7 @@ def extract_speaker_embeddings(audio_path, labeled_segments, output_dir="outputs
     speaker_embeddings = {}
     
     for speaker, segments in speaker_segments.items():
-        print(f"  Procesando {speaker}...")
+        #print(f"  Procesando {speaker}...")
         
         # Tomar varios segmentos para mejor representación
         sample_segments = segments[:min(5, len(segments))]
@@ -219,7 +219,7 @@ def identify_speakers(labeled_json_path, audio_path, refs_dir="refs", threshold=
     print(f"✓ TXT identificado guardado: {output_txt}")
     
     # Resumen
-    print(f"\n--- Resumen de Identificación ---")
+    #print(f"\n--- Resumen de Identificación ---")
     for orig, identified in speaker_mapping.items():
         status = "✓ Identificado" if orig != identified else "⚠ No identificado"
         print(f"{orig} → {identified} ({status})")
@@ -234,6 +234,9 @@ if __name__ == "__main__":
         print("Ejemplo: python identify_speakers.py recordings/test.wav outputs/test_labeled.json 0.75 refs")
         sys.exit(1)
     
+    """
+    Utiliza el patron de ejecucion 
+    """
     audio_path = sys.argv[1]
     labeled_json = sys.argv[2]
     threshold = float(sys.argv[3]) if len(sys.argv) > 3 else 0.75

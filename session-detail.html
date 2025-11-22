@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalle de Sesión</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%);
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        .session-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 188, 212, 0.2);
+        }
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #b2ebf2;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section h3 {
+            color: #00838f;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #b2ebf2;
+            border-radius: 8px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 14px;
+            resize: vertical;
+            transition: all 0.3s ease;
+        }
+        textarea:focus, select:focus {
+            outline: none;
+            border-color: #00bcd4;
+            box-shadow: 0 0 0 3px rgba(0, 188, 212, 0.1);
+        }
+        .soap-grid {
+            display: grid;
+            gap: 12px;
+        }
+        .soap-box {
+            padding: 16px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #b2ebf2;
+        }
+        .soap-box h4 {
+            color: #00838f;
+            margin: 0 0 8px 0;
+            font-size: 14px;
+        }
+        .genogram-box {
+            margin-top: 12px;
+            padding: 16px;
+            border: 2px solid #b2ebf2;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #e0f7fa 0%, #f9f9f9 100%);
+        }
+        .recording-item {
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #b2ebf2;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .actions-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 16px;
+            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="session-container">
+        <div class="session-header">
+            <div>
+                <h1 id="sessionTitle" style="color:#00838f; margin:0;">Cargando...</h1>
+                <p id="patientName" style="color:#666; margin:4px 0 0 0;"></p>
+            </div>
+            <button id="recordBtn" class="btn" style="background:linear-gradient(135deg, #f44336 0%, #d32f2f 100%); color:white; display:flex; align-items:center; gap:12px; padding:12px 20px; border-radius:12px;">
+                <div style="width:24px; height:24px; border-radius:50%; background:white; border:3px solid #f44336; display:flex; align-items:center; justify-content:center;"></div>
+                <span style="font-weight:600;">Iniciar grabación</span>
+            </button>
+        </div>
+
+        <div id="sessionNotes" class="section" style="background:#e0f7fa; padding:12px; border-radius:8px; border-left:4px solid #00bcd4;">
+        </div>
+
+        <div class="section">
+            <h3><span style="font-size:24px;">📊</span> Genograma</h3>
+            <div id="genogramContent" class="genogram-box"></div>
+        </div>
+
+        <div class="section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3 style="margin:0;"><span style="font-size:24px;">📋</span> SOAP</h3>
+                <button id="summaryBtn" class="btn" style="background:linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%); color:white;">✨ Generar resumen de sesión</button>
+            </div>
+            <div class="soap-grid">
+                <div class="soap-box">
+                    <h4>Subjetivo</h4>
+                    <textarea id="soapS" rows="4"></textarea>
+                </div>
+                <div class="soap-box">
+                    <h4>Objetivo</h4>
+                    <textarea id="soapO" rows="4"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3><span style="font-size:24px;">🎯</span> Enfoque Psicológico</h3>
+            <select id="enfoqueSelect">
+                <option value="">Seleccionar enfoque...</option>
+                <option value="Enfoque Psicoanalítico / Psicodinámico">Enfoque Psicoanalítico / Psicodinámico</option>
+                <option value="Enfoque Conductista / Análisis de la conducta">Enfoque Conductista / Análisis de la conducta</option>
+                <option value="Enfoque Cognitivo / Cognitivista">Enfoque Cognitivo / Cognitivista</option>
+                <option value="Enfoque Humanista / Existencial">Enfoque Humanista / Existencial</option>
+                <option value="Enfoque Gestalt">Enfoque Gestalt</option>
+                <option value="Enfoque Biopsicológico / Neurociencia">Enfoque Biopsicológico / Neurociencia</option>
+                <option value="Enfoque Sociocultural / Cultural">Enfoque Sociocultural / Cultural</option>
+                <option value="Enfoque Evolucionista / Psicología Evolutiva">Enfoque Evolucionista / Psicología Evolutiva</option>
+            </select>
+        </div>
+
+        <div class="section">
+            <h3><span style="font-size:24px;">🔍</span> Análisis</h3>
+            <textarea id="analisisText" rows="5" placeholder="Resultado del análisis basado en el enfoque seleccionado..."></textarea>
+        </div>
+
+        <div class="section">
+            <h3><span style="font-size:24px;">📝</span> Planificación</h3>
+            <textarea id="planificacionText" rows="5" placeholder="Plan de intervención y próximos pasos..."></textarea>
+        </div>
+
+        <div id="recordingsSection" class="section" style="display:none;">
+            <h3><span style="font-size:24px;">🎤</span> Grabaciones</h3>
+            <div id="recordingsList"></div>
+        </div>
+
+        <div style="height:80px;"></div>
+    </div>
+
+    <div class="actions-bar">
+        <button id="saveBtn" class="btn primary">💾 Guardar cambios</button>
+        <button id="closeBtn" class="btn ghost">✖️ Cerrar</button>
+    </div>
+
+    <script>
+        // Cargar datos de la sesión
+        const data = JSON.parse(sessionStorage.getItem('currentSession'));
+        if (!data) {
+            alert('No se encontraron datos de la sesión');
+            window.close();
+        }
+
+        const { sessionIndex, patientId, session, patient, genograma } = data;
+
+        // Cargar información en la página
+        document.getElementById('sessionTitle').textContent = `Sesión: ${session.fecha}`;
+        document.getElementById('patientName').innerHTML = `<strong>Paciente:</strong> ${patient.nombre}`;
+        document.getElementById('sessionNotes').innerHTML = `<strong>Notas:</strong> ${session.notas}`;
+
+        // Genograma
+        document.getElementById('genogramContent').innerHTML = `
+            <strong style="color:#00838f;">Familia:</strong> ${genograma.familia}<br>
+            <strong style="color:#00838f; margin-top:8px; display:inline-block;">Miembros:</strong>
+            <ul style="margin-top:8px; padding-left:24px;">
+                ${genograma.miembros.map(m => `<li style="margin:4px 0;">${m}</li>`).join('')}
+            </ul>
+            <div style="margin-top:16px; padding:20px; background:white; border-radius:8px; border:1px dashed #00bcd4;">
+                <p style="text-align:center; color:#666;"><em>📈 Diagrama visual del genograma</em></p>
+            </div>
+        `;
+
+        // SOAP
+        document.getElementById('soapS').value = session.soap?.s || '';
+        document.getElementById('soapO').value = session.soap?.o || '';
+
+        // Enfoque, análisis, planificación
+        document.getElementById('enfoqueSelect').value = session.enfoque || '';
+        document.getElementById('analisisText').value = session.analisis || '';
+        document.getElementById('planificacionText').value = session.planificacion || '';
+
+        // Grabaciones
+        if (session.grabacion && session.grabacion.length > 0) {
+            document.getElementById('recordingsSection').style.display = 'block';
+            document.getElementById('recordingsList').innerHTML = session.grabacion.map((grab, idx) => `
+                <div class="recording-item">
+                    <span style="font-size:24px;">🎵</span>
+                    <div style="flex:1;">
+                        <div style="font-weight:600; color:#00838f;">Grabación ${idx + 1}</div>
+                        <div style="font-size:12px; color:#666;">
+                            ${new Date(grab.fecha).toLocaleString('es-ES')} • ${grab.duracion ? grab.duracion + 's' : 'Duración no disponible'}
+                        </div>
+                    </div>
+                    <audio controls src="${grab.audio}" style="max-width:300px;"></audio>
+                </div>
+            `).join('');
+        }
+
+        // Botón de grabación
+        let isRecording = false;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        const recordBtn = document.getElementById('recordBtn');
+
+        recordBtn.addEventListener('click', async () => {
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+
+                    mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            audioChunks.push(event.data);
+                        }
+                    };
+
+                    const startTime = Date.now();
+                    
+                    mediaRecorder.onstop = async () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            const base64Audio = reader.result;
+                            if (!session.grabacion) {
+                                session.grabacion = [];
+                            }
+                            session.grabacion.push({
+                                fecha: new Date().toISOString(),
+                                audio: base64Audio,
+                                duracion: Math.floor((Date.now() - startTime) / 1000)
+                            });
+                            
+                            // Actualizar sessionStorage
+                            sessionStorage.setItem('currentSession', JSON.stringify(data));
+                            
+                            alert('✅ Grabación guardada correctamente');
+                            location.reload();
+                        };
+                        reader.readAsDataURL(audioBlob);
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+
+                    recordBtn.innerHTML = '<div style="width:24px; height:24px; border-radius:50%; background:#f44336; display:flex; align-items:center; justify-content:center;"><div style="width:10px; height:10px; background:white; border-radius:2px;"></div></div><span style="font-weight:600;">Detener grabación</span>';
+                    recordBtn.style.background = 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)';
+                } catch (error) {
+                    console.error('Error al acceder al micrófono:', error);
+                    alert('❌ No se pudo acceder al micrófono');
+                }
+            } else {
+                if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                    mediaRecorder.stop();
+                    isRecording = false;
+
+                    recordBtn.innerHTML = '<div style="width:24px; height:24px; border-radius:50%; background:white; border:3px solid #f44336; display:flex; align-items:center; justify-content:center;"></div><span style="font-weight:600;">Iniciar grabación</span>';
+                    recordBtn.style.background = 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)';
+                }
+            }
+        });
+
+        // Guardar cambios
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            // Actualizar datos de la sesión
+            if (!session.soap) session.soap = {};
+            session.soap.s = document.getElementById('soapS').value;
+            session.soap.o = document.getElementById('soapO').value;
+            session.enfoque = document.getElementById('enfoqueSelect').value;
+            session.analisis = document.getElementById('analisisText').value;
+            session.planificacion = document.getElementById('planificacionText').value;
+
+            // Actualizar en localStorage del opener (ventana principal)
+            if (window.opener && !window.opener.closed) {
+                const mainData = JSON.parse(window.opener.localStorage.getItem('pp_data'));
+                mainData.sesiones[sessionIndex] = session;
+                window.opener.localStorage.setItem('pp_data', JSON.stringify(mainData));
+                alert('✅ Sesión actualizada correctamente');
+            } else {
+                alert('⚠️ No se pudo conectar con la ventana principal');
+            }
+        });
+
+        // Cerrar ventana
+        document.getElementById('closeBtn').addEventListener('click', () => {
+            window.close();
+        });
+
+        // Generar resumen
+        document.getElementById('summaryBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('summaryBtn');
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Generando resumen...';
+
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            const summary = `
+                📋 RESUMEN DE SESIÓN
+                
+                Paciente: ${patient.nombre}
+                Fecha: ${session.fecha}
+                Enfoque: ${session.enfoque || '(No definido)'}
+                
+                ${session.soap?.s ? 'Subjetivo: ' + session.soap.s : ''}
+                ${session.soap?.o ? '\nObjetivo: ' + session.soap.o : ''}
+                ${session.analisis ? '\nAnálisis: ' + session.analisis : ''}
+                ${session.planificacion ? '\nPlan: ' + session.planificacion : ''}
+            `;
+
+            alert(summary);
+
+            btn.disabled = false;
+            btn.innerHTML = '✨ Generar resumen de sesión';
+        });
+    </script>
+</body>
+</html>

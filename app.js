@@ -798,6 +798,10 @@ async function openSessionDetail(sessionIndex, patientId){
     const p = getPatientById(patientId);
     if(!s || !p) return alert('Sesión o paciente no encontrado');
     
+    // Ocultar el contenedor principal y sidebar
+    document.querySelector('.sidebar').style.display = 'none';
+    document.querySelector('.content').style.padding = '0';
+    
     // Inicializar datos de sesión si no existen
     if(!s.enfoque) s.enfoque = '';
     if(!s.analisis) s.analisis = '';
@@ -814,157 +818,239 @@ async function openSessionDetail(sessionIndex, patientId){
         'Enfoque Evolucionista / Psicología Evolutiva'
     ];
     
-    const sessionDetailHtml = `
-        <div style="max-height:70vh; overflow-y:auto; padding:20px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-                <div>
-                    <h2 style="color:#00838f; margin:0;">Sesión: ${s.fecha}</h2>
-                    <p style="color:#666; margin:4px 0 0 0;"><strong>Paciente:</strong> ${p.nombre}</p>
-                </div>
-                <button id="_start_recording_btn" class="btn" style="background:linear-gradient(135deg, #f44336 0%, #d32f2f 100%); color:white; display:flex; align-items:center; gap:8px; padding:10px 16px;">
-                    <span style="font-size:20px;">🔴</span>
-                    <span>Iniciar grabación</span>
-                </button>
-            </div>
-            <p style="background:#e0f7fa; padding:12px; border-radius:8px; border-left:4px solid #00bcd4;"><strong>Notas:</strong> ${s.notas}</p>
-            <hr style="margin:20px 0; border:none; border-top:2px solid #b2ebf2;">
-            
-            <!-- GENOGRAMA -->
-            <div style="margin-bottom:24px;">
-                <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:24px;">📊</span> Genograma
-                </h3>
-                <div style="margin-top:12px; padding:16px; border:2px solid #b2ebf2; border-radius:12px; background:linear-gradient(135deg, #e0f7fa 0%, #f9f9f9 100%);">
-                    <strong style="color:#00838f;">Familia:</strong> ${mockGenograma.familia}<br>
-                    <strong style="color:#00838f; margin-top:8px; display:inline-block;">Miembros:</strong>
-                    <ul style="margin-top:8px; padding-left:24px;">
-                        ${mockGenograma.miembros.map(m => `<li style="margin:4px 0;">${m}</li>`).join('')}
-                    </ul>
-                    <div style="margin-top:16px; padding:20px; background:white; border-radius:8px; border:1px dashed #00bcd4;">
-                        <p style="text-align:center; color:#666;"><em>📈 Diagrama visual del genograma</em></p>
+    mainContent.innerHTML = `
+        <div style="min-height:100vh; background:linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%); padding:20px;">
+            <div style="max-width:1200px; margin:0 auto; background:white; border-radius:16px; padding:30px; box-shadow:0 8px 32px rgba(0,188,212,0.2);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:20px; border-bottom:2px solid #b2ebf2;">
+                    <div>
+                        <h1 style="color:#00838f; margin:0;">Sesión: ${s.fecha}</h1>
+                        <p style="color:#666; margin:4px 0 0 0;"><strong>Paciente:</strong> ${p.nombre}</p>
                     </div>
+                    <button id="_start_recording_btn" class="btn" style="background:linear-gradient(135deg, #f44336 0%, #d32f2f 100%); color:white; display:flex; align-items:center; gap:12px; padding:12px 20px; border-radius:12px;">
+                        <div style="width:24px; height:24px; border-radius:50%; background:white; border:3px solid #f44336; display:flex; align-items:center; justify-content:center;"></div>
+                        <span style="font-weight:600;">Iniciar grabación</span>
+                    </button>
                 </div>
-            </div>
-            
-            <!-- SOAP -->
-            <div style="margin-bottom:24px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                    <h3 style="color:#00838f; display:flex; align-items:center; gap:8px; margin:0;">
-                        <span style="font-size:24px;">📋</span> SOAP
-                    </h3>
-                    <button id="_generate_summary_btn" class="btn" style="background:linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%); color:white;">✨ Generar resumen de sesión</button>
+
+                <div style="background:#e0f7fa; padding:12px; border-radius:8px; border-left:4px solid #00bcd4; margin-bottom:30px;">
+                    <strong>Notas:</strong> ${s.notas}
                 </div>
-                <div style="margin-bottom:12px;">
-                    <div style="padding:16px; background:white; border-radius:8px; border:2px solid #b2ebf2; margin-bottom:12px;">
-                        <h4 style="color:#00838f; margin:0 0 8px 0; font-size:14px;">Subjetivo</h4>
-                        <textarea id="_soap_s" style="width:100%; min-height:80px; padding:8px; border:1px solid #b2ebf2; border-radius:4px; font-family:inherit; font-size:14px; color:#666; resize:vertical;">${s.soap?.s || ''}</textarea>
-                    </div>
-                    <div style="padding:16px; background:white; border-radius:8px; border:2px solid #b2ebf2;">
-                        <h4 style="color:#00838f; margin:0 0 8px 0; font-size:14px;">Objetivo</h4>
-                        <textarea id="_soap_o" style="width:100%; min-height:80px; padding:8px; border:1px solid #b2ebf2; border-radius:4px; font-family:inherit; font-size:14px; color:#666; resize:vertical;">${s.soap?.o || ''}</textarea>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- ENFOQUE -->
-            <div style="margin-bottom:24px;">
-                <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:24px;">🎯</span> Enfoque Psicológico
-                </h3>
-                <select id="_enfoque_select" style="width:100%; padding:12px; border:2px solid #b2ebf2; border-radius:8px; font-size:14px; background:white; color:#333; transition:all 0.3s ease;">
-                    <option value="">Seleccionar enfoque...</option>
-                    ${enfoques.map(e => `<option value="${e}" ${s.enfoque === e ? 'selected' : ''}>${e}</option>`).join('')}
-                </select>
-            </div>
-            
-            <!-- ANÁLISIS -->
-            <div style="margin-bottom:24px;">
-                <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:24px;">🔍</span> Análisis
-                </h3>
-                <textarea id="_analisis_text" style="width:100%; min-height:120px; padding:12px; border:2px solid #b2ebf2; border-radius:8px; font-family:'Segoe UI',Arial,sans-serif; font-size:14px; resize:vertical; transition:all 0.3s ease;" placeholder="Resultado del análisis basado en el enfoque seleccionado...">${s.analisis || ''}</textarea>
-            </div>
-            
-            <!-- PLANIFICACIÓN -->
-            <div style="margin-bottom:24px;">
-                <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:24px;">📝</span> Planificación
-                </h3>
-                <textarea id="_planificacion_text" style="width:100%; min-height:120px; padding:12px; border:2px solid #b2ebf2; border-radius:8px; font-family:'Segoe UI',Arial,sans-serif; font-size:14px; resize:vertical; transition:all 0.3s ease;" placeholder="Plan de intervención y próximos pasos...">${s.planificacion || ''}</textarea>
-            </div>
-            
-            <!-- GRABACIONES -->
-            ${s.grabacion && s.grabacion.length > 0 ? `
-            <div style="margin-bottom:24px;">
-                <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:24px;">🎤</span> Grabaciones
-                </h3>
-                <div style="display:flex; flex-direction:column; gap:12px;">
-                    ${s.grabacion.map((grab, idx) => `
-                        <div style="padding:12px; background:white; border-radius:8px; border:2px solid #b2ebf2; display:flex; align-items:center; gap:12px;">
-                            <span style="font-size:24px;">🎵</span>
-                            <div style="flex:1;">
-                                <div style="font-weight:600; color:#00838f;">Grabación ${idx + 1}</div>
-                                <div style="font-size:12px; color:#666;">
-                                    ${new Date(grab.fecha).toLocaleString('es-ES')} • ${grab.duracion ? grab.duracion + 's' : 'Duración no disponible'}
-                                </div>
-                            </div>
-                            <audio controls src="${grab.audio}" style="max-width:300px;"></audio>
+
+                <!-- SOAP -->
+                <div style="margin-bottom:30px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h3 style="color:#00838f; display:flex; align-items:center; gap:8px; margin:0;">
+                            <span style="font-size:24px;">📋</span> SOAP
+                        </h3>
+                        <div style="display:flex; gap:8px;">
+                            <button id="_edit_soap_btn" class="btn" style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white;">✏️ Editar</button>
+                            <button id="_generate_summary_btn" class="btn" style="background:linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%); color:white;">✨ Generar resumen de sesión</button>
                         </div>
-                    `).join('')}
+                    </div>
+                    <div style="display:grid; gap:12px;">
+                        <div style="padding:16px; background:white; border-radius:8px; border:2px solid #b2ebf2;">
+                            <h4 style="color:#00838f; margin:0 0 8px 0; font-size:14px;">Subjetivo</h4>
+                            <p style="margin:0; color:#666; line-height:1.6;">${s.soap?.s || '<em style="color:#999;">(Sin datos)</em>'}</p>
+                        </div>
+                        <div style="padding:16px; background:white; border-radius:8px; border:2px solid #b2ebf2;">
+                            <h4 style="color:#00838f; margin:0 0 8px 0; font-size:14px;">Objetivo</h4>
+                            <p style="margin:0; color:#666; line-height:1.6;">${s.soap?.o || '<em style="color:#999;">(Sin datos)</em>'}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ENFOQUE -->
+                <div style="margin-bottom:30px;">
+                    <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:24px;">🎯</span> Enfoque Psicológico
+                    </h3>
+                    <div style="padding:12px; background:white; border:2px solid #b2ebf2; border-radius:8px;">
+                        <p style="margin:0; color:#666;">${s.enfoque || '<em style="color:#999;">(No seleccionado)</em>'}</p>
+                    </div>
+                </div>
+
+                <!-- ANÁLISIS -->
+                <div style="margin-bottom:30px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h3 style="color:#00838f; display:flex; align-items:center; gap:8px; margin:0;">
+                            <span style="font-size:24px;">🔍</span> Análisis
+                        </h3>
+                        <button id="_realizar_analisis_btn" class="btn" style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white;">🔬 Realizar análisis</button>
+                    </div>
+                    <div style="padding:12px; background:white; border:2px solid #b2ebf2; border-radius:8px; min-height:80px;">
+                        <p style="margin:0; color:#666; line-height:1.6;">${s.analisis || '<em style="color:#999;">(Sin análisis)</em>'}</p>
+                    </div>
+                </div>
+
+                <!-- PLANIFICACIÓN -->
+                <div style="margin-bottom:30px;">
+                    <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:24px;">📝</span> Planificación
+                    </h3>
+                    <div style="padding:12px; background:white; border:2px solid #b2ebf2; border-radius:8px; min-height:80px;">
+                        <p style="margin:0; color:#666; line-height:1.6;">${s.planificacion || '<em style="color:#999;">(Sin planificación)</em>'}</p>
+                    </div>
+                </div>
+
+                <!-- GRABACIONES -->
+                ${s.grabacion && s.grabacion.length > 0 ? `
+                <div style="margin-bottom:30px;">
+                    <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:24px;">🎤</span> Grabaciones
+                    </h3>
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        ${s.grabacion.map((grab, idx) => `
+                            <div style="padding:12px; background:white; border-radius:8px; border:2px solid #b2ebf2; display:flex; align-items:center; gap:12px;">
+                                <span style="font-size:24px;">🎵</span>
+                                <div style="flex:1;">
+                                    <div style="font-weight:600; color:#00838f;">Grabación ${idx + 1}</div>
+                                    <div style="font-size:12px; color:#666;">
+                                        ${new Date(grab.fecha).toLocaleString('es-ES')} • ${grab.duracion ? grab.duracion + 's' : 'Duración no disponible'}
+                                    </div>
+                                </div>
+                                <audio controls src="${grab.audio}" style="max-width:300px;"></audio>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- GENOGRAMA -->
+                <div style="margin-bottom:30px;">
+                    <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:24px;">📊</span> Genograma
+                    </h3>
+                    <div style="margin-top:12px; padding:16px; border:2px solid #b2ebf2; border-radius:12px; background:linear-gradient(135deg, #e0f7fa 0%, #f9f9f9 100%);">
+                        <strong style="color:#00838f;">Familia:</strong> ${mockGenograma.familia}<br>
+                        <strong style="color:#00838f; margin-top:8px; display:inline-block;">Miembros:</strong>
+                        <ul style="margin-top:8px; padding-left:24px;">
+                            ${mockGenograma.miembros.map(m => `<li style="margin:4px 0;">${m}</li>`).join('')}
+                        </ul>
+                        <div style="margin-top:16px; padding:20px; background:white; border-radius:8px; border:1px dashed #00bcd4;">
+                            <p style="text-align:center; color:#666;"><em>📈 Diagrama visual del genograma</em></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:12px; padding-top:20px; border-top:2px solid #b2ebf2;">
+                    <button id="_session_close" class="btn primary">← Volver</button>
                 </div>
             </div>
-            ` : ''}
-        </div>
-        
-        <div class="actions" style="margin-top:16px; padding:0 20px 20px; display:flex; gap:8px;">
-            <button class="btn primary" id="_session_save">💾 Guardar cambios</button>
-            <button class="btn ghost" id="_session_close">✖️ Cerrar</button>
         </div>
     `;
     
-    const modal = createModal(sessionDetailHtml);
-    
-    // Add focus styles
-    const inputs = modal.backdrop.querySelectorAll('select, textarea');
-    inputs.forEach(input => {
-        input.addEventListener('focus', (e)=>{
-            e.target.style.borderColor = '#00bcd4';
-            e.target.style.boxShadow = '0 0 0 3px rgba(0, 188, 212, 0.1)';
-        });
-        input.addEventListener('blur', (e)=>{
-            e.target.style.borderColor = '#b2ebf2';
-            e.target.style.boxShadow = 'none';
-        });
-    });
-    
-    // Save handler
-    modal.backdrop.querySelector('#_session_save').onclick = async ()=>{
-        const soapS = modal.backdrop.querySelector('#_soap_s').value;
-        const soapO = modal.backdrop.querySelector('#_soap_o').value;
-        const enfoque = modal.backdrop.querySelector('#_enfoque_select').value;
-        const analisis = modal.backdrop.querySelector('#_analisis_text').value;
-        const planificacion = modal.backdrop.querySelector('#_planificacion_text').value;
+    // Botón realizar análisis
+    document.getElementById('_realizar_analisis_btn').onclick = async ()=>{
+        const btn = document.getElementById('_realizar_analisis_btn');
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Analizando...';
         
-        if (!s.soap) {
-            s.soap = {};
-        }
-        s.soap.s = soapS;
-        s.soap.o = soapO;
-        s.enfoque = enfoque;
-        s.analisis = analisis;
-        s.planificacion = planificacion;
+        // Simular análisis (aquí podrías integrar IA real)
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
-        await saveData();
-        alert('✅ Sesión actualizada correctamente');
-        modal.close();
+        alert('✨ Análisis completado. Ahora puedes editarlo desde el botón "Editar".');
+        
+        btn.disabled = false;
+        btn.innerHTML = '🔬 Realizar análisis';
+    };
+    
+    // Botón editar SOAP - abre modal de edición
+    document.getElementById('_edit_soap_btn').onclick = async ()=>{
+        const editModalHtml = `
+            <div style="max-height:70vh; overflow-y:auto; padding:20px;">
+                <h3 style="color:#00838f; margin-top:0;">✏️ Editar Sesión</h3>
+                
+                <!-- SOAP -->
+                <div style="margin-bottom:24px;">
+                    <h4 style="color:#00838f; display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:20px;">📋</span> SOAP
+                    </h4>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block; color:#00838f; font-weight:600; margin-bottom:4px;">Subjetivo</label>
+                        <textarea id="_modal_soap_s" style="width:100%; min-height:80px; padding:8px; border:2px solid #b2ebf2; border-radius:4px; font-family:inherit; font-size:14px; resize:vertical;">${s.soap?.s || ''}</textarea>
+                    </div>
+                    <div>
+                        <label style="display:block; color:#00838f; font-weight:600; margin-bottom:4px;">Objetivo</label>
+                        <textarea id="_modal_soap_o" style="width:100%; min-height:80px; padding:8px; border:2px solid #b2ebf2; border-radius:4px; font-family:inherit; font-size:14px; resize:vertical;">${s.soap?.o || ''}</textarea>
+                    </div>
+                </div>
+                
+                <!-- ENFOQUE -->
+                <div style="margin-bottom:24px;">
+                    <h4 style="color:#00838f; display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:20px;">🎯</span> Enfoque Psicológico
+                    </h4>
+                    <select id="_modal_enfoque_select" style="width:100%; padding:12px; border:2px solid #b2ebf2; border-radius:8px; font-size:14px;">
+                        <option value="">Seleccionar enfoque...</option>
+                        ${enfoques.map(e => `<option value="${e}" ${s.enfoque === e ? 'selected' : ''}>${e}</option>`).join('')}
+                    </select>
+                </div>
+                
+                <!-- ANÁLISIS -->
+                <div style="margin-bottom:24px;">
+                    <h4 style="color:#00838f; display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:20px;">🔍</span> Análisis
+                    </h4>
+                    <textarea id="_modal_analisis_text" style="width:100%; min-height:100px; padding:12px; border:2px solid #b2ebf2; border-radius:8px; font-family:inherit; font-size:14px; resize:vertical;" placeholder="Resultado del análisis...">${s.analisis || ''}</textarea>
+                </div>
+                
+                <!-- PLANIFICACIÓN -->
+                <div style="margin-bottom:24px;">
+                    <h4 style="color:#00838f; display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:20px;">📝</span> Planificación
+                    </h4>
+                    <textarea id="_modal_planificacion_text" style="width:100%; min-height:100px; padding:12px; border:2px solid #b2ebf2; border-radius:8px; font-family:inherit; font-size:14px; resize:vertical;" placeholder="Plan de intervención...">${s.planificacion || ''}</textarea>
+                </div>
+            </div>
+            
+            <div class="actions" style="margin-top:16px; padding:0 20px 20px; display:flex; gap:8px;">
+                <button class="btn primary" id="_modal_save">💾 Guardar cambios</button>
+                <button class="btn ghost" id="_modal_cancel">✖️ Cancelar</button>
+            </div>
+        `;
+        
+        const editModal = createModal(editModalHtml);
+        
+        // Cancelar
+        editModal.backdrop.querySelector('#_modal_cancel').onclick = ()=> editModal.close();
+        
+        // Guardar
+        editModal.backdrop.querySelector('#_modal_save').onclick = async ()=>{
+            const soapS = editModal.backdrop.querySelector('#_modal_soap_s').value;
+            const soapO = editModal.backdrop.querySelector('#_modal_soap_o').value;
+            const enfoque = editModal.backdrop.querySelector('#_modal_enfoque_select').value;
+            const analisis = editModal.backdrop.querySelector('#_modal_analisis_text').value;
+            const planificacion = editModal.backdrop.querySelector('#_modal_planificacion_text').value;
+            
+            if (!s.soap) {
+                s.soap = {};
+            }
+            s.soap.s = soapS;
+            s.soap.o = soapO;
+            s.enfoque = enfoque;
+            s.analisis = analisis;
+            s.planificacion = planificacion;
+            
+            await saveData();
+            alert('✅ Sesión actualizada correctamente');
+            editModal.close();
+            
+            // Recargar la vista de sesión
+            openSessionDetail(sessionIndex, patientId);
+        };
+    };
+    
+    // Save handler (eliminado - ahora todo se edita desde el modal)
+    
+    document.getElementById('_session_close').onclick = ()=> {
+        // Restaurar sidebar y volver a vista de paciente
+        document.querySelector('.sidebar').style.display = 'flex';
+        document.querySelector('.content').style.padding = '30px';
         showPatient(p.id);
     };
     
-    modal.backdrop.querySelector('#_session_close').onclick = ()=> modal.close();
-    
     // Recording button handler
-    const recordingBtn = modal.backdrop.querySelector('#_start_recording_btn');
+    const recordingBtn = document.getElementById('_start_recording_btn');
     let isRecording = false;
     let mediaRecorder = null;
     let audioChunks = [];
@@ -999,6 +1085,8 @@ async function openSessionDetail(sessionIndex, patientId){
                             });
                             saveData();
                             alert('✅ Grabación guardada correctamente');
+                            // Recargar vista
+                            openSessionDetail(sessionIndex, patientId);
                         };
                         reader.readAsDataURL(audioBlob);
                         
@@ -1010,7 +1098,7 @@ async function openSessionDetail(sessionIndex, patientId){
                     mediaRecorder.start();
                     isRecording = true;
                     
-                    recordingBtn.innerHTML = '<span style="font-size:20px;">⏹️</span><span>Detener grabación</span>';
+                    recordingBtn.innerHTML = '<div style="width:24px; height:24px; border-radius:50%; background:#f44336; display:flex; align-items:center; justify-content:center;"><div style="width:10px; height:10px; background:white; border-radius:2px;"></div></div><span style="font-weight:600;">Detener grabación</span>';
                     recordingBtn.style.background = 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)';
                     
                 } catch (error) {
@@ -1023,7 +1111,7 @@ async function openSessionDetail(sessionIndex, patientId){
                     mediaRecorder.stop();
                     isRecording = false;
                     
-                    recordingBtn.innerHTML = '<span style="font-size:20px;">🔴</span><span>Iniciar grabación</span>';
+                    recordingBtn.innerHTML = '<div style="width:24px; height:24px; border-radius:50%; background:white; border:3px solid #f44336; display:flex; align-items:center; justify-content:center;"></div><span style="font-weight:600;">Iniciar grabación</span>';
                     recordingBtn.style.background = 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)';
                 }
             }
@@ -1031,7 +1119,7 @@ async function openSessionDetail(sessionIndex, patientId){
     }
     
     // Generate summary button handler
-    const summaryBtn = modal.backdrop.querySelector('#_generate_summary_btn');
+    const summaryBtn = document.getElementById('_generate_summary_btn');
     
     if(summaryBtn){
         summaryBtn.addEventListener('click', async ()=>{

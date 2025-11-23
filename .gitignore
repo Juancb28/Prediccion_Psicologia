@@ -18,12 +18,12 @@ __pycache__/
 *.swo
 
 # Datos sensibles
-recordings/
-refs/
-outputs/
-*.wav
-*.mp3
-*.flac
+recordings/Test.wav
+# refs/
+# outputs/
+# *.wav
+# *.mp3
+# *.flac
 
 # Modelos y cache
 .cache/

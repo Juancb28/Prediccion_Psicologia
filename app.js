@@ -12,7 +12,7 @@ const mockPacientes = [
         direccion: "Calle Falsa 123",
         antecedentes: "No alergias. Antecedentes familiares de ansiedad.",
         consents: [],
-        recordingPin: '1234'
+        
     },
     {
         id: 2,
@@ -23,7 +23,7 @@ const mockPacientes = [
         direccion: "Av. Siempreviva 742",
         antecedentes: "Tratamiento previo con ISRS.",
         consents: [],
-        recordingPin: '0000'
+        
     },
     {
         id: 3,
@@ -34,7 +34,7 @@ const mockPacientes = [
         direccion: "Paseo del Prado 10",
         antecedentes: "Hipertensión controlada.",
         consents: [],
-        recordingPin: '9999'
+        
     }
 ];
 
@@ -59,6 +59,9 @@ const mockGenograma = {
 };
 
 let activePatientId = null;
+// API base (backend server). Change `window.API_BASE_URL` to override in dev if needed.
+const API_BASE = (window.API_BASE_URL || 'http://localhost:3000');
+// Tooltip styles moved to `styles.css`
 
 
 // ---------------------
@@ -174,6 +177,22 @@ function renderDashboard() {
             </div>
         </div>
     `;
+    // If a recording already exists for this session/patient, disable the start recording button
+    setTimeout(()=>{
+        try{
+            const startBtnEl = document.getElementById('_start_recording_btn');
+            if(startBtnEl && s.grabacion && s.grabacion.length > 0){
+                startBtnEl.disabled = true;
+                // show styled tooltip next to button
+                showWarningTooltipForElement(startBtnEl, 'Ya existe una grabación para este paciente. Elimine la grabación antes de grabar una nueva.');
+                try{ startBtnEl.querySelector('span').textContent = 'Grabación existente'; }catch(e){ startBtnEl.textContent = 'Grabación existente'; }
+                startBtnEl.classList.add('disabled');
+            } else {
+                // ensure no leftover tooltip
+                if(startBtnEl) removeWarningTooltipForElement(startBtnEl);
+            }
+        }catch(e){ /* ignore */ }
+    }, 0);
 }
 
 function renderPacientes() {
@@ -485,6 +504,285 @@ async function loadData(){
     }catch(e){ console.warn('No se pudo cargar data desde localStorage:', e); }
 }
 
+// Convert an audio Blob (browser webm/ogg) to a WAV Blob (PCM16) using OfflineAudioContext
+async function blobToWavBlob(blob){
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 44100 * 40, 44100);
+    const decoded = await new Promise((resolve, reject)=>{
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        ctx.decodeAudioData(arrayBuffer, res=>{ resolve(res); }, err=>{ reject(err); });
+    });
+
+    // render into offline context
+    const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(decoded.numberOfChannels, decoded.length, decoded.sampleRate);
+    const bufferSource = offlineCtx.createBufferSource();
+    bufferSource.buffer = decoded;
+    bufferSource.connect(offlineCtx.destination);
+    bufferSource.start(0);
+    const rendered = await offlineCtx.startRendering();
+
+    // interleave and convert to 16-bit PCM
+    const channelData = [];
+    for(let i=0;i<rendered.numberOfChannels;i++) channelData.push(rendered.getChannelData(i));
+    const length = rendered.length * rendered.numberOfChannels;
+    const interleaved = new Float32Array(rendered.length * rendered.numberOfChannels);
+    // simple interleave
+    if(rendered.numberOfChannels === 1){
+        interleaved.set(channelData[0]);
+    } else {
+        let idx = 0;
+        for(let i=0;i<rendered.length;i++){
+            for(let ch=0; ch<rendered.numberOfChannels; ch++){
+                interleaved[idx++] = channelData[ch][i];
+            }
+        }
+    }
+
+    // convert float32 to 16-bit PCM
+    const wavBuffer = new ArrayBuffer(44 + interleaved.length * 2);
+    const view = new DataView(wavBuffer);
+    function writeString(view, offset, string){ for(let i=0;i<string.length;i++){ view.setUint8(offset + i, string.charCodeAt(i)); } }
+    // RIFF header
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + interleaved.length * 2, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true); // subchunk1Size
+    view.setUint16(20, 1, true); // PCM format
+    view.setUint16(22, rendered.numberOfChannels, true);
+    view.setUint32(24, rendered.sampleRate, true);
+    view.setUint32(28, rendered.sampleRate * rendered.numberOfChannels * 2, true);
+    view.setUint16(32, rendered.numberOfChannels * 2, true);
+    view.setUint16(34, 16, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, interleaved.length * 2, true);
+
+    // write PCM samples
+    let offset = 44;
+    for(let i=0;i<interleaved.length;i++){
+        let s = Math.max(-1, Math.min(1, interleaved[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        offset += 2;
+    }
+
+    return new Blob([view], { type: 'audio/wav' });
+}
+
+// Delete recording for a patient (asks for psychologist PIN via modalPrompt)
+async function deleteRecording(patientId){
+    const pin = await modalPrompt('Ingrese PIN del psicólogo para eliminar la grabación');
+    if(!pin) return alert('Operación cancelada');
+    try{
+        const resp = await fetch(API_BASE + '/api/delete-recording', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ patientId, pin }) });
+        let j = null;
+        if(resp.ok){ try{ j = await resp.json(); }catch(e){ j = null; } }
+        if(!resp.ok) {
+            // If server says recording not found, attempt to delete by filename parsed from local reference
+            if(resp.status === 404){
+                const ps = mockSesiones.find(s=>s.pacienteId===patientId);
+                // Try to extract alternate id from the stored audio path (e.g. '/recordings/patient_unknown.wav')
+                if(ps && ps.grabacion && ps.grabacion.length>0){
+                    const audioRef = ps.grabacion[0].audio || '';
+                    try{
+                        const fname = (typeof audioRef === 'string') ? audioRef.split('/').pop() : null;
+                        if(fname && fname.startsWith('patient_') && fname.endsWith('.wav')){
+                            const altId = fname.slice('patient_'.length, -'.wav'.length);
+                            // Attempt to delete using altId
+                            const altResp = await fetch(API_BASE + '/api/delete-recording', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ patientId: altId, pin }) });
+                            if(altResp.ok){
+                                // deleted the actual file
+                                ps.grabacion = [];
+                                await saveData();
+                                if(activePatientId === patientId) showPatient(patientId);
+                                return alert('✅ Grabación eliminada (archivo encontrado por nombre alternativo).');
+                            }
+                        }
+                    }catch(e){ /* ignore parsing errors */ }
+
+                }
+                // fallback: remove local reference to keep UI consistent
+                if(ps && ps.grabacion){ ps.grabacion = []; await saveData(); }
+                if(activePatientId === patientId) showPatient(patientId);
+                return alert('Grabación no encontrada en el servidor. Referencia local eliminada.');
+            }
+            let body = null;
+            try{ body = await resp.text(); }catch(e){}
+            return alert('Error al eliminar: ' + (body || resp.status));
+        }
+        // Remove local reference if present
+        const ps = mockSesiones.find(s=>s.pacienteId===patientId);
+        if(ps && ps.grabacion){ ps.grabacion = []; await saveData(); }
+        alert('✅ Grabación eliminada');
+        // Refresh view if open
+        if(activePatientId === patientId) showPatient(patientId);
+    }catch(e){ console.error('Delete recording error', e); alert('Error al eliminar: ' + e.message); }
+}
+
+// Validate psychologist PIN via server
+async function validatePsyPin(pin){
+    if(!pin) return false;
+    try{
+        const resp = await fetch(API_BASE + '/api/validate-pin', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ pin }) });
+        if(!resp.ok) return false;
+        const j = await resp.json();
+        return j && j.ok === true;
+    }catch(e){ console.error('validatePsyPin error', e); return false; }
+}
+
+// Build the inner HTML for the grabaciones section for a session
+function buildGrabacionesHTML(s, p){
+    if(!s || !p) return '';
+    if(!s.grabacion || s.grabacion.length === 0) return '';
+    return `
+        <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
+            <span style="font-size:24px;">🎤</span> Grabaciones
+        </h3>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+            ${s.grabacion.map((grab, idx) => `
+                <div style="padding:12px; background:white; border-radius:8px; border:2px solid #b2ebf2; display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:24px;">🎵</span>
+                    <div style="flex:1;">
+                        <div style="font-weight:600; color:#00838f;">Grabación ${idx + 1}</div>
+                        <div style="font-size:12px; color:#666;">
+                            ${new Date(grab.fecha).toLocaleString('es-ES')} • ${grab.duracion ? grab.duracion + 's' : 'Duración no disponible'}
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <audio controls src="${(typeof grab.audio === 'string' && grab.audio.startsWith('/')) ? (API_BASE + grab.audio) : grab.audio}" style="max-width:300px;"></audio>
+                        <button class="btn ghost" onclick="deleteRecording(${p.id})" title="Eliminar grabación (requiere PIN)">Eliminar</button>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+// Update the grabaciones container and attach audio handlers (no navigation)
+function refreshGrabacionesUI(s, p){
+    const container = document.getElementById('_grabaciones_container');
+    if(container){
+        container.innerHTML = buildGrabacionesHTML(s, p);
+        // Attach logging and error handlers to the audio element(s)
+        try{
+            const audios = container.querySelectorAll('audio');
+            audios.forEach(aud => {
+                // Attach a loadedmetadata handler
+                aud.addEventListener('loadedmetadata', ()=>{
+                    console.log('Audio metadata loaded:', aud.src, 'duration=', aud.duration);
+                });
+
+                // If metadata not available yet (duration 0), proactively try fetch+blob to ensure browser can decode
+                (async ()=>{
+                    try{
+                        // small delay to allow browser to attempt loading first
+                        await new Promise(r=>setTimeout(r,100));
+                        if(!isFinite(aud.duration) || aud.duration === 0){
+                            // only fetch if src is remote or server path
+                            const src = aud.getAttribute('src') || aud.src;
+                            if(src){
+                                try{
+                                    const resp = await fetch(src, { cache: 'no-store' });
+                                    if(resp.ok){
+                                        const blob = await resp.blob();
+                                        const objUrl = URL.createObjectURL(blob);
+                                        aud.src = objUrl;
+                                        try{ aud.load(); }catch(e){}
+                                        console.log('Proactive fetch fallback set for audio', src);
+                                    }
+                                }catch(fe){ /* ignore fetch errors here */ }
+                            }
+                        }
+                    }catch(e){ /* ignore */ }
+                })();
+                aud.addEventListener('error', async (ev) => {
+                    console.error('Audio playback error for', aud.src, ev);
+                    // Try a fetch -> blob fallback and set object URL (works around some server mime/CORS issues)
+                    try{
+                        const resp = await fetch(aud.src);
+                        if(resp.ok){
+                            const blob = await resp.blob();
+                            const objUrl = URL.createObjectURL(blob);
+                            aud.src = objUrl;
+                            try{ aud.load(); }catch(e){}
+                            console.log('Replaced audio src with object URL fallback for', aud.src);
+                        } else {
+                            console.warn('Fetch fallback failed: HTTP', resp.status, aud.src);
+                        }
+                    }catch(fe){
+                        console.error('Fetch fallback error for audio', aud.src, fe);
+                    }
+                });
+                aud.addEventListener('canplaythrough', ()=>{
+                    console.log('Audio ready to play:', aud.src);
+                });
+                // ensure browser parses metadata
+                try{ aud.load(); }catch(e){}
+            });
+        }catch(e){ console.warn('Could not attach audio handlers', e); }
+    } else {
+        console.warn('No _grabaciones_container found; skipping UI refresh');
+    }
+}
+
+// Show a styled warning tooltip next to an element (keeps shown until removed)
+function showWarningTooltipForElement(el, message){
+    if(!el) return;
+    removeWarningTooltipForElement(el);
+    // ensure root wrapper for positioning
+    const root = document.createElement('span');
+    root.className = 'pp-warning-tooltip-root';
+    root.style.position = 'relative';
+    // move the element inside the root
+    const parent = el.parentNode;
+    if(!parent) return;
+    parent.replaceChild(root, el);
+    root.appendChild(el);
+    // Format message: prefer splitting by sentences into up to two horizontal lines
+    const raw = (message || '').toString().trim();
+    let formatted = '';
+    const sentences = raw.match(/[^.!?]+[.!?]*/g)?.map(s => s.trim()).filter(Boolean) || [];
+    if(sentences.length >= 2){
+        // Join sentences each on its own line
+        formatted = sentences.join('<br>');
+    } else if(sentences.length === 1){
+        // Single long sentence: split into two roughly equal parts at a word boundary
+        const words = sentences[0].split(/\s+/).filter(Boolean);
+        if(words.length <= 8){
+            formatted = sentences[0];
+        } else {
+            const mid = Math.ceil(words.length / 2);
+            const first = words.slice(0, mid).join(' ');
+            const second = words.slice(mid).join(' ');
+            formatted = first + '<br>' + second;
+        }
+    } else {
+        formatted = raw;
+    }
+
+    const tip = document.createElement('div');
+    tip.className = 'pp-warning-tooltip';
+    tip.setAttribute('role','alert');
+    // Icon removed per request (no '!') — only show the bubble with formatted text
+    tip.innerHTML = `
+        <div class="pp-warning-bubble">${formatted}</div>
+    `;
+    root.appendChild(tip);
+    // attach reference for later removal
+    el.__ppWarningRoot = root;
+}
+
+function removeWarningTooltipForElement(el){
+    try{
+        const root = el && el.__ppWarningRoot;
+        if(root && root.parentNode){
+            // move element back to parent position
+            const parent = root.parentNode;
+            parent.replaceChild(el, root);
+            delete el.__ppWarningRoot;
+        }
+    }catch(e){ /* ignore */ }
+}
+
 // SOAP form: open modal to edit SOAP for a session
 async function openSoapForm(sessionIndex){
     const s = mockSesiones[sessionIndex];
@@ -612,6 +910,12 @@ function showPatient(id) {
         
         modal.backdrop.querySelector('#_c_cancel').onclick = ()=> modal.close();
         modal.backdrop.querySelector('#_c_save').onclick = async ()=>{
+            // Require psychologist PIN to add/edit consent
+            const pinAuth = await modalPrompt('Ingrese PIN del psicólogo para autorizar este consentimiento');
+            if(!pinAuth) return alert('Operación cancelada');
+            const okPin = await validatePsyPin(pinAuth);
+            if(!okPin){ alert('PIN inválido. No se puede guardar el consentimiento.'); return; }
+
             const tipo = modal.backdrop.querySelector('#_consent_type')?.value || 'Consentimiento';
             let fileUrl = existingConsent ? existingConsent.file : null;
             
@@ -687,8 +991,10 @@ async function promptStartSession(patientId){
     if(!p) return;
     const want = await modalConfirm('¿Desea grabar la sesión? (Si acepta necesitará ingresar PIN)');
     if(!want){ alert('Sesión iniciada sin grabación (demo)'); return; }
-    const pin = await modalPrompt('Ingrese PIN de consentimiento para grabación');
-    if(pin === p.recordingPin){
+    const pin = await modalPrompt('Ingrese PIN del psicólogo para autorizar grabación');
+    if(!pin) return alert('Operación cancelada');
+    const ok = await validatePsyPin(pin);
+    if(ok){
         alert('PIN correcto. Grabación habilitada (demo).');
         const newSess = { pacienteId: p.id, fecha: new Date().toISOString().slice(0,10), notas: 'Sesión con grabación (mock)', soap: null, attachments: [] };
         mockSesiones.push(newSess);
@@ -893,27 +1199,9 @@ async function openSessionDetail(sessionIndex, patientId){
                 </div>
 
                 <!-- GRABACIONES -->
-                ${s.grabacion && s.grabacion.length > 0 ? `
-                <div style="margin-bottom:30px;">
-                    <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
-                        <span style="font-size:24px;">🎤</span> Grabaciones
-                    </h3>
-                    <div style="display:flex; flex-direction:column; gap:12px;">
-                        ${s.grabacion.map((grab, idx) => `
-                            <div style="padding:12px; background:white; border-radius:8px; border:2px solid #b2ebf2; display:flex; align-items:center; gap:12px;">
-                                <span style="font-size:24px;">🎵</span>
-                                <div style="flex:1;">
-                                    <div style="font-weight:600; color:#00838f;">Grabación ${idx + 1}</div>
-                                    <div style="font-size:12px; color:#666;">
-                                        ${new Date(grab.fecha).toLocaleString('es-ES')} • ${grab.duracion ? grab.duracion + 's' : 'Duración no disponible'}
-                                    </div>
-                                </div>
-                                <audio controls src="${grab.audio}" style="max-width:300px;"></audio>
-                            </div>
-                        `).join('')}
-                    </div>
+                <div id="_grabaciones_container" style="margin-bottom:30px;">
+                    ${buildGrabacionesHTML(s, p) }
                 </div>
-                ` : ''}
 
                 <!-- GENOGRAMA -->
                 <div style="margin-bottom:30px;">
@@ -1054,10 +1342,64 @@ async function openSessionDetail(sessionIndex, patientId){
     let isRecording = false;
     let mediaRecorder = null;
     let audioChunks = [];
+
+    // On open, check server state and disable record button if a recording exists
+    (async ()=>{
+        try{
+            const chk = await fetch(API_BASE + '/api/recording/' + p.id);
+            if(chk && chk.ok){
+                const info = await chk.json();
+                if(info.exists){
+                    if(recordingBtn){
+                        recordingBtn.disabled = true;
+                        try{ recordingBtn.querySelector('span').textContent = 'Grabación existente'; }catch(e){}
+                        showWarningTooltipForElement(recordingBtn, 'Ya existe una grabación para este paciente. Elimine la grabación antes de grabar una nueva.');
+                        recordingBtn.classList.add('disabled');
+                    }
+                    // sync local state
+                    if(!s.grabacion || s.grabacion.length === 0){ s.grabacion = [{ fecha: new Date().toISOString(), audio: info.path, duracion: 0, remote:true }]; await saveData(); refreshGrabacionesUI(s,p); }
+                }
+            }
+        }catch(e){ /* ignore */ }
+    })();
     
     if(recordingBtn){
         recordingBtn.addEventListener('click', async ()=>{
             if(!isRecording){
+                // Prevent new recording if one already exists for this session/patient
+                // Before trusting local state, verify with server whether the recording file actually exists.
+                try{
+                    const chk = await fetch(API_BASE + '/api/recording/' + p.id);
+                    if(chk && chk.ok){
+                        const info = await chk.json();
+                        if(info.exists){
+                            // server has file -> enforce single-recording rule
+                            showWarningTooltipForElement(recordingBtn, 'Ya existe una grabación para este paciente. Elimine la grabación antes de grabar una nueva.');
+                            return;
+                        } else {
+                            // server does NOT have file -> cleanup local reference and allow recording
+                            if(s && s.grabacion && s.grabacion.length > 0){
+                                s.grabacion = [];
+                                await saveData();
+                            }
+                            // remove any leftover tooltip
+                            removeWarningTooltipForElement(recordingBtn);
+                        }
+                    }
+                }catch(e){
+                    // On network error, fall back to local state (conservative: block if local says exists)
+                    console.warn('Recording existence check failed, falling back to local state', e);
+                    if(s && s.grabacion && s.grabacion.length > 0){
+                        showWarningTooltipForElement(recordingBtn, 'Ya existe una grabación para este paciente. Elimine la grabación antes de grabar una nueva.');
+                        return;
+                    }
+                }
+                // Require psychologist PIN to start recording
+                const pinAuth = await modalPrompt('Ingrese PIN del psicólogo para iniciar la grabación');
+                if(!pinAuth) return alert('Operación cancelada');
+                const okStart = await validatePsyPin(pinAuth);
+                if(!okStart){ alert('PIN incorrecto. No se inicia la grabación.'); return; }
+
                 // Iniciar grabación
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -1071,27 +1413,88 @@ async function openSessionDetail(sessionIndex, patientId){
                     };
                     
                     mediaRecorder.onstop = async () => {
-                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                            const base64Audio = reader.result;
-                            if (!s.grabacion) {
-                                s.grabacion = [];
-                            }
-                            s.grabacion.push({
-                                fecha: new Date().toISOString(),
-                                audio: base64Audio,
-                                duracion: Math.floor((Date.now() - startTime) / 1000)
-                            });
-                            saveData();
-                            alert('✅ Grabación guardada correctamente');
-                            // Recargar vista
-                            openSessionDetail(sessionIndex, patientId);
-                        };
-                        reader.readAsDataURL(audioBlob);
-                        
-                        // Detener el stream
-                        stream.getTracks().forEach(track => track.stop());
+                        try{
+                            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+
+                            // Convert recorded blob (webm/ogg) to WAV (PCM16) in the browser
+                            const wavBlob = await blobToWavBlob(audioBlob);
+
+                            // Upload to server as recordings/patient_<id>.wav
+                            const form = new FormData();
+                            form.append('file', new File([wavBlob], `recording_patient_${p.id}.wav`, { type: 'audio/wav' }));
+                            form.append('patientId', String(p.id));
+
+                                                const uploadUrl = API_BASE + '/api/upload-recording';
+                                                const resp = await fetch(uploadUrl, { method: 'POST', body: form });
+
+                                                // If server reports an existing recording, inform user and abort
+                                                if(resp.status === 409){
+                                                    alert('❌ Ya existe una grabación en el servidor para este paciente. Elimine la grabación antes de grabar una nueva.');
+                                                    // Refresh UI from server state
+                                                    try{ const chk = await fetch(API_BASE + '/api/recording/' + p.id); if(chk.ok){ const info = await chk.json(); if(info.exists){ s.grabacion = [{ fecha: new Date().toISOString(), audio: info.path, duracion: s.grabacion?.[0]?.duracion || 0, remote:true }]; await saveData(); } } }catch(e){}
+                                                    refreshGrabacionesUI(s, p);
+                                                    return;
+                                                }
+
+                                                if(!resp.ok){
+                                                    // Try to read text or json error safely
+                                                    let body = null;
+                                                    try{ body = await resp.text(); }catch(e){ body = null; }
+                                                    console.error('Upload failed', resp.status, body);
+                                                    alert('❌ No se pudo subir la grabación al servidor (' + resp.status + '). Se guardará localmente como respaldo.');
+
+                                                    // Fallback: store base64 locally
+                                                    const reader = new FileReader();
+                                                    reader.onloadend = () => {
+                                                        const base64Audio = reader.result;
+                                                        s.grabacion = [{ fecha: new Date().toISOString(), audio: base64Audio, duracion: Math.floor((Date.now() - startTime) / 1000) }];
+                                                        saveData();
+                                                        refreshGrabacionesUI(s, p);
+                                                    };
+                                                    reader.readAsDataURL(wavBlob);
+                                                    return;
+                                                }
+
+                                                // OK response — parse JSON but guard against empty body
+                                                let j = null;
+                                                try{ j = await resp.json(); }catch(e){ j = null; }
+                                                if(!j || !j.ok){
+                                                    console.error('Upload returned unexpected body', j);
+                                                    alert('❌ Subida completada con respuesta inesperada. Se guardará localmente como respaldo.');
+
+                                                    const reader = new FileReader();
+                                                    reader.onloadend = () => {
+                                                        const base64Audio = reader.result;
+                                                        s.grabacion = [{ fecha: new Date().toISOString(), audio: base64Audio, duracion: Math.floor((Date.now() - startTime) / 1000) }];
+                                                        saveData();
+                                                        refreshGrabacionesUI(s, p);
+                                                    };
+                                                    reader.readAsDataURL(wavBlob);
+                                                    return;
+                                                }
+
+                                                // Success: store the server path (only one recording per patient)
+                                                s.grabacion = [{ fecha: new Date().toISOString(), audio: j.path, duracion: Math.floor((Date.now() - startTime) / 1000), remote: true }];
+                                                await saveData();
+                                                alert('✅ Grabación subida y guardada correctamente');
+                                                    refreshGrabacionesUI(s, p);
+                                                    // disable the recording button now that a recording exists
+                                                    try{
+                                                        if(recordingBtn){
+                                                            recordingBtn.disabled = true;
+                                                            try{ recordingBtn.querySelector('span').textContent = 'Grabación existente'; }catch(e){}
+                                                            showWarningTooltipForElement(recordingBtn, 'Ya existe una grabación para este paciente. Elimine la grabación antes de grabar una nueva.');
+                                                            recordingBtn.classList.add('disabled');
+                                                        }
+                                                    }catch(e){/* ignore */}
+
+                        }catch(err){
+                            console.error('Error processing recording on stop', err);
+                            alert('❌ Error al procesar la grabación: ' + (err && err.message ? err.message : err));
+                        } finally {
+                            // Detener el stream
+                            try{ stream.getTracks().forEach(track => track.stop()); }catch(e){}
+                        }
                     };
                     
                     const startTime = Date.now();

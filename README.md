@@ -9,3 +9,6 @@ javac -cp "lib/*" *.java
 
 # Ejecutar
 java -cp "lib/*:." AnalizadorSesion ../transciption/sesion_001.txt
+
+# En Bash, ejecutar el servidor server.js
+node server.js

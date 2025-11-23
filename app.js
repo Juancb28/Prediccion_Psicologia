@@ -569,7 +569,7 @@ async function blobToWavBlob(blob){
 }
 
 // Delete recording for a patient (asks for psychologist PIN via modalPrompt)
-async function deleteRecording(patientId){
+async function deleteRecording(patientId, sessionIndex){
     const pin = await modalPrompt('Ingrese PIN del psicólogo para eliminar la grabación');
     if(!pin) return alert('Operación cancelada');
     try{
@@ -593,7 +593,12 @@ async function deleteRecording(patientId){
                                 // deleted the actual file
                                 ps.grabacion = [];
                                 await saveData();
-                                if(activePatientId === patientId) showPatient(patientId);
+                                // If in session detail view, refresh completely; otherwise navigate to patient view
+                                if(sessionIndex !== undefined){
+                                    openSessionDetail(sessionIndex, patientId);
+                                } else if(activePatientId === patientId) {
+                                    showPatient(patientId);
+                                }
                                 return alert('✅ Grabación eliminada (archivo encontrado por nombre alternativo).');
                             }
                         }
@@ -602,7 +607,12 @@ async function deleteRecording(patientId){
                 }
                 // fallback: remove local reference to keep UI consistent
                 if(ps && ps.grabacion){ ps.grabacion = []; await saveData(); }
-                if(activePatientId === patientId) showPatient(patientId);
+                // If in session detail view, refresh completely; otherwise navigate to patient view
+                if(sessionIndex !== undefined){
+                    openSessionDetail(sessionIndex, patientId);
+                } else if(activePatientId === patientId) {
+                    showPatient(patientId);
+                }
                 return alert('Grabación no encontrada en el servidor. Referencia local eliminada.');
             }
             let body = null;
@@ -613,8 +623,13 @@ async function deleteRecording(patientId){
         const ps = mockSesiones.find(s=>s.pacienteId===patientId);
         if(ps && ps.grabacion){ ps.grabacion = []; await saveData(); }
         alert('✅ Grabación eliminada');
-        // Refresh view if open
-        if(activePatientId === patientId) showPatient(patientId);
+        // Refresh view if open: if in session detail view, refresh completely; otherwise navigate to patient view
+        if(sessionIndex !== undefined){
+            // Refresh the entire session view to clear all warnings
+            openSessionDetail(sessionIndex, patientId);
+        } else if(activePatientId === patientId) {
+            showPatient(patientId);
+        }
     }catch(e){ console.error('Delete recording error', e); alert('Error al eliminar: ' + e.message); }
 }
 
@@ -630,38 +645,48 @@ async function validatePsyPin(pin){
 }
 
 // Build the inner HTML for the grabaciones section for a session
-function buildGrabacionesHTML(s, p){
+function buildGrabacionesHTML(s, p, sessionIndex){
     if(!s || !p) return '';
-    if(!s.grabacion || s.grabacion.length === 0) return '';
+    
     return `
         <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
             <span style="font-size:24px;">🎤</span> Grabaciones
         </h3>
-        <div style="display:flex; flex-direction:column; gap:12px;">
-            ${s.grabacion.map((grab, idx) => `
-                <div style="padding:12px; background:white; border-radius:8px; border:2px solid #b2ebf2; display:flex; align-items:center; gap:12px;">
-                    <span style="font-size:24px;">🎵</span>
-                    <div style="flex:1;">
-                        <div style="font-weight:600; color:#00838f;">Grabación ${idx + 1}</div>
-                        <div style="font-size:12px; color:#666;">
-                            ${new Date(grab.fecha).toLocaleString('es-ES')} • ${grab.duracion ? grab.duracion + 's' : 'Duración no disponible'}
+        ${!s.grabacion || s.grabacion.length === 0 ? `
+            <div style="padding:20px; background:white; border:2px dashed #b2ebf2; border-radius:8px; text-align:center;">
+                <p style="margin:0; color:#999; font-style:italic;">🎙️ Sin grabaciones aún</p>
+                <p style="margin:8px 0 0 0; color:#bbb; font-size:13px;">Use el botón "Iniciar grabación" para crear una nueva grabación</p>
+            </div>
+        ` : `
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                ${s.grabacion.map((grab, idx) => `
+                    <div style="padding:12px; background:white; border-radius:8px; border:2px solid #b2ebf2; display:flex; align-items:center; gap:12px;">
+                        <span style="font-size:24px;">🎵</span>
+                        <div style="flex:1;">
+                            <div style="font-weight:600; color:#00838f;">Grabación ${idx + 1}</div>
+                            <div style="font-size:12px; color:#666;">
+                                ${new Date(grab.fecha).toLocaleString('es-ES')} • ${grab.duracion ? grab.duracion + 's' : 'Duración no disponible'}
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <button class="btn" onclick="openTranscriptionModal(${sessionIndex}, ${p.id})" style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white;">
+                                📝 Ver transcripción
+                            </button>
+                            <audio controls src="${(typeof grab.audio === 'string' && grab.audio.startsWith('/')) ? (API_BASE + grab.audio) : grab.audio}" style="max-width:300px;"></audio>
+                            <button class="btn ghost" onclick="deleteRecording(${p.id}, ${sessionIndex})" title="Eliminar grabación (requiere PIN)">Eliminar</button>
                         </div>
                     </div>
-                    <div style="display:flex; gap:8px; align-items:center;">
-                        <audio controls src="${(typeof grab.audio === 'string' && grab.audio.startsWith('/')) ? (API_BASE + grab.audio) : grab.audio}" style="max-width:300px;"></audio>
-                        <button class="btn ghost" onclick="deleteRecording(${p.id})" title="Eliminar grabación (requiere PIN)">Eliminar</button>
-                    </div>
-                </div>
-            `).join('')}
-        </div>
+                `).join('')}
+            </div>
+        `}
     `;
 }
 
 // Update the grabaciones container and attach audio handlers (no navigation)
-function refreshGrabacionesUI(s, p){
+function refreshGrabacionesUI(s, p, sessionIndex){
     const container = document.getElementById('_grabaciones_container');
     if(container){
-        container.innerHTML = buildGrabacionesHTML(s, p);
+        container.innerHTML = buildGrabacionesHTML(s, p, sessionIndex);
         // Attach logging and error handlers to the audio element(s)
         try{
             const audios = container.querySelectorAll('audio');
@@ -799,6 +824,31 @@ async function openSoapForm(sessionIndex){
     await saveData();
     alert('SOAP guardado (mock)');
     loadModule('sesiones');
+}
+
+// Open transcription modal for a session's recording
+async function openTranscriptionModal(sessionIndex, patientId){
+    const s = mockSesiones[sessionIndex];
+    if(!s) return alert('Sesión no encontrada');
+    if(!s.grabacion || s.grabacion.length === 0) return alert('No hay grabación para transcribir');
+    
+    // Get or initialize transcription
+    const transcription = s.grabacion[0].transcripcion || '';
+    
+    const html = `
+        <div class="row">
+            <label>Transcripción de la grabación</label>
+            <textarea name="transcripcion" rows="15" style="font-family: monospace; font-size: 14px;" placeholder="Ingrese aquí la transcripción de la grabación...">${transcription}</textarea>
+        </div>
+    `;
+    
+    const data = await modalForm('📝 Transcripción', html);
+    if(!data) return;
+    
+    // Save transcription in the recording
+    s.grabacion[0].transcripcion = data.transcripcion || '';
+    await saveData();
+    alert('✅ Transcripción guardada');
 }
 
 function showPatient(id) {
@@ -1200,7 +1250,7 @@ async function openSessionDetail(sessionIndex, patientId){
 
                 <!-- GRABACIONES -->
                 <div id="_grabaciones_container" style="margin-bottom:30px;">
-                    ${buildGrabacionesHTML(s, p) }
+                    ${buildGrabacionesHTML(s, p, sessionIndex) }
                 </div>
 
                 <!-- GENOGRAMA -->
@@ -1357,7 +1407,7 @@ async function openSessionDetail(sessionIndex, patientId){
                         recordingBtn.classList.add('disabled');
                     }
                     // sync local state
-                    if(!s.grabacion || s.grabacion.length === 0){ s.grabacion = [{ fecha: new Date().toISOString(), audio: info.path, duracion: 0, remote:true }]; await saveData(); refreshGrabacionesUI(s,p); }
+                    if(!s.grabacion || s.grabacion.length === 0){ s.grabacion = [{ fecha: new Date().toISOString(), audio: info.path, duracion: 0, remote:true }]; await saveData(); refreshGrabacionesUI(s,p,sessionIndex); }
                 }
             }
         }catch(e){ /* ignore */ }
@@ -1432,7 +1482,7 @@ async function openSessionDetail(sessionIndex, patientId){
                                                     alert('❌ Ya existe una grabación en el servidor para este paciente. Elimine la grabación antes de grabar una nueva.');
                                                     // Refresh UI from server state
                                                     try{ const chk = await fetch(API_BASE + '/api/recording/' + p.id); if(chk.ok){ const info = await chk.json(); if(info.exists){ s.grabacion = [{ fecha: new Date().toISOString(), audio: info.path, duracion: s.grabacion?.[0]?.duracion || 0, remote:true }]; await saveData(); } } }catch(e){}
-                                                    refreshGrabacionesUI(s, p);
+                                                    refreshGrabacionesUI(s, p, sessionIndex);
                                                     return;
                                                 }
 
@@ -1449,7 +1499,7 @@ async function openSessionDetail(sessionIndex, patientId){
                                                         const base64Audio = reader.result;
                                                         s.grabacion = [{ fecha: new Date().toISOString(), audio: base64Audio, duracion: Math.floor((Date.now() - startTime) / 1000) }];
                                                         saveData();
-                                                        refreshGrabacionesUI(s, p);
+                                                        refreshGrabacionesUI(s, p, sessionIndex);
                                                     };
                                                     reader.readAsDataURL(wavBlob);
                                                     return;
@@ -1467,7 +1517,7 @@ async function openSessionDetail(sessionIndex, patientId){
                                                         const base64Audio = reader.result;
                                                         s.grabacion = [{ fecha: new Date().toISOString(), audio: base64Audio, duracion: Math.floor((Date.now() - startTime) / 1000) }];
                                                         saveData();
-                                                        refreshGrabacionesUI(s, p);
+                                                        refreshGrabacionesUI(s, p, sessionIndex);
                                                     };
                                                     reader.readAsDataURL(wavBlob);
                                                     return;
@@ -1477,7 +1527,7 @@ async function openSessionDetail(sessionIndex, patientId){
                                                 s.grabacion = [{ fecha: new Date().toISOString(), audio: j.path, duracion: Math.floor((Date.now() - startTime) / 1000), remote: true }];
                                                 await saveData();
                                                 alert('✅ Grabación subida y guardada correctamente');
-                                                    refreshGrabacionesUI(s, p);
+                                                    refreshGrabacionesUI(s, p, sessionIndex);
                                                     // disable the recording button now that a recording exists
                                                     try{
                                                         if(recordingBtn){

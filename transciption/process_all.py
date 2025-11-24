@@ -7,6 +7,12 @@ import os
 from pathlib import Path
 
 # Importar los módulos anteriores
+# Ensure the local `transciption` package directory is on sys.path so
+# imports work when running the script from the project root.
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
 from transcribe_audio import transcribe_audio
 from diarize_and_label import diarize_and_label
 from identify_speakers import identify_speakers

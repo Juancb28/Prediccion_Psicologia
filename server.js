@@ -9,6 +9,29 @@ try{
     require('dotenv').config();
 }catch(e){ /* dotenv not installed; ignore */ }
 
+// If dotenv isn't installed (or didn't load), try a minimal .env parser so
+// the server can pick up HUGGINGFACE_TOKEN when running via node directly.
+try{
+    if(!process.env.HUGGINGFACE_TOKEN){
+        const envPath = path.join(__dirname, '.env');
+        if(fs.existsSync(envPath)){
+            const raw = fs.readFileSync(envPath, 'utf8');
+            raw.split(/\r?\n/).forEach(line => {
+                const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+                if(m){
+                    let key = m[1];
+                    let val = m[2] || '';
+                    // strip surrounding quotes
+                    if((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))){
+                        val = val.slice(1, -1);
+                    }
+                    if(!process.env[key]) process.env[key] = val;
+                }
+            });
+        }
+    }
+}catch(e){ /* ignore parsing errors */ }
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -143,6 +166,148 @@ app.use('/recordings', express.static(recordingsDir, {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     }
 }));
+
+// Transcribe a recording for a patient by running the Python transcription CLI
+const { spawn } = require('child_process');
+app.post('/api/transcribe-recording', express.json(), (req, res) => {
+    const patientId = req.body && req.body.patientId;
+    if(!patientId) return res.status(400).json({ ok:false, error: 'patientId required' });
+    const filename = `patient_${String(patientId).replace(/[^0-9a-zA-Z_-]/g,'_')}.wav`;
+    const filePath = path.join(recordingsDir, filename);
+    if(!fs.existsSync(filePath)) return res.status(404).json({ ok:false, error: 'recording_not_found' });
+
+    console.log('[debug] /api/transcribe-recording request for patientId=', patientId, 'file=', filePath);
+
+    // Build python command: run transciption/run_transcribe.py <filePath>
+    const py = process.env.PYTHON || 'python';
+    const script = path.join(__dirname, 'transciption', 'run_transcribe.py');
+
+    let child;
+    try{
+        child = spawn(py, [script, filePath], { env: process.env });
+    }catch(spawnErr){
+        console.error('Failed to spawn transcription process (sync throw)', spawnErr);
+        return res.status(500).json({ ok:false, error: 'spawn_exception', detail: String(spawnErr && spawnErr.message) });
+    }
+
+    let stdout = '';
+    let stderr = '';
+    let responded = false;
+    // Safety timeout: if transcription takes too long, kill child and respond
+    const killTimeout = setTimeout(()=>{
+        try{
+            if(child && !child.killed) child.kill('SIGKILL');
+        }catch(_){}
+        if(!responded){
+            responded = true;
+            console.error('Transcription process timed out and was killed');
+            try{ res.status(504).json({ ok:false, error: 'transcription_timeout' }); }catch(e){}
+        }
+    }, 120000); // 2 minutes
+
+    child.on('error', (err)=>{
+        console.error('Transcription spawn error event', err);
+        if(!responded){
+            responded = true;
+            try{ res.status(500).json({ ok:false, error: 'spawn_error', detail: String(err && err.message) }); }catch(e){}
+        }
+    });
+
+    child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+
+    // helper: post audio buffer to Hugging Face inference API using built-in https
+    async function hfTranscribe(model, token, buffer){
+        return new Promise((resolve, reject)=>{
+            try{
+                const https = require('https');
+                const u = new URL(`https://api-inference.huggingface.co/models/${model}`);
+                const opts = {
+                    hostname: u.hostname,
+                    path: u.pathname,
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'audio/wav',
+                        'Content-Length': buffer.length
+                    }
+                };
+                const req = https.request(opts, (resp)=>{
+                    const chunks = [];
+                    resp.on('data', (c)=>chunks.push(c));
+                    resp.on('end', ()=>{
+                        const body = Buffer.concat(chunks).toString('utf8');
+                        // try parse JSON, otherwise return text
+                        try{ const j = JSON.parse(body); resolve({ ok: resp.statusCode>=200 && resp.statusCode<300, status: resp.statusCode, body: j }); }
+                        catch(e){ resolve({ ok: resp.statusCode>=200 && resp.statusCode<300, status: resp.statusCode, body: body }); }
+                    });
+                });
+                req.on('error', (err)=> reject(err));
+                req.write(buffer);
+                req.end();
+            }catch(e){ reject(e); }
+        });
+    }
+
+    child.on('close', async (code) => {
+        clearTimeout(killTimeout);
+        if(code !== 0){
+            console.warn('Transcription script failed or not available, falling back to Hugging Face API if token exists', code, stderr);
+            // Fallback: if HUGGINGFACE_TOKEN provided, call HF inference API
+            try{
+                const hfToken = process.env.HUGGINGFACE_TOKEN;
+                if(!hfToken){
+                    // return original error
+                    try{ const parsed = JSON.parse(stdout || '{}'); return res.status(500).json({ ok:false, error: 'transcription_failed', detail: parsed, stderr }); }catch(e){ return res.status(500).json({ ok:false, error: 'transcription_failed', stderr }); }
+                }
+                // call HF API
+                const buffer = fs.readFileSync(filePath);
+                const model = process.env.HF_WHISPER_MODEL || 'openai/whisper-small';
+                const hfResp = await hfTranscribe(model, hfToken, buffer);
+                if(!hfResp.ok){
+                    const txt = typeof hfResp.body === 'string' ? hfResp.body : JSON.stringify(hfResp.body);
+                    console.error('Hugging Face inference failed', hfResp.status, txt);
+                    return res.status(500).json({ ok:false, error: 'hf_inference_failed', status: hfResp.status, detail: txt });
+                }
+                // HF may return JSON with 'text' or a plain string; normalize
+                let text = '';
+                if(hfResp && hfResp.body){
+                    if(typeof hfResp.body === 'string') text = hfResp.body;
+                    else if(hfResp.body.text) text = hfResp.body.text;
+                    else text = JSON.stringify(hfResp.body);
+                }
+
+                // persist outputs in outputs/
+                try{
+                    const outDir = path.join(__dirname, 'outputs');
+                    if(!fs.existsSync(outDir)) fs.mkdirSync(outDir);
+                    const stem = path.parse(filename).name; // patient_1
+                    const jsonPath = path.join(outDir, `${stem}_transcription.json`);
+                    const txtPath = path.join(outDir, `${stem}_transcription.txt`);
+                    fs.writeFileSync(jsonPath, JSON.stringify({ text: text, source: 'huggingface', model }, null, 2), 'utf8');
+                    fs.writeFileSync(txtPath, `TRANSCRIPCIÓN (HF)\n\n${text}\n`, 'utf8');
+                }catch(e){ console.warn('Could not write outputs files', e); }
+
+                if(!responded){
+                    responded = true;
+                    return res.json({ ok:true, transcription_text: text, segments: [], json_path: null, txt_path: null });
+                }
+            }catch(fallbackErr){
+                console.error('Fallback transcription failed', fallbackErr);
+                if(!responded){
+                    responded = true;
+                    try{ const parsed = JSON.parse(stdout || '{}'); return res.status(500).json({ ok:false, error: 'transcription_failed', detail: parsed, stderr }); }catch(e){ return res.status(500).json({ ok:false, error: 'transcription_failed', stderr }); }
+                }
+            }
+        }
+        try{
+            const parsed = JSON.parse(stdout || '{}');
+            if(!responded){ responded = true; return res.json({ ok:true, transcription_text: parsed.text || '', segments: parsed.segments || [], json_path: parsed.json_path, txt_path: parsed.txt_path }); }
+        }catch(e){
+            if(!responded){ responded = true; return res.status(500).json({ ok:false, error: 'invalid_output', stdout, stderr }); }
+        }
+    });
+});
 
 // Data endpoints
 const dataFile = path.join(__dirname, 'data.json');

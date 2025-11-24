@@ -1,0 +1,26 @@
+[
+  {
+    "start": 0.0,
+    "end": 1.28,
+    "speaker": "SPEAKER_00",
+    "text": "No, bueno, no es más de eso."
+  },
+  {
+    "start": 1.28,
+    "end": 2.1,
+    "speaker": "SPEAKER_01",
+    "text": "Es tu problema."
+  },
+  {
+    "start": 3.98,
+    "end": 5.44,
+    "speaker": "SPEAKER_01",
+    "text": "Con un demonio."
+  },
+  {
+    "start": 5.64,
+    "end": 7.48,
+    "speaker": "SPEAKER_01",
+    "text": "¿Quién más falta que yo conozca?"
+  }
+]

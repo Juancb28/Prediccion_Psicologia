@@ -1,0 +1,6 @@
+DIARIZACIÓN (Turnos de habla)
+==================================================
+
+[0.0s - 1.5s] SPEAKER_00
+[1.5s - 2.4s] SPEAKER_01
+[4.2s - 8.0s] SPEAKER_01

@@ -1,0 +1,964 @@
+{
+  "text": " ¿Por qué no vas con ellos? ¿Por qué no me invitaron? Ouch, mal inicio de tu día. El problema es que no puedo mantener la esfera suspendida dentro de la solución reguladora. ¿Intentó envolver la esfera en hilo de cobre? Lo hice, pero se resbala. ¿Podríamos suspenderla en una especie de funda? Eso evitaría que la luz penetrara. Me pregunto si pensaré mejor teniendo una barba que acariciar. Es uno de los aspectos por lo que han sido la pubertad. Hola, Tom. Hola. ¿Qué tal si te dijera que no tienes que estudiar para tu examen de...",
+  "segments": [
+    {
+      "id": 0,
+      "seek": 0,
+      "start": 0.0,
+      "end": 2.84,
+      "text": " ¿Por qué no vas con ellos?",
+      "tokens": [
+        50364,
+        3841,
+        24907,
+        8057,
+        572,
+        11481,
+        416,
+        16353,
+        30,
+        50514
+      ],
+      "temperature": 0.0,
+      "avg_logprob": -0.16005946471627835,
+      "compression_ratio": 1.515695067264574,
+      "no_speech_prob": 0.5550423860549927,
+      "words": [
+        {
+          "word": " ¿Por",
+          "start": 0.0,
+          "end": 0.64,
+          "probability": 0.44294384121894836
+        },
+        {
+          "word": " qué",
+          "start": 0.64,
+          "end": 2.12,
+          "probability": 0.8796533346176147
+        },
+        {
+          "word": " no",
+          "start": 2.12,
+          "end": 2.26,
+          "probability": 0.9469797611236572
+        },
+        {
+          "word": " vas",
+          "start": 2.26,
+          "end": 2.42,
+          "probability": 0.9856831431388855
+        },
+        {
+          "word": " con",
+          "start": 2.42,
+          "end": 2.64,
+          "probability": 0.9741082191467285
+        },
+        {
+          "word": " ellos?",
+          "start": 2.64,
+          "end": 2.84,
+          "probability": 0.9853730797767639
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "seek": 0,
+      "start": 4.840000000000002,
+      "end": 6.56,
+      "text": " ¿Por qué no me invitaron?",
+      "tokens": [
+        50614,
+        3841,
+        24907,
+        8057,
+        572,
+        385,
+        1048,
+        3981,
+        266,
+        30,
+        50664
+      ],
+      "temperature": 0.0,
+      "avg_logprob": -0.16005946471627835,
+      "compression_ratio": 1.515695067264574,
+      "no_speech_prob": 0.5550423860549927,
+      "words": [
+        {
+          "word": " ¿Por",
+          "start": 4.840000000000002,
+          "end": 5.42,
+          "probability": 0.7221441119909286
+        },
+        {
+          "word": " qué",
+          "start": 5.42,
+          "end": 5.56,
+          "probability": 0.9111967086791992
+        },
+        {
+          "word": " no",
+          "start": 5.56,
+          "end": 5.94,
+          "probability": 0.9855003952980042
+        },
+        {
+          "word": " me",
+          "start": 5.94,
+          "end": 6.16,
+          "probability": 0.9738723039627075
+        },
+        {
+          "word": " invitaron?",
+          "start": 6.16,
+          "end": 6.56,
+          "probability": 0.9728326400121053
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "seek": 0,
+      "start": 6.86,
+      "end": 8.86,
+      "text": " Ouch, mal inicio de tu día.",
+      "tokens": [
+        50664,
+        27217,
+        11,
+        2806,
+        294,
+        18322,
+        368,
+        2604,
+        12271,
+        13,
+        50814
+      ],
+      "temperature": 0.0,
+      "avg_logprob": -0.16005946471627835,
+      "compression_ratio": 1.515695067264574,
+      "no_speech_prob": 0.5550423860549927,
+      "words": [
+        {
+          "word": " Ouch,",
+          "start": 6.86,
+          "end": 7.2,
+          "probability": 0.24719268083572388
+        },
+        {
+          "word": " mal",
+          "start": 7.66,
+          "end": 7.96,
+          "probability": 0.9273245930671692
+        },
+        {
+          "word": " inicio",
+          "start": 7.96,
+          "end": 8.3,
+          "probability": 0.988652229309082
+        },
+        {
+          "word": " de",
+          "start": 8.3,
+          "end": 8.44,
+          "probability": 0.9966288208961487
+        },
+        {
+          "word": " tu",
+          "start": 8.44,
+          "end": 8.58,
+          "probability": 0.9925050735473633
+        },
+        {
+          "word": " día.",
+          "start": 8.58,
+          "end": 8.86,
+          "probability": 0.991814911365509
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "seek": 0,
+      "start": 12.300000000000002,
+      "end": 17.52,
+      "text": " El problema es que no puedo mantener la esfera suspendida dentro de la solución reguladora.",
+      "tokens": [
+        50964,
+        2699,
+        12395,
+        785,
+        631,
+        572,
+        21612,
+        42759,
+        635,
+        785,
+        45635,
+        42546,
+        2887,
+        10856,
+        368,
+        635,
+        24807,
+        5687,
+        9837,
+        23020,
+        13,
+        51214
+      ],
+      "temperature": 0.0,
+      "avg_logprob": -0.16005946471627835,
+      "compression_ratio": 1.515695067264574,
+      "no_speech_prob": 0.5550423860549927,
+      "words": [
+        {
+          "word": " El",
+          "start": 12.300000000000002,
+          "end": 12.88,
+          "probability": 0.9248960018157959
+        },
+        {
+          "word": " problema",
+          "start": 12.88,
+          "end": 13.24,
+          "probability": 0.9984443783760071
+        },
+        {
+          "word": " es",
+          "start": 13.24,
+          "end": 13.54,
+          "probability": 0.991587221622467
+        },
+        {
+          "word": " que",
+          "start": 13.54,
+          "end": 13.68,
+          "probability": 0.992529571056366
+        },
+        {
+          "word": " no",
+          "start": 13.68,
+          "end": 13.82,
+          "probability": 0.9949929118156433
+        },
+        {
+          "word": " puedo",
+          "start": 13.82,
+          "end": 14.04,
+          "probability": 0.9932600855827332
+        },
+        {
+          "word": " mantener",
+          "start": 14.04,
+          "end": 14.4,
+          "probability": 0.9949687123298645
+        },
+        {
+          "word": " la",
+          "start": 14.4,
+          "end": 14.64,
+          "probability": 0.986820638179779
+        },
+        {
+          "word": " esfera",
+          "start": 14.64,
+          "end": 14.9,
+          "probability": 0.9746690988540649
+        },
+        {
+          "word": " suspendida",
+          "start": 14.9,
+          "end": 15.64,
+          "probability": 0.8968266546726227
+        },
+        {
+          "word": " dentro",
+          "start": 15.64,
+          "end": 15.92,
+          "probability": 0.957525372505188
+        },
+        {
+          "word": " de",
+          "start": 15.92,
+          "end": 16.18,
+          "probability": 0.9957797527313232
+        },
+        {
+          "word": " la",
+          "start": 16.18,
+          "end": 16.42,
+          "probability": 0.9913141131401062
+        },
+        {
+          "word": " solución",
+          "start": 16.42,
+          "end": 17.06,
+          "probability": 0.9663003385066986
+        },
+        {
+          "word": " reguladora.",
+          "start": 17.06,
+          "end": 17.52,
+          "probability": 0.8492993712425232
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "seek": 0,
+      "start": 17.96,
+      "end": 19.88,
+      "text": " ¿Intentó envolver la esfera en hilo de cobre?",
+      "tokens": [
+        51214,
+        3841,
+        25597,
+        317,
+        812,
+        49995,
+        331,
+        635,
+        785,
+        45635,
+        465,
+        276,
+        10720,
+        368,
+        598,
+        2672,
+        30,
+        51314
+      ],
+      "temperature": 0.0,
+      "avg_logprob": -0.16005946471627835,
+      "compression_ratio": 1.515695067264574,
+      "no_speech_prob": 0.5550423860549927,
+      "words": [
+        {
+          "word": " ¿Intentó",
+          "start": 17.96,
+          "end": 18.36,
+          "probability": 0.7713595628738403
+        },
+        {
+          "word": " envolver",
+          "start": 18.36,
+          "end": 18.72,
+          "probability": 0.9674219787120819
+        },
+        {
+          "word": " la",
+          "start": 18.72,
+          "end": 18.84,
+          "probability": 0.9197102189064026
+        },
+        {
+          "word": " esfera",
+          "start": 18.84,
+          "end": 19.06,
+          "probability": 0.9883673787117004
+        },
+        {
+          "word": " en",
+          "start": 19.06,
+          "end": 19.26,
+          "probability": 0.9945476055145264
+        },
+        {
+          "word": " hilo",
+          "start": 19.26,
+          "end": 19.38,
+          "probability": 0.9860338866710663
+        },
+        {
+          "word": " de",
+          "start": 19.38,
+          "end": 19.54,
+          "probability": 0.9969086050987244
+        },
+        {
+          "word": " cobre?",
+          "start": 19.54,
+          "end": 19.88,
+          "probability": 0.9759552478790283
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "seek": 0,
+      "start": 19.94,
+      "end": 21.4,
+      "text": " Lo hice, pero se resbala.",
+      "tokens": [
+        51314,
+        6130,
+        50026,
+        11,
+        4768,
+        369,
+        725,
+        2645,
+        64,
+        13,
+        51414
+      ],
+      "temperature": 0.0,
+      "avg_logprob": -0.16005946471627835,
+      "compression_ratio": 1.515695067264574,
+      "no_speech_prob": 0.5550423860549927,
+      "words": [
+        {
+          "word": " Lo",
+          "start": 19.94,
+          "end": 20.08,
+          "probability": 0.9409200549125671
+        },
+        {
+          "word": " hice,",
+          "start": 20.08,
+          "end": 20.38,
+          "probability": 0.9930263757705688
+        },
+        {
+          "word": " pero",
+          "start": 20.48,
+          "end": 20.66,
+          "probability": 0.9857019186019897
+        },
+        {
+          "word": " se",
+          "start": 20.66,
+          "end": 20.86,
+          "probability": 0.9903296232223511
+        },
+        {
+          "word": " resbala.",
+          "start": 20.86,
+          "end": 21.4,
+          "probability": 0.9626118739446005
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "seek": 0,
+      "start": 22.06,
+      "end": 24.5,
+      "text": " ¿Podríamos suspenderla en una especie de funda?",
+      "tokens": [
+        51414,
+        3841,
+        40742,
+        81,
+        16275,
+        6535,
+        3216,
+        875,
+        465,
+        2002,
+        49368,
+        368,
+        2374,
+        64,
+        30,
+        51564
+      ],
+      "temperature": 0.0,
+      "avg_logprob": -0.16005946471627835,
+      "compression_ratio": 1.515695067264574,
+      "no_speech_prob": 0.5550423860549927,
+      "words": [
+        {
+          "word": " ¿Podríamos",
+          "start": 22.06,
+          "end": 22.54,
+          "probability": 0.914264127612114
+        },
+        {
+          "word": " suspenderla",
+          "start": 22.54,
+          "end": 23.24,
+          "probability": 0.8877005378405253
+        },
+        {
+          "word": " en",
+          "start": 23.24,
+          "end": 23.32,
+          "probability": 0.9912720322608948
+        },
+        {
+          "word": " una",
+          "start": 23.32,
+          "end": 23.44,
+          "probability": 0.9783006310462952
+        },
+        {
+          "word": " especie",
+          "start": 23.44,
+          "end": 23.76,
+          "probability": 0.9978119134902954
+        },
+        {
+          "word": " de",
+          "start": 23.76,
+          "end": 24.0,
+          "probability": 0.9444403648376465
+        },
+        {
+          "word": " funda?",
+          "start": 24.0,
+          "end": 24.5,
+          "probability": 0.8835879564285278
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "seek": 0,
+      "start": 24.7,
+      "end": 26.66,
+      "text": " Eso evitaría que la luz penetrara.",
+      "tokens": [
+        51564,
+        27795,
+        31326,
+        2686,
+        631,
+        635,
+        20671,
+        16183,
+        81,
+        2419,
+        13,
+        51714
+      ],
+      "temperature": 0.0,
+      "avg_logprob": -0.16005946471627835,
+      "compression_ratio": 1.515695067264574,
+      "no_speech_prob": 0.5550423860549927,
+      "words": [
+        {
+          "word": " Eso",
+          "start": 24.7,
+          "end": 25.04,
+          "probability": 0.9503078460693359
+        },
+        {
+          "word": " evitaría",
+          "start": 25.04,
+          "end": 25.5,
+          "probability": 0.9821653068065643
+        },
+        {
+          "word": " que",
+          "start": 25.5,
+          "end": 25.66,
+          "probability": 0.9916667342185974
+        },
+        {
+          "word": " la",
+          "start": 25.66,
+          "end": 25.78,
+          "probability": 0.9960370659828186
+        },
+        {
+          "word": " luz",
+          "start": 25.78,
+          "end": 26.02,
+          "probability": 0.9968655705451965
+        },
+        {
+          "word": " penetrara.",
+          "start": 26.02,
+          "end": 26.66,
+          "probability": 0.9367077747980753
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "seek": 2666,
+      "start": 28.680000000000003,
+      "end": 31.94,
+      "text": " Me pregunto si pensaré mejor teniendo una barba que acariciar.",
+      "tokens": [
+        50364,
+        1923,
+        659,
+        7414,
+        1353,
+        1511,
+        18321,
+        526,
+        11479,
+        2064,
+        7304,
+        2002,
+        2159,
+        4231,
+        631,
+        696,
+        289,
+        8787,
+        289,
+        13,
+        50614
+      ],
+      "temperature": 0.0,
+      "avg_logprob": -0.15866788676087284,
+      "compression_ratio": 1.3333333333333333,
+      "no_speech_prob": 0.19887025654315948,
+      "words": [
+        {
+          "word": " Me",
+          "start": 28.680000000000003,
+          "end": 29.080000000000002,
+          "probability": 0.24472810328006744
+        },
+        {
+          "word": " pregunto",
+          "start": 29.080000000000002,
+          "end": 29.48,
+          "probability": 0.9813430507977804
+        },
+        {
+          "word": " si",
+          "start": 29.48,
+          "end": 29.62,
+          "probability": 0.9848752617835999
+        },
+        {
+          "word": " pensaré",
+          "start": 29.62,
+          "end": 30.06,
+          "probability": 0.9168749749660492
+        },
+        {
+          "word": " mejor",
+          "start": 30.06,
+          "end": 30.32,
+          "probability": 0.8416849970817566
+        },
+        {
+          "word": " teniendo",
+          "start": 30.32,
+          "end": 30.68,
+          "probability": 0.9450048506259918
+        },
+        {
+          "word": " una",
+          "start": 30.68,
+          "end": 30.88,
+          "probability": 0.9786257743835449
+        },
+        {
+          "word": " barba",
+          "start": 30.88,
+          "end": 31.22,
+          "probability": 0.9294531643390656
+        },
+        {
+          "word": " que",
+          "start": 31.22,
+          "end": 31.36,
+          "probability": 0.6934450268745422
+        },
+        {
+          "word": " acariciar.",
+          "start": 31.36,
+          "end": 31.94,
+          "probability": 0.7649405896663666
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "seek": 2666,
+      "start": 32.28,
+      "end": 34.74,
+      "text": " Es uno de los aspectos por lo que han sido la pubertad.",
+      "tokens": [
+        50614,
+        2313,
+        8526,
+        368,
+        1750,
+        4171,
+        329,
+        1515,
+        450,
+        631,
+        7276,
+        14444,
+        635,
+        2362,
+        4290,
+        345,
+        13,
+        50764
+      ],
+      "temperature": 0.0,
+      "avg_logprob": -0.15866788676087284,
+      "compression_ratio": 1.3333333333333333,
+      "no_speech_prob": 0.19887025654315948,
+      "words": [
+        {
+          "word": " Es",
+          "start": 32.28,
+          "end": 32.44,
+          "probability": 0.943770706653595
+        },
+        {
+          "word": " uno",
+          "start": 32.44,
+          "end": 32.62,
+          "probability": 0.9838736653327942
+        },
+        {
+          "word": " de",
+          "start": 32.62,
+          "end": 32.74,
+          "probability": 0.995169460773468
+        },
+        {
+          "word": " los",
+          "start": 32.74,
+          "end": 32.84,
+          "probability": 0.9960941672325134
+        },
+        {
+          "word": " aspectos",
+          "start": 32.84,
+          "end": 33.28,
+          "probability": 0.9941607713699341
+        },
+        {
+          "word": " por",
+          "start": 33.28,
+          "end": 33.48,
+          "probability": 0.9449425935745239
+        },
+        {
+          "word": " lo",
+          "start": 33.48,
+          "end": 33.58,
+          "probability": 0.987036943435669
+        },
+        {
+          "word": " que",
+          "start": 33.58,
+          "end": 33.7,
+          "probability": 0.9965128302574158
+        },
+        {
+          "word": " han",
+          "start": 33.7,
+          "end": 33.8,
+          "probability": 0.6433285474777222
+        },
+        {
+          "word": " sido",
+          "start": 33.8,
+          "end": 33.98,
+          "probability": 0.8970149159431458
+        },
+        {
+          "word": " la",
+          "start": 33.98,
+          "end": 34.16,
+          "probability": 0.9785656332969666
+        },
+        {
+          "word": " pubertad.",
+          "start": 34.16,
+          "end": 34.74,
+          "probability": 0.973598043123881
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "seek": 2666,
+      "start": 37.160000000000004,
+      "end": 37.8,
+      "text": " Hola, Tom.",
+      "tokens": [
+        50864,
+        22637,
+        11,
+        5041,
+        13,
+        50914
+      ],
+      "temperature": 0.0,
+      "avg_logprob": -0.15866788676087284,
+      "compression_ratio": 1.3333333333333333,
+      "no_speech_prob": 0.19887025654315948,
+      "words": [
+        {
+          "word": " Hola,",
+          "start": 37.160000000000004,
+          "end": 37.56,
+          "probability": 0.6484438180923462
+        },
+        {
+          "word": " Tom.",
+          "start": 37.66,
+          "end": 37.8,
+          "probability": 0.43854811787605286
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "seek": 2666,
+      "start": 38.54,
+      "end": 38.86,
+      "text": " Hola.",
+      "tokens": [
+        50914,
+        22637,
+        13,
+        50964
+      ],
+      "temperature": 0.0,
+      "avg_logprob": -0.15866788676087284,
+      "compression_ratio": 1.3333333333333333,
+      "no_speech_prob": 0.19887025654315948,
+      "words": [
+        {
+          "word": " Hola.",
+          "start": 38.54,
+          "end": 38.86,
+          "probability": 0.6590945720672607
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "seek": 2666,
+      "start": 39.3,
+      "end": 42.16,
+      "text": " ¿Qué tal si te dijera que no tienes que estudiar para tu examen de...",
+      "tokens": [
+        50964,
+        3841,
+        15137,
+        4023,
+        1511,
+        535,
+        47709,
+        1663,
+        631,
+        572,
+        20716,
+        631,
+        13542,
+        9448,
+        1690,
+        2604,
+        1139,
+        268,
+        368,
+        485,
+        51114
+      ],
+      "temperature": 0.0,
+      "avg_logprob": -0.15866788676087284,
+      "compression_ratio": 1.3333333333333333,
+      "no_speech_prob": 0.19887025654315948,
+      "words": [
+        {
+          "word": " ¿Qué",
+          "start": 39.3,
+          "end": 39.44,
+          "probability": 0.8381061553955078
+        },
+        {
+          "word": " tal",
+          "start": 39.44,
+          "end": 39.6,
+          "probability": 0.9975441098213196
+        },
+        {
+          "word": " si",
+          "start": 39.6,
+          "end": 39.74,
+          "probability": 0.9684776067733765
+        },
+        {
+          "word": " te",
+          "start": 39.74,
+          "end": 39.88,
+          "probability": 0.9933405518531799
+        },
+        {
+          "word": " dijera",
+          "start": 39.88,
+          "end": 40.24,
+          "probability": 0.9694756269454956
+        },
+        {
+          "word": " que",
+          "start": 40.24,
+          "end": 40.46,
+          "probability": 0.959086537361145
+        },
+        {
+          "word": " no",
+          "start": 40.46,
+          "end": 40.6,
+          "probability": 0.9939715266227722
+        },
+        {
+          "word": " tienes",
+          "start": 40.6,
+          "end": 40.82,
+          "probability": 0.9784491062164307
+        },
+        {
+          "word": " que",
+          "start": 40.82,
+          "end": 40.98,
+          "probability": 0.9963078498840332
+        },
+        {
+          "word": " estudiar",
+          "start": 40.98,
+          "end": 41.3,
+          "probability": 0.9969752728939056
+        },
+        {
+          "word": " para",
+          "start": 41.3,
+          "end": 41.5,
+          "probability": 0.9781226515769958
+        },
+        {
+          "word": " tu",
+          "start": 41.5,
+          "end": 41.66,
+          "probability": 0.9778173565864563
+        },
+        {
+          "word": " examen",
+          "start": 41.66,
+          "end": 41.96,
+          "probability": 0.9703124463558197
+        },
+        {
+          "word": " de...",
+          "start": 41.96,
+          "end": 42.16,
+          "probability": 0.541922390460968
+        }
+      ]
+    }
+  ],
+  "language": "es"
+}

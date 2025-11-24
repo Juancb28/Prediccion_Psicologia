@@ -21,7 +21,7 @@ __pycache__/
 recordings/Test.wav
 # refs/
 # outputs/
-# *.wav
+*.wav
 # *.mp3
 # *.flac
 

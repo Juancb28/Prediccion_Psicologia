@@ -669,9 +669,21 @@ function buildGrabacionesHTML(s, p, sessionIndex){
                             </div>
                         </div>
                         <div style="display:flex; gap:8px; align-items:center;">
-                            <button class="btn" onclick="openTranscriptionModal(${sessionIndex}, ${p.id})" style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white;">
-                                📝 Ver transcripción
-                            </button>
+                            ${(() => {
+                                const isProcessing = grab && grab.processing;
+                                if(isProcessing){
+                                    return `
+                                        <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
+                                            <button class="btn" disabled style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white; opacity:0.85; cursor:default;">⏳ Procesando...</button>
+                                            <div id="_proc_bar_patient_${p.id}" style="width:180px; height:8px; background:#e0f0f0; border-radius:6px; overflow:hidden;">
+                                                <div id="_proc_bar_inner_${p.id}" style="width:6%; height:100%; background:linear-gradient(90deg,#00bcd4,#0097a7); transition:width 700ms ease;"></div>
+                                            </div>
+                                        </div>
+                                    `;
+                                } else {
+                                    return `<button class="btn" id="_view_trans_btn_${p.id}" onclick="openTranscriptionModal(${sessionIndex}, ${p.id})" style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white;">📝 Ver transcripción</button>`;
+                                }
+                            })()}
                             <audio controls src="${(typeof grab.audio === 'string' && grab.audio.startsWith('/')) ? (API_BASE + grab.audio) : grab.audio}" style="max-width:300px;"></audio>
                             <button class="btn ghost" onclick="deleteRecording(${p.id}, ${sessionIndex})" title="Eliminar grabación (requiere PIN)">Eliminar</button>
                         </div>
@@ -680,6 +692,58 @@ function buildGrabacionesHTML(s, p, sessionIndex){
             </div>
         `}
     `;
+}
+
+// Start a background poll to check for labeled output for a given patientId.
+// When labeled output is found, update session state and UI.
+function startProcessingPoll(patientId, sessionIndex){
+    const interval = 3000; // 3s
+    const timeout = 5 * 60 * 1000; // 5 minutes
+    let elapsed = 0;
+    const timer = setInterval(async ()=>{
+        try{
+            elapsed += interval;
+            const resp = await fetch(API_BASE + '/api/processed/' + encodeURIComponent(patientId));
+            if(resp && resp.ok){
+                const j = await resp.json();
+                if(j && j.stage && j.stage === 'labeled'){
+                    const txt = j.text || '';
+                    if(txt){
+                        try{
+                            const s = mockSesiones[sessionIndex];
+                            if(s){
+                                if(!s.grabacion) s.grabacion = [{}];
+                                s.grabacion[0].processing = false;
+                                s.grabacion[0].transcripcion = txt;
+                                await saveData();
+                                refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex);
+                                const inner = document.getElementById('_proc_bar_inner_' + patientId);
+                                if(inner) inner.style.width = '100%';
+                                const btn = document.getElementById('_view_trans_btn_' + patientId);
+                                if(btn) btn.disabled = false;
+                            }
+                        }catch(e){ console.warn('Error updating local session after processing', e); }
+                        clearInterval(timer);
+                        return;
+                    }
+                }
+            }
+        }catch(e){ console.warn('Processing poll error', e); }
+
+        if(elapsed >= timeout){
+            try{
+                const s = mockSesiones[sessionIndex];
+                if(s && s.grabacion && s.grabacion[0] && s.grabacion[0].processing){
+                    s.grabacion[0].processing = false;
+                    await saveData();
+                    refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex);
+                    const inner = document.getElementById('_proc_bar_inner_' + patientId);
+                    if(inner) inner.style.width = '0%';
+                }
+            }catch(e){ console.warn('Error clearing processing flag after timeout', e); }
+            clearInterval(timer);
+        }
+    }, interval);
 }
 
 // Update the grabaciones container and attach audio handlers (no navigation)
@@ -740,39 +804,34 @@ function refreshGrabacionesUI(s, p, sessionIndex){
                 aud.addEventListener('canplaythrough', ()=>{
                     console.log('Audio ready to play:', aud.src);
                 });
-                    // When the user presses play, if there's no transcription yet and the recording is remote,
-                    // request transcription automatically so the UI shows text while they listen.
+                    // When the user presses play, do NOT trigger a new transcription run.
+                    // Instead, try to fetch any already-processed (labeled) output and populate the local transcription if available.
                     aud.addEventListener('play', async ()=>{
                         try{
-                            // avoid duplicate concurrent requests
-                            if(aud.__transcribing) return;
+                            if(aud.__fetchingProcessed) return;
                             const rec = s.grabacion && s.grabacion[0];
                             if(!rec) return;
-                            if(rec.transcripcion) return; // already have text
-                            if(!rec.remote) return; // only auto-transcribe for server-hosted recordings
-                            aud.__transcribing = true;
-                            const busy = createModal(`<h3>🕒 Transcribiendo (automático)</h3><div style="padding:12px;">Transcripción en curso. Se guardará automáticamente al terminar.</div>`);
+                            if(rec.transcripcion) return; // already have text locally
+                            // Only attempt to fetch processed outputs for server-hosted recordings
+                            if(!rec.remote) return;
+                            aud.__fetchingProcessed = true;
                             try{
-                                const tResp = await fetch(API_BASE + '/api/transcribe-recording', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ patientId: p.id }) });
-                                if(tResp && tResp.ok){
-                                    const tj = await tResp.json();
-                                    const txt = tj.transcription_text || (tj.text || '');
-                                    if(txt){
-                                        rec.transcripcion = txt;
-                                        await saveData();
-                                        refreshGrabacionesUI(s, p, sessionIndex);
-                                        try{ openTranscriptionModal(sessionIndex, p.id); }catch(e){}
+                                const resp = await fetch(API_BASE + '/api/processed/' + encodeURIComponent(p.id));
+                                if(resp && resp.ok){
+                                    const j = await resp.json();
+                                    // Only accept labeled stage — avoid showing plain transcription
+                                    if(j && j.stage && j.stage === 'labeled'){
+                                        const txt = j.text || '';
+                                        if(txt){
+                                            rec.transcripcion = txt;
+                                            await saveData();
+                                            refreshGrabacionesUI(s, p, sessionIndex);
+                                        }
                                     }
-                                } else {
-                                    console.warn('Auto-transcribe request failed', tResp && (await tResp.text().catch(()=>'')));
                                 }
-                            }catch(err){
-                                console.warn('Auto-transcribe error', err);
-                            }finally{
-                                try{ busy.close(); }catch(e){}
-                                aud.__transcribing = false;
-                            }
-                        }catch(e){ console.warn('play handler error', e); }
+                            }catch(err){ console.warn('Error fetching processed outputs', err); }
+                            aud.__fetchingProcessed = false;
+                        }catch(e){ console.warn('play handler error', e); aud.__fetchingProcessed = false; }
                     });
                 // ensure browser parses metadata
                 try{ aud.load(); }catch(e){}
@@ -1613,7 +1672,7 @@ async function openSessionDetail(sessionIndex, patientId){
                                                     }
                                                 }catch(e){/* ignore */}
 
-                                                // Trigger server-side transcription for this recording (non-blocking to UI)
+                                                // Request server-side processing, mark as processing locally and start polling for labeled output
                                                 (async ()=>{
                                                     try{
                                                         const tResp = await fetch(API_BASE + '/api/transcribe-recording', {
@@ -1621,23 +1680,16 @@ async function openSessionDetail(sessionIndex, patientId){
                                                             headers: { 'Content-Type': 'application/json' },
                                                             body: JSON.stringify({ patientId: p.id })
                                                         });
-                                                        if(!tResp.ok){
-                                                            console.warn('Transcription request failed', await tResp.text());
-                                                            return;
-                                                        }
-                                                        const tj = await tResp.json();
-                                                        if(tj && tj.ok === false){
-                                                            console.warn('Transcription backend returned error', tj);
-                                                            return;
-                                                        }
-                                                        // Save transcription into session recording data and persist
-                                                        const txt = tj.transcription_text || (tj.text || '');
-                                                        if(txt && s.grabacion && s.grabacion.length>0){
-                                                            s.grabacion[0].transcripcion = txt;
-                                                            await saveData();
-                                                            // Refresh the UI and open the transcription modal so user sees result
-                                                            refreshGrabacionesUI(s, p, sessionIndex);
-                                                            try{ openTranscriptionModal(sessionIndex, p.id); }catch(e){}
+                                                        if(tResp && tResp.ok){
+                                                            try{
+                                                                if(!s.grabacion) s.grabacion = [{}];
+                                                                s.grabacion[0].processing = true;
+                                                                await saveData();
+                                                                refreshGrabacionesUI(s, p, sessionIndex);
+                                                                startProcessingPoll(p.id, sessionIndex);
+                                                            }catch(e){ console.warn('Could not mark processing locally', e); }
+                                                        } else {
+                                                            try{ const txt = await tResp.text(); console.warn('Transcription request failed', tResp && tResp.status, txt); }catch(e){}
                                                         }
                                                     }catch(err){
                                                         console.warn('Error requesting transcription', err);

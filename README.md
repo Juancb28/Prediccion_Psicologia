@@ -124,3 +124,13 @@ head -n 40 outputs/*_transcription.txt
 ```
 
 Eso es todo — estos pasos asumen que `pip install -r requirements.txt` ya se ejecutó antes y que `.venv` contiene las dependencias necesarias.
+
+
+# Ejecutar ambos servidores
+export PYTHON="./.venv/Scripts/python.exe"  
+node server.js
+
+# o 
+source .venv/Scripts/activate
+export PYTHON="$(which python)"  
+node server.js

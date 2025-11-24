@@ -20,7 +20,7 @@ __pycache__/
 # Datos sensibles
 recordings/*.wav
 # refs/
-# outputs/
+outputs/
 *.wav
 # *.mp3
 # *.flac

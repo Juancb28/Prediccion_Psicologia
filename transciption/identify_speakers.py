@@ -41,7 +41,7 @@ def extract_speaker_embeddings(audio_path, labeled_segments, output_dir="outputs
     speaker_embeddings = {}
     
     for speaker, segments in speaker_segments.items():
-        #print(f"  Procesando {speaker}...")
+        print(f"  Procesando {speaker}...")
         
         # Tomar varios segmentos para mejor representación
         sample_segments = segments[:min(5, len(segments))]

@@ -121,18 +121,19 @@ def diarize_and_label(audio_path, transcription_path=None, output_dir="outputs")
         hf_ver = None
 
     if hf_ver:
-        # treat 0.14.0+ as incompatible for pyannote.audio 3.1.1
+        # treat 0.14.0+ as formally incompatible for pyannote.audio 3.1.1
         try:
             major, minor, *_ = [int(x) for x in hf_ver.split('.')]
         except Exception:
             major = minor = 0
 
         if (major == 0 and minor >= 14) or (major >= 1):
-            raise RuntimeError(
-                f"Incompatible 'huggingface_hub' version detected: {hf_ver}. "
-                "pyannote.audio (3.x) expects the older API that accepts 'use_auth_token'. "
-                "Please install a compatible version: `pip install huggingface_hub==0.13.4` "
-                "and re-run the script. You may also update your project's `requirements.txt`."
+            # Instead of aborting, warn and attempt runtime compatibility shims below.
+            print(
+                f"⚠ Advertencia: 'huggingface_hub' versión detectada: {hf_ver}. "
+                "pyannote.audio (3.x) historically required the older 'use_auth_token' API. "
+                "The script will attempt compatibility wrappers and proceed; if the pipeline fails, "
+                "consider installing a compatible version: `pip install huggingface_hub==0.13.4`."
             )
     
     # Crear directorio de salida

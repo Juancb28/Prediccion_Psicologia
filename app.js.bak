@@ -177,11 +177,14 @@ function renderDashboard() {
             </div>
         </div>
     `;
-    // If a recording already exists for this session/patient, disable the start recording button
+    // If a recording already exists for a session/patient, disable the start recording button
+    // Note: guard against undefined session variable to avoid ReferenceError that blocks rendering.
     setTimeout(()=>{
         try{
             const startBtnEl = document.getElementById('_start_recording_btn');
-            if(startBtnEl && s.grabacion && s.grabacion.length > 0){
+            // Try to find a session associated with the currently active patient, if any
+            const s = mockSesiones.find(sess => sess.pacienteId === activePatientId);
+            if(startBtnEl && s && s.grabacion && s.grabacion.length > 0){
                 startBtnEl.disabled = true;
                 // show styled tooltip next to button
                 showWarningTooltipForElement(startBtnEl, 'Ya existe una grabación para este paciente. Elimine la grabación antes de grabar una nueva.');
@@ -440,30 +443,59 @@ function createModal(html){
 }
 
 function modalPrompt(label, defaultValue=''){
-    return new Promise(resolve=>{
-        const m = createModal(`<h3>${label}</h3><div class="row"><input id="_m_input" type="text" value="${defaultValue}"></div><div class="actions"><button class="btn ghost" id="_m_cancel">Cancelar</button><button class="btn primary" id="_m_ok">Aceptar</button></div>`);
-        m.backdrop.querySelector('#_m_cancel').onclick = ()=>{ m.close(); resolve(null); };
-        m.backdrop.querySelector('#_m_ok').onclick = ()=>{ const v = m.backdrop.querySelector('#_m_input').value; m.close(); resolve(v); };
-        setTimeout(()=> m.backdrop.querySelector('#_m_input').focus(),50);
+    return new Promise(resolve => {
+        const html = `
+            <h3>${label}</h3>
+            <div class="row">
+                <input id="_m_input" type="text" value="${defaultValue}">
+            </div>
+            <div class="actions">
+                <button class="btn ghost" id="_m_cancel">Cancelar</button>
+                <button class="btn primary" id="_m_ok">Aceptar</button>
+            </div>
+        `;
+        const m = createModal(html);
+        const inputEl = m.backdrop.querySelector('#_m_input');
+        m.backdrop.querySelector('#_m_cancel').onclick = () => { m.close(); resolve(null); };
+        const okHandler = () => { const v = inputEl.value; m.close(); resolve(v); };
+        m.backdrop.querySelector('#_m_ok').onclick = okHandler;
+        // Allow Enter to submit the PIN / prompt
+        inputEl.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); okHandler(); } });
+        setTimeout(() => inputEl.focus(), 50);
     });
 }
 
 function modalConfirm(message){
-    return new Promise(resolve=>{
-        const m = createModal(`<h3>${message}</h3><div class="actions"><button class="btn ghost" id="_m_no">No</button><button class="btn primary" id="_m_yes">Sí</button></div>`);
-        m.backdrop.querySelector('#_m_no').onclick = ()=>{ m.close(); resolve(false); };
-        m.backdrop.querySelector('#_m_yes').onclick = ()=>{ m.close(); resolve(true); };
+    return new Promise(resolve => {
+        const html = `
+            <h3>${message}</h3>
+            <div class="actions">
+                <button class="btn ghost" id="_m_no">No</button>
+                <button class="btn primary" id="_m_yes">Sí</button>
+            </div>
+        `;
+        const m = createModal(html);
+        m.backdrop.querySelector('#_m_no').onclick = () => { m.close(); resolve(false); };
+        m.backdrop.querySelector('#_m_yes').onclick = () => { m.close(); resolve(true); };
     });
 }
 
 function modalForm(title, innerHtml){
-    return new Promise(resolve=>{
-        const m = createModal(`<h3>${title}</h3>${innerHtml}<div class="actions"><button class="btn ghost" id="_m_cancel">Cancelar</button><button class="btn primary" id="_m_save">Guardar</button></div>`);
-        m.backdrop.querySelector('#_m_cancel').onclick = ()=>{ m.close(); resolve(null); };
-        m.backdrop.querySelector('#_m_save').onclick = ()=>{
+    return new Promise(resolve => {
+        const html = `
+            <h3>${title}</h3>
+            ${innerHtml}
+            <div class="actions">
+                <button class="btn ghost" id="_m_cancel">Cancelar</button>
+                <button class="btn primary" id="_m_save">Guardar</button>
+            </div>
+        `;
+        const m = createModal(html);
+        m.backdrop.querySelector('#_m_cancel').onclick = () => { m.close(); resolve(null); };
+        m.backdrop.querySelector('#_m_save').onclick = () => {
             const inputs = m.backdrop.querySelectorAll('input, textarea, select');
             const data = {};
-            inputs.forEach(i=>{ if(i.name) data[i.name]=i.value; });
+            inputs.forEach(i => { if (i.name) data[i.name] = i.value; });
             m.close(); resolve(data);
         };
     });
@@ -668,10 +700,11 @@ function buildGrabacionesHTML(s, p, sessionIndex){
                                 ${new Date(grab.fecha).toLocaleString('es-ES')} • ${grab.duracion ? grab.duracion + 's' : 'Duración no disponible'}
                             </div>
                         </div>
-                        <div style="display:flex; gap:8px; align-items:center;">
+                            <div style="display:flex; gap:8px; align-items:center;">
                             ${(() => {
                                 const isProcessing = grab && grab.processing;
                                 if(isProcessing){
+                                    // Render disabled button plus progress bar placeholder
                                     return `
                                         <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
                                             <button class="btn" disabled style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white; opacity:0.85; cursor:default;">⏳ Procesando...</button>
@@ -688,62 +721,10 @@ function buildGrabacionesHTML(s, p, sessionIndex){
                             <button class="btn ghost" onclick="deleteRecording(${p.id}, ${sessionIndex})" title="Eliminar grabación (requiere PIN)">Eliminar</button>
                         </div>
                     </div>
-                `).join('')}
+                `).join('')}`
             </div>
-        `}
-    `;
-}
-
-// Start a background poll to check for labeled output for a given patientId.
-// When labeled output is found, update session state and UI.
-function startProcessingPoll(patientId, sessionIndex){
-    const interval = 3000; // 3s
-    const timeout = 5 * 60 * 1000; // 5 minutes
-    let elapsed = 0;
-    const timer = setInterval(async ()=>{
-        try{
-            elapsed += interval;
-            const resp = await fetch(API_BASE + '/api/processed/' + encodeURIComponent(patientId));
-            if(resp && resp.ok){
-                const j = await resp.json();
-                if(j && j.stage && j.stage === 'labeled'){
-                    const txt = j.text || '';
-                    if(txt){
-                        try{
-                            const s = mockSesiones[sessionIndex];
-                            if(s){
-                                if(!s.grabacion) s.grabacion = [{}];
-                                s.grabacion[0].processing = false;
-                                s.grabacion[0].transcripcion = txt;
-                                await saveData();
-                                refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex);
-                                const inner = document.getElementById('_proc_bar_inner_' + patientId);
-                                if(inner) inner.style.width = '100%';
-                                const btn = document.getElementById('_view_trans_btn_' + patientId);
-                                if(btn) btn.disabled = false;
-                            }
-                        }catch(e){ console.warn('Error updating local session after processing', e); }
-                        clearInterval(timer);
-                        return;
-                    }
-                }
-            }
-        }catch(e){ console.warn('Processing poll error', e); }
-
-        if(elapsed >= timeout){
-            try{
-                const s = mockSesiones[sessionIndex];
-                if(s && s.grabacion && s.grabacion[0] && s.grabacion[0].processing){
-                    s.grabacion[0].processing = false;
-                    await saveData();
-                    refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex);
-                    const inner = document.getElementById('_proc_bar_inner_' + patientId);
-                    if(inner) inner.style.width = '0%';
-                }
-            }catch(e){ console.warn('Error clearing processing flag after timeout', e); }
-            clearInterval(timer);
-        }
-    }, interval);
+        `;
+    }
 }
 
 // Update the grabaciones container and attach audio handlers (no navigation)
@@ -804,8 +785,8 @@ function refreshGrabacionesUI(s, p, sessionIndex){
                 aud.addEventListener('canplaythrough', ()=>{
                     console.log('Audio ready to play:', aud.src);
                 });
-                    // When the user presses play, do NOT trigger a new transcription run.
-                    // Instead, try to fetch any already-processed (labeled) output and populate the local transcription if available.
+                    // When the user presses play, try to populate an already-processed transcription (non-destructive).
+                    // IMPORTANT: do NOT trigger a transcription run here — only fetch already-processed outputs.
                     aud.addEventListener('play', async ()=>{
                         try{
                             if(aud.__fetchingProcessed) return;
@@ -841,6 +822,80 @@ function refreshGrabacionesUI(s, p, sessionIndex){
         console.warn('No _grabaciones_container found; skipping UI refresh');
     }
 }
+
+    // Start a background poll to check for labeled output for a given patientId.
+    // When labeled output is found, update session state and UI.
+    function startProcessingPoll(patientId, sessionIndex){
+        const interval = 3000; // 3s
+        const timeout = 5 * 60 * 1000; // 5 minutes
+        let elapsed = 0;
+        const timer = setInterval(async ()=>{
+            try{
+                elapsed += interval;
+                const resp = await fetch(API_BASE + '/api/processed/' + encodeURIComponent(patientId));
+                if(resp && resp.ok){
+                    const j = await resp.json();
+                    // Only treat as finished when stage is 'labeled'
+                    if(j && j.stage && j.stage === 'labeled'){
+                        const txt = j.text || '';
+                        if(txt){
+                            // Update local session data if present
+                            try{
+                                const s = mockSesiones[sessionIndex];
+                                if(s){
+                                    if(!s.grabacion) s.grabacion = [{}];
+                                    s.grabacion[0].processing = false;
+                                    s.grabacion[0].transcripcion = txt;
+                                    await saveData();
+                                    refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex);
+                                    // set progress bar to 100% visually if present
+                                    try{
+                                        const inner = document.getElementById('_proc_bar_inner_' + patientId);
+                                        if(inner){ inner.style.width = '100%'; }
+                                        const btn = document.getElementById('_view_trans_btn_' + patientId);
+                                        if(btn){ btn.disabled = false; }
+                                    }catch(e){}
+                                }
+                            }catch(e){ console.warn('Error updating local session after processing', e); }
+                            clearInterval(timer);
+                            return;
+                        }
+                    }
+
+                    // no txt yet: increment progress bar a bit to indicate activity
+                    try{
+                        const inner = document.getElementById('_proc_bar_inner_' + patientId);
+                        if(inner){
+                            try{
+                                const current = parseFloat(inner.style.width || '6%');
+                                // increase by 6-12% up to 86%
+                                const inc = 6 + Math.floor(Math.random()*7);
+                                const next = Math.min(86, current + inc);
+                                inner.style.width = (Number.isFinite(next) ? next : current) + '%';
+                            }catch(e){}
+                        }
+                    }catch(e){}
+                }
+            }catch(e){ console.warn('Processing poll error', e); }
+
+            if(elapsed >= timeout){
+                // give up — clear processing flag so user can manually retry/open modal
+                try{
+                    const s = mockSesiones[sessionIndex];
+                    if(s && s.grabacion && s.grabacion[0] && s.grabacion[0].processing){
+                        s.grabacion[0].processing = false;
+                        await saveData();
+                        refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex);
+                        try{
+                            const inner = document.getElementById('_proc_bar_inner_' + patientId);
+                            if(inner) inner.style.width = '0%';
+                        }catch(e){}
+                    }
+                }catch(e){ console.warn('Error clearing processing flag after timeout', e); }
+                clearInterval(timer);
+            }
+        }, interval);
+    }
 
 // Show a styled warning tooltip next to an element (keeps shown until removed)
 function showWarningTooltipForElement(el, message){
@@ -928,54 +983,83 @@ async function openTranscriptionModal(sessionIndex, patientId){
     // Get or initialize transcription
     let transcription = s.grabacion[0].transcripcion || '';
 
-    // If there's no local transcription but the recording was uploaded to server, try requesting transcription on demand
-    if(!transcription && s.grabacion[0].audio && s.grabacion[0].remote){
-        try{
-            // show a temporary modal informing user that transcription is being requested
-            const busyModal = createModal(`<h3>🕒 Solicitando transcripción</h3><div style="padding:12px;">La transcripción puede tardar. Por favor, espere...</div>`);
-            console.log('[debug] openTranscriptionModal: requesting transcription for patientId=', patientId, 'file=', s.grabacion[0].audio);
-            const resp = await fetch(API_BASE + '/api/transcribe-recording', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ patientId: patientId })
-            });
-            console.log('[debug] openTranscriptionModal: transcription request finished, resp.ok=', resp && resp.ok, 'status=', resp && resp.status);
-            busyModal.close();
-            if(!resp.ok){
-                try{ const txt = await resp.text(); console.warn('Transcription request failed', resp.status, txt); }catch(e){}
-            } else {
-                const j = await resp.json();
-                const txt = j && (j.transcription_text || j.text || '');
-                console.log('[debug] openTranscriptionModal: transcription response json', j);
-                if(txt){
-                    s.grabacion[0].transcripcion = txt;
-                    transcription = txt;
-                    await saveData();
-                    console.log('[debug] openTranscriptionModal: saved transcription locally, length=', (txt||'').length);
-                    // refresh UI so user sees updated state
-                    refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex);
-                }
-            }
-        }catch(e){
-            console.error('[debug] openTranscriptionModal: error requesting transcription', e);
-            console.warn('Error requesting transcription on-demand', e);
-        }
-    }
-    
-    const html = `
+    // Build a modal that shows current transcription or waits until a processed (labeled) output appears.
+    const modalHtml = `
+        <h3>📝 Transcripción</h3>
         <div class="row">
             <label>Transcripción de la grabación</label>
-            <textarea name="transcripcion" rows="15" style="font-family: monospace; font-size: 14px;" placeholder="Ingrese aquí la transcripción de la grabación...">${transcription}</textarea>
+            <textarea id="_modal_transcription_text" rows="15" style="font-family: monospace; font-size: 14px;" placeholder="La transcripción aparecerá aquí cuando esté lista..." ${transcription ? '' : 'disabled'}>${transcription || ''}</textarea>
         </div>
+        <div id="_processing_indicator" style="margin-top:8px; color:#666; font-size:13px;">${transcription ? '' : '⏳ Buscando versión procesada (etapa labeled)...'}</div>
+        <div class="actions" style="margin-top:12px;"><button class="btn ghost" id="_modal_cancel">Cancelar</button><button class="btn primary" id="_modal_save">Guardar</button></div>
     `;
-    
-    const data = await modalForm('📝 Transcripción', html);
-    if(!data) return;
-    
-    // Save transcription in the recording
-    s.grabacion[0].transcripcion = data.transcripcion || '';
-    await saveData();
-    alert('✅ Transcripción guardada');
+
+    const modal = createModal(modalHtml);
+    const textarea = modal.backdrop.querySelector('#_modal_transcription_text');
+    const indicator = modal.backdrop.querySelector('#_processing_indicator');
+    const btnCancel = modal.backdrop.querySelector('#_modal_cancel');
+    const btnSave = modal.backdrop.querySelector('#_modal_save');
+
+    let polling = null;
+    let pollingStopped = false;
+
+    async function stopPolling(){
+        pollingStopped = true;
+        if(polling) clearInterval(polling);
+        polling = null;
+    }
+
+    // If there's no local transcription, poll /api/processed for labeled output until timeout
+    if(!transcription && s.grabacion[0].audio && s.grabacion[0].remote){
+        let elapsed = 0;
+        const interval = 2000; // 2s
+        const timeout = 120000; // 120s
+
+        polling = setInterval(async ()=>{
+            if(pollingStopped) return;
+            elapsed += interval;
+            try{
+                const resp = await fetch(API_BASE + '/api/processed/' + encodeURIComponent(patientId));
+                if(resp && resp.ok){
+                    const j = await resp.json();
+                    // Only accept the labeled stage as final — do not show plain transcription
+                    if(j && j.stage && j.stage === 'labeled'){
+                        const txt = j.text || '';
+                        if(txt){
+                            // populate textarea and enable editing
+                            textarea.value = txt;
+                            textarea.disabled = false;
+                            indicator.textContent = '✅ Transcripción etiquetada disponible (etapa: ' + (j.stage || 'labeled') + ')';
+                            s.grabacion[0].transcripcion = txt;
+                            await saveData();
+                            refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex);
+                            await stopPolling();
+                            return;
+                        }
+                    }
+                }
+            }catch(e){ console.warn('Polling processed failed', e); }
+            if(elapsed >= timeout){
+                indicator.textContent = '⚠ No se encontró transcripción procesada dentro del tiempo esperado. Puedes guardar manualmente o reintentar más tarde.';
+                textarea.disabled = false;
+                await stopPolling();
+            }
+        }, interval);
+    }
+
+    // Cancel
+    btnCancel.onclick = ()=>{ stopPolling(); modal.close(); };
+
+    // Save
+    btnSave.onclick = async ()=>{
+        try{ await stopPolling(); }catch(e){}
+        const newText = textarea.value || '';
+        s.grabacion[0].transcripcion = newText;
+        await saveData();
+        modal.close();
+        alert('✅ Transcripción guardada');
+        refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex);
+    };
 }
 
 function showPatient(id) {
@@ -1660,7 +1744,7 @@ async function openSessionDetail(sessionIndex, patientId){
                                                 s.grabacion = [{ fecha: new Date().toISOString(), audio: j.path, duracion: Math.floor((Date.now() - startTime) / 1000), remote: true }];
                                                 await saveData();
                                                 console.log('[debug] upload recording: stored remote path=', j.path);
-                                                alert('✅ Grabación subida y guardada correctamente');
+                                                // Do not show the global alert message here (user requested to never show it).
                                                 refreshGrabacionesUI(s, p, sessionIndex);
                                                 // disable the recording button now that a recording exists
                                                 try{
@@ -1672,7 +1756,8 @@ async function openSessionDetail(sessionIndex, patientId){
                                                     }
                                                 }catch(e){/* ignore */}
 
-                                                // Request server-side processing, mark as processing locally and start polling for labeled output
+                                                // Trigger server-side transcription pipeline (non-blocking to UI).
+                                                // Do NOT auto-open the transcription modal or save any immediate text.
                                                 (async ()=>{
                                                     try{
                                                         const tResp = await fetch(API_BASE + '/api/transcribe-recording', {
@@ -1680,16 +1765,22 @@ async function openSessionDetail(sessionIndex, patientId){
                                                             headers: { 'Content-Type': 'application/json' },
                                                             body: JSON.stringify({ patientId: p.id })
                                                         });
+                                                        // If server accepted and started processing, mark local state as 'processing'
                                                         if(tResp && tResp.ok){
                                                             try{
+                                                                const tj = await tResp.json();
                                                                 if(!s.grabacion) s.grabacion = [{}];
+                                                                // mark processing flag locally so UI can disable the button
                                                                 s.grabacion[0].processing = true;
                                                                 await saveData();
                                                                 refreshGrabacionesUI(s, p, sessionIndex);
+                                                                // start a background poll to check for labeled output and update UI when ready
                                                                 startProcessingPoll(p.id, sessionIndex);
-                                                            }catch(e){ console.warn('Could not mark processing locally', e); }
+                                                            }catch(e){
+                                                                console.warn('Could not parse transcribe-recording response', e);
+                                                            }
                                                         } else {
-                                                            try{ const txt = await tResp.text(); console.warn('Transcription request failed', tResp && tResp.status, txt); }catch(e){}
+                                                            try{ const body = await tResp.text(); console.warn('Transcription request failed', tResp && tResp.status, body); }catch(e){}
                                                         }
                                                     }catch(err){
                                                         console.warn('Error requesting transcription', err);

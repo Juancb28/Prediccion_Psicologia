@@ -740,6 +740,40 @@ function refreshGrabacionesUI(s, p, sessionIndex){
                 aud.addEventListener('canplaythrough', ()=>{
                     console.log('Audio ready to play:', aud.src);
                 });
+                    // When the user presses play, if there's no transcription yet and the recording is remote,
+                    // request transcription automatically so the UI shows text while they listen.
+                    aud.addEventListener('play', async ()=>{
+                        try{
+                            // avoid duplicate concurrent requests
+                            if(aud.__transcribing) return;
+                            const rec = s.grabacion && s.grabacion[0];
+                            if(!rec) return;
+                            if(rec.transcripcion) return; // already have text
+                            if(!rec.remote) return; // only auto-transcribe for server-hosted recordings
+                            aud.__transcribing = true;
+                            const busy = createModal(`<h3>🕒 Transcribiendo (automático)</h3><div style="padding:12px;">Transcripción en curso. Se guardará automáticamente al terminar.</div>`);
+                            try{
+                                const tResp = await fetch(API_BASE + '/api/transcribe-recording', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ patientId: p.id }) });
+                                if(tResp && tResp.ok){
+                                    const tj = await tResp.json();
+                                    const txt = tj.transcription_text || (tj.text || '');
+                                    if(txt){
+                                        rec.transcripcion = txt;
+                                        await saveData();
+                                        refreshGrabacionesUI(s, p, sessionIndex);
+                                        try{ openTranscriptionModal(sessionIndex, p.id); }catch(e){}
+                                    }
+                                } else {
+                                    console.warn('Auto-transcribe request failed', tResp && (await tResp.text().catch(()=>'')));
+                                }
+                            }catch(err){
+                                console.warn('Auto-transcribe error', err);
+                            }finally{
+                                try{ busy.close(); }catch(e){}
+                                aud.__transcribing = false;
+                            }
+                        }catch(e){ console.warn('play handler error', e); }
+                    });
                 // ensure browser parses metadata
                 try{ aud.load(); }catch(e){}
             });
@@ -833,7 +867,41 @@ async function openTranscriptionModal(sessionIndex, patientId){
     if(!s.grabacion || s.grabacion.length === 0) return alert('No hay grabación para transcribir');
     
     // Get or initialize transcription
-    const transcription = s.grabacion[0].transcripcion || '';
+    let transcription = s.grabacion[0].transcripcion || '';
+
+    // If there's no local transcription but the recording was uploaded to server, try requesting transcription on demand
+    if(!transcription && s.grabacion[0].audio && s.grabacion[0].remote){
+        try{
+            // show a temporary modal informing user that transcription is being requested
+            const busyModal = createModal(`<h3>🕒 Solicitando transcripción</h3><div style="padding:12px;">La transcripción puede tardar. Por favor, espere...</div>`);
+            console.log('[debug] openTranscriptionModal: requesting transcription for patientId=', patientId, 'file=', s.grabacion[0].audio);
+            const resp = await fetch(API_BASE + '/api/transcribe-recording', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ patientId: patientId })
+            });
+            console.log('[debug] openTranscriptionModal: transcription request finished, resp.ok=', resp && resp.ok, 'status=', resp && resp.status);
+            busyModal.close();
+            if(!resp.ok){
+                try{ const txt = await resp.text(); console.warn('Transcription request failed', resp.status, txt); }catch(e){}
+            } else {
+                const j = await resp.json();
+                const txt = j && (j.transcription_text || j.text || '');
+                console.log('[debug] openTranscriptionModal: transcription response json', j);
+                if(txt){
+                    s.grabacion[0].transcripcion = txt;
+                    transcription = txt;
+                    await saveData();
+                    console.log('[debug] openTranscriptionModal: saved transcription locally, length=', (txt||'').length);
+                    // refresh UI so user sees updated state
+                    refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex);
+                }
+            }
+        }catch(e){
+            console.error('[debug] openTranscriptionModal: error requesting transcription', e);
+            console.warn('Error requesting transcription on-demand', e);
+        }
+    }
     
     const html = `
         <div class="row">
@@ -1396,7 +1464,9 @@ async function openSessionDetail(sessionIndex, patientId){
     // On open, check server state and disable record button if a recording exists
     (async ()=>{
         try{
+            console.log('[debug] on openSessionDetail: checking existing recording for patient', p.id, 'GET', API_BASE + '/api/recording/' + p.id);
             const chk = await fetch(API_BASE + '/api/recording/' + p.id);
+            console.log('[debug] on openSessionDetail: check response ok=', chk && chk.ok, 'status=', chk && chk.status);
             if(chk && chk.ok){
                 const info = await chk.json();
                 if(info.exists){
@@ -1419,7 +1489,9 @@ async function openSessionDetail(sessionIndex, patientId){
                 // Prevent new recording if one already exists for this session/patient
                 // Before trusting local state, verify with server whether the recording file actually exists.
                 try{
+                    console.log('[debug] recordingBtn: checking existing recording for patient', p.id, 'GET', API_BASE + '/api/recording/' + p.id);
                     const chk = await fetch(API_BASE + '/api/recording/' + p.id);
+                    console.log('[debug] recordingBtn: check response ok=', chk && chk.ok, 'status=', chk && chk.status);
                     if(chk && chk.ok){
                         const info = await chk.json();
                         if(info.exists){
@@ -1475,7 +1547,9 @@ async function openSessionDetail(sessionIndex, patientId){
                             form.append('patientId', String(p.id));
 
                                                 const uploadUrl = API_BASE + '/api/upload-recording';
+                                                console.log('[debug] upload recording: POST', uploadUrl, 'patientId=', p.id);
                                                 const resp = await fetch(uploadUrl, { method: 'POST', body: form });
+                                                console.log('[debug] upload recording: response ok=', resp && resp.ok, 'status=', resp && resp.status);
 
                                                 // If server reports an existing recording, inform user and abort
                                                 if(resp.status === 409){
@@ -1526,17 +1600,49 @@ async function openSessionDetail(sessionIndex, patientId){
                                                 // Success: store the server path (only one recording per patient)
                                                 s.grabacion = [{ fecha: new Date().toISOString(), audio: j.path, duracion: Math.floor((Date.now() - startTime) / 1000), remote: true }];
                                                 await saveData();
+                                                console.log('[debug] upload recording: stored remote path=', j.path);
                                                 alert('✅ Grabación subida y guardada correctamente');
-                                                    refreshGrabacionesUI(s, p, sessionIndex);
-                                                    // disable the recording button now that a recording exists
+                                                refreshGrabacionesUI(s, p, sessionIndex);
+                                                // disable the recording button now that a recording exists
+                                                try{
+                                                    if(recordingBtn){
+                                                        recordingBtn.disabled = true;
+                                                        try{ recordingBtn.querySelector('span').textContent = 'Grabación existente'; }catch(e){}
+                                                        showWarningTooltipForElement(recordingBtn, 'Ya existe una grabación para este paciente. Elimine la grabación antes de grabar una nueva.');
+                                                        recordingBtn.classList.add('disabled');
+                                                    }
+                                                }catch(e){/* ignore */}
+
+                                                // Trigger server-side transcription for this recording (non-blocking to UI)
+                                                (async ()=>{
                                                     try{
-                                                        if(recordingBtn){
-                                                            recordingBtn.disabled = true;
-                                                            try{ recordingBtn.querySelector('span').textContent = 'Grabación existente'; }catch(e){}
-                                                            showWarningTooltipForElement(recordingBtn, 'Ya existe una grabación para este paciente. Elimine la grabación antes de grabar una nueva.');
-                                                            recordingBtn.classList.add('disabled');
+                                                        const tResp = await fetch(API_BASE + '/api/transcribe-recording', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ patientId: p.id })
+                                                        });
+                                                        if(!tResp.ok){
+                                                            console.warn('Transcription request failed', await tResp.text());
+                                                            return;
                                                         }
-                                                    }catch(e){/* ignore */}
+                                                        const tj = await tResp.json();
+                                                        if(tj && tj.ok === false){
+                                                            console.warn('Transcription backend returned error', tj);
+                                                            return;
+                                                        }
+                                                        // Save transcription into session recording data and persist
+                                                        const txt = tj.transcription_text || (tj.text || '');
+                                                        if(txt && s.grabacion && s.grabacion.length>0){
+                                                            s.grabacion[0].transcripcion = txt;
+                                                            await saveData();
+                                                            // Refresh the UI and open the transcription modal so user sees result
+                                                            refreshGrabacionesUI(s, p, sessionIndex);
+                                                            try{ openTranscriptionModal(sessionIndex, p.id); }catch(e){}
+                                                        }
+                                                    }catch(err){
+                                                        console.warn('Error requesting transcription', err);
+                                                    }
+                                                })();
 
                         }catch(err){
                             console.error('Error processing recording on stop', err);

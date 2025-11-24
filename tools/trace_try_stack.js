@@ -1,0 +1,6 @@
+const fs=require('fs'); const src=fs.readFileSync('d:/Software/Projects/AI _Project/Prediccion_Psicologia/app.js','utf8'); const lines=src.split('\n'); let inSingle=false,inDouble=false,inBack=false,esc=false; let stack=[]; for(let li=0; li<lines.length; li++){ const line=lines[li]; for(let i=0;i<line.length;i++){ const ch=line[i]; if(esc){ esc=false; continue;} if(ch==='\\'){ esc=true; continue;} if(inSingle){ if(ch==="'") inSingle=false; continue;} if(inDouble){ if(ch==='"') inDouble=false; continue;} if(inBack){ if(ch==='`') inBack=false; continue;} if(ch==="'"){ inSingle=true; continue;} if(ch==='"'){ inDouble=true; continue;} if(ch==='`'){ inBack=true; continue;} // detect try or catch
+  if(line.slice(i).startsWith('try') && /[^a-zA-Z0-9_$]/.test(line[i+3]||' ')) { stack.push({line:li+1,pos:i}); console.log('PUSH try at line', li+1, 'stackDepth', stack.length); i+=2; }
+  if(line.slice(i).startsWith('catch') && /[^a-zA-Z0-9_$]/.test(line[i+5]||' ')) { if(stack.length===0) console.log('UNMATCHED catch at line', li+1); else { const last=stack.pop(); console.log('POP catch at line', li+1, 'matched try at line', last.line, 'stackDepth', stack.length); } i+=4; }
+ }
+}
+if(stack.length) console.log('Remaining unmatched try at line', stack[stack.length-1]); else console.log('All paired');

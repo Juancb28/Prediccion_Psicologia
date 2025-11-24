@@ -673,13 +673,10 @@ function buildGrabacionesHTML(s, p, sessionIndex){
                                 const isProcessing = grab && grab.processing;
                                 if(isProcessing){
                                     return `
-                                        <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
-                                            <button class="btn" disabled style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white; opacity:0.85; cursor:default;">⏳ Procesando...</button>
-                                            <div id="_proc_bar_patient_${p.id}" style="width:180px; height:8px; background:#e0f0f0; border-radius:6px; overflow:hidden;">
-                                                <div id="_proc_bar_inner_${p.id}" style="width:6%; height:100%; background:linear-gradient(90deg,#00bcd4,#0097a7); transition:width 700ms ease;"></div>
+                                            <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
+                                                <button class="btn" disabled style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white; opacity:0.85; cursor:default;">⏳ Procesando...</button>
                                             </div>
-                                        </div>
-                                    `;
+                                        `;
                                 } else {
                                     return `<button class="btn" id="_view_trans_btn_${p.id}" onclick="openTranscriptionModal(${sessionIndex}, ${p.id})" style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white;">📝 Ver transcripción</button>`;
                                 }
@@ -717,8 +714,7 @@ function startProcessingPoll(patientId, sessionIndex){
                                 s.grabacion[0].transcripcion = txt;
                                 await saveData();
                                 refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex);
-                                const inner = document.getElementById('_proc_bar_inner_' + patientId);
-                                if(inner) inner.style.width = '100%';
+                                // Progress bar element removed from UI; no DOM width update needed
                                 const btn = document.getElementById('_view_trans_btn_' + patientId);
                                 if(btn) btn.disabled = false;
                             }
@@ -737,8 +733,7 @@ function startProcessingPoll(patientId, sessionIndex){
                     s.grabacion[0].processing = false;
                     await saveData();
                     refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex);
-                    const inner = document.getElementById('_proc_bar_inner_' + patientId);
-                    if(inner) inner.style.width = '0%';
+                    // Progress bar element removed from UI; no DOM width update needed
                 }
             }catch(e){ console.warn('Error clearing processing flag after timeout', e); }
             clearInterval(timer);

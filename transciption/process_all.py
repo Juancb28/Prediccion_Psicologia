@@ -80,16 +80,37 @@ def process_audio_complete(audio_path, model_size="small", language="es",
     print()
 
 if __name__ == "__main__":
-    # This script is locked to a single audio file by design.
-    # To change the audio, edit this file and set `audio_path` accordingly.
-    audio_path = os.path.join("recordings", "Test.wav")
+    # Accept command-line args to process any audio file in CI / server usage.
+    # Usage: python process_all.py <audio_path> [model_size] [language] [refs_dir] [threshold] [output_dir]
+    audio_path = None
     model_size = "small"
     language = "es"
-    threshold = 0.75
     refs_dir = "refs"
+    threshold = 0.75
+    output_dir = "outputs"
+
+    if len(sys.argv) >= 2:
+        audio_path = sys.argv[1]
+    if len(sys.argv) >= 3:
+        model_size = sys.argv[2]
+    if len(sys.argv) >= 4:
+        language = sys.argv[3]
+    if len(sys.argv) >= 5:
+        refs_dir = sys.argv[4]
+    if len(sys.argv) >= 6:
+        try:
+            threshold = float(sys.argv[5])
+        except Exception:
+            pass
+    if len(sys.argv) >= 7:
+        output_dir = sys.argv[6]
+
+    if not audio_path:
+        print("Usage: python process_all.py <audio_path> [model_size] [language] [refs_dir] [threshold] [output_dir]")
+        sys.exit(2)
 
     try:
-        process_audio_complete(audio_path, model_size, language, refs_dir, threshold)
+        process_audio_complete(audio_path, model_size, language, refs_dir, threshold, output_dir)
         print("="*60)
         print("✓ TODO COMPLETADO EXITOSAMENTE")
         print("="*60)

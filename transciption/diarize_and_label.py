@@ -8,9 +8,26 @@ import json
 import torch
 from dotenv import load_dotenv
 from pathlib import Path
+import pkg_resources
+
+# Force torchaudio to use the soundfile backend to avoid torchcodec/FFmpeg
+# which requires additional native libraries. This prevents torchaudio from
+# importing torchcodec (and its libtorchcodec) when loading audio files.
+os.environ.setdefault("TORCHAUDIO_USE_SOUNDFILE", "1")
+try:
+    import torchaudio
+    try:
+        torchaudio.set_audio_backend("soundfile")
+    except Exception:
+        # Older torchaudio versions may not expose set_audio_backend; ignore.
+        pass
+except Exception:
+    # If torchaudio is not available for backend switching, continue and
+    # let subsequent imports surface useful errors.
+    pass
+
 from pyannote.audio import Pipeline
 import whisper
-import pkg_resources
 
 load_dotenv()
 
@@ -72,15 +89,13 @@ def diarize_and_label(audio_path, transcription_path=None, output_dir="outputs")
     """
     print("=== Diarización y Etiquetado ===\n")
     
-    # Verificar token de Hugging Face
-    hf_token = os.environ.get("HUGGINGFACE_TOKEN")
-    if not hf_token:
-        raise ValueError("HUGGINGFACE_TOKEN no configurado en .env")
-
-    # On Windows creating symlinks may require elevated privileges (Developer Mode
-    # or admin). Hugging Face Hub and pyannote may try to create symlinks in the
-    # cache which fails with WinError 1314. Force the hub to avoid symlinks and
-    # use copies instead to work without admin privileges.
+    # Allow running fully offline / local: avoid requiring a Hugging Face
+    # token or attempting to authenticate. If you have a local cached
+    # pyannote pipeline, set `PYANNOTE_LOCAL_PIPELINE` to that folder/path.
+    # Otherwise the code will attempt to load the standard pipeline in
+    # offline mode (`local_files_only=True`) and will raise a clear error
+    # if the model is not available locally. This avoids any automatic
+    # Hugging Face authentication or network downloads.
     os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS", "1")
     os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 
@@ -166,48 +181,48 @@ def diarize_and_label(audio_path, transcription_path=None, output_dir="outputs")
     # different parameter names. Provide compatibility wrappers for hf_hub_download
     # so that pyannote internals work regardless of installed huggingface_hub.
     try:
-        import huggingface_hub as _hf_hub
-        import inspect
+        # Prefer an explicit env var. If not present, attempt to autodiscover
+        # a cached pipeline under the Hugging Face cache (usual location
+        # is ~/.cache/huggingface/hub/models--pyannote--speaker-diarization/snapshots).
+        local_pipeline = os.environ.get("PYANNOTE_LOCAL_PIPELINE")
+        if not local_pipeline:
+            try:
+                hf_home = os.environ.get("HF_HOME") or str(Path.home() / ".cache" / "huggingface")
+                snapshots_dir = os.path.join(hf_home, "hub", "models--pyannote--speaker-diarization", "snapshots")
+                if os.path.isdir(snapshots_dir):
+                    candidates = [os.path.join(snapshots_dir, d) for d in os.listdir(snapshots_dir) if os.path.isdir(os.path.join(snapshots_dir, d))]
+                    if candidates:
+                        # Pick the most recent by directory mtime
+                        candidates.sort(key=lambda p: os.path.getmtime(p))
+                        local_pipeline = candidates[-1]
+                        print(f"Autodetectado pipeline pyannote en caché: {local_pipeline}")
+            except Exception:
+                local_pipeline = None
 
-        # If hf_hub_download does not accept 'use_auth_token' but accepts 'token',
-        # wrap it so calls with 'use_auth_token' still work. pyannote may have
-        # already imported the function into its own module, so patch that
-        # reference too.
-        try:
-            sig = inspect.signature(_hf_hub.hf_hub_download)
-            params = sig.parameters
-            if 'use_auth_token' not in params and 'token' in params:
-                _orig_hf_hub_download = _hf_hub.hf_hub_download
+        if not local_pipeline:
+            raise RuntimeError(
+                "Se requiere un pipeline pyannote local. "
+                "Establezca la variable de entorno PYANNOTE_LOCAL_PIPELINE con la ruta al pipeline descargado localmente, "
+                "o descargue el pipeline en caché con huggingface tooling."
+            )
 
-                def _hf_hub_download_compat(*args, **kwargs):
-                    if 'use_auth_token' in kwargs and 'token' not in kwargs:
-                        kwargs['token'] = kwargs.pop('use_auth_token')
-                    return _orig_hf_hub_download(*args, **kwargs)
+        # If a directory was provided, look for common config filenames
+        cfg_path = local_pipeline
+        if os.path.isdir(local_pipeline):
+            for name in ("config.yaml", "config.yml", "pipeline.yaml", "pipeline.yml"):
+                candidate = os.path.join(local_pipeline, name)
+                if os.path.isfile(candidate):
+                    cfg_path = candidate
+                    break
 
-                _hf_hub.hf_hub_download = _hf_hub_download_compat
-
-                # Also try to patch pyannote's local reference if present
-                try:
-                    import pyannote.audio.core.pipeline as _py_pipeline
-                    if hasattr(_py_pipeline, 'hf_hub_download'):
-                        _py_pipeline.hf_hub_download = _hf_hub_download_compat
-                except Exception:
-                    pass
-        except Exception:
-            # If anything goes wrong inspecting/wrapping, continue and we'll
-            # attempt other authentication strategies below.
-            pass
-
-        # Try to initialize pipeline. First attempt: let pyannote handle auth
-        # via environment/login (recommended). We'll login explicitly and then
-        # call from_pretrained without extra kwargs to avoid passing unknown
-        # parameters into pyannote internals.
-        from huggingface_hub import login
-        print("Intentando autenticar con Hugging Face Hub...")
-        login(token=hf_token)
-        pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization")
+        print(f"Cargando pipeline pyannote desde ruta local (config): {cfg_path}")
+        pipeline = Pipeline.from_pretrained(cfg_path)
     except Exception as e:
-        raise RuntimeError(f"No se pudo inicializar pyannote Pipeline: {e}")
+        raise RuntimeError(
+            "No se pudo inicializar pyannote Pipeline desde la ruta local proporcionada. "
+            "Asegúrese de que PYANNOTE_LOCAL_PIPELINE apunte a una carpeta válida que contenga el pipeline descargado. "
+            f"Detalle: {e}"
+        )
 
     # Mover pipeline a GPU si está disponible
     if torch.cuda.is_available():

@@ -382,10 +382,18 @@ app.get('/api/processed/:patientId', (req, res) => {
         ];
 
         for(const c of candidates){
+            // Prefer returning the raw text file when available (preserves speaker labels/timestamps).
+            if(fs.existsSync(c.txt)){
+                try{
+                    const raw = fs.readFileSync(c.txt, 'utf8');
+                    return res.json({ ok:true, stage: c.type, text: raw, txt_path: `/outputs/${path.basename(c.txt)}` });
+                }catch(e){ /* ignore and fallthrough to json handling */ }
+            }
+
             if(fs.existsSync(c.json)){
                 try{
                     const j = JSON.parse(fs.readFileSync(c.json, 'utf8'));
-                    // try to extract a human-friendly text field
+                    // try to extract a human-friendly text field if no txt exists
                     let text = '';
                     if(j){
                         if(j.labeled_text) text = j.labeled_text;
@@ -410,16 +418,8 @@ app.get('/api/processed/:patientId', (req, res) => {
                     }
                     return res.json({ ok:true, stage: c.type, text, json_path: `/outputs/${path.basename(c.json)}`, raw: j });
                 }catch(e){
-                    // fallthrough to return raw file content as text
-                    const raw = fs.readFileSync(c.json, 'utf8');
-                    return res.json({ ok:true, stage: c.type, text: raw, json_path: `/outputs/${path.basename(c.json)}` });
+                    // fallthrough to next candidate
                 }
-            }
-            if(fs.existsSync(c.txt)){
-                try{
-                    const raw = fs.readFileSync(c.txt, 'utf8');
-                    return res.json({ ok:true, stage: c.type, text: raw, txt_path: `/outputs/${path.basename(c.txt)}` });
-                }catch(e){ /* ignore */ }
             }
         }
 

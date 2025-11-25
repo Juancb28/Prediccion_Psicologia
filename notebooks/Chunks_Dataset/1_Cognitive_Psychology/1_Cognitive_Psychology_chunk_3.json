@@ -1,0 +1,12 @@
+{
+  "id": "1_Cognitive_Psychology_chunk_3",
+  "book_id": "1_Cognitive_Psychology",
+  "source_file": "Cognitive Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Cognitive Psychology.txt",
+  "chunk_index": 3,
+  "text": "human nature governs many aspects of human behavior. After a while, however, certain \nindividuals notice apparent flaws in the thesis. \n Eventually, or perhaps even quite soon, an antithesis emerges. An antithesis is \na statement that counters a previous statement of belief. For example, an alter \nnative view is that our nurture (the environmental contexts in which we are \nreared) almost entirely determines many aspects of human behavior. \n Sooner or later, the debate between the thesis and the antithesis leads to a \nsynthesis. A synthesis integrates the most credible features of each of two (or more) views. For example, in the debate over nature versus nurture, the inter \naction between our innate (inborn) nature and environmental nurture may \ngovern human nature. \nIt is important to understand the dialectic because sometimes we may be tempted to \nthink that if one view is right, another seemingly contrasting view must be wrong. For \nexample, in my own field of intelligence, there has sometimes been a tendency to believe \nthat intelligence is either all or mostly genetically determined, or else all or mostly environmentally determined. A similar debate has raged in the field of language acquisition. \nOften, though, we are better off posing such issues not as either/or questions, but rather \nas examinations of how different forces co-vary and interact with each other. Indeed, the \nmost widely accepted current contention is that the \"nature\" and \"nurture\" views are \nboth incomplete. Nature and nurture work together in our development. \nIf a synthesis seems to advance our understanding of a subject, it then serves as a \nnew thesis. A new antithesis then follows it, then a new synthesis, and so on. Georg \nHegel observed this dialectical progression of ideas.",
+  "meta": {
+    "char_count": 1785,
+    "word_count": 282
+  }
+}

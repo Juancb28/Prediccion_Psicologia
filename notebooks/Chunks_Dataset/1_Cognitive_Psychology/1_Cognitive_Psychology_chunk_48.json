@@ -1,0 +1,12 @@
+{
+  "id": "1_Cognitive_Psychology_chunk_48",
+  "book_id": "1_Cognitive_Psychology",
+  "source_file": "Cognitive Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Cognitive Psychology.txt",
+  "chunk_index": 48,
+  "text": "ks at how chess grandmasters solve chess problems \nand then seeks to function the way they do. The program would be viewed as successful if it chose, in a sequence of moves in a game, the same moves that the grandmas \nter would choose. It is also possible to combine the two approaches, producing a \nprogram that, say, generally simulates human performance but can use brute force as \nnecessary to win games. \nPutting It All Together \nCognitive psychologists often broaden and deepen their understanding of cognition \nthrough research in cognitive science. Cognitive science is a cross-disciplinary field \nthat uses ideas and methods from cognitive psychology, psychobiology, artificial intelligence, philosophy, linguistics, and anthropology . Cognitive scientists use these ideas and methods to focus on the study of how \nhumans acquire and use knowledge. Cognitive psychologists also profit from collabo \nrations with other kinds of psychologists. Examples are social psychologists (in \nthe cross-disciplinary field of social cognition), psychologists who study motivation \nand emotion, and engineering psychologists (psychologists who study human \nmachine interactions). \n\nKey Issues and Fields within Cognitive Psychology \nThroughout this chapter, we have alluded to some of the key themes that arise in the \nstudy of cognitive psychology. Because these themes appear again and again in the \nvarious chapters of this textbook, a summary of these themes follows. Some of these \nquestions go to the very core of the nature of the human mind. \nUnderlying Themes in the Study of Cognitive Psychology \nIf we review the important ideas in this chapter, we discover some of the major \nthemes that underlie all of cognitive psychology. What are some of these themes?",
+  "meta": {
+    "char_count": 1763,
+    "word_count": 269
+  }
+}

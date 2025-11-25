@@ -1,0 +1,12 @@
+{
+  "id": "1_Biological_Psychology_chunk_7",
+  "book_id": "1_Biological_Psychology",
+  "source_file": "Biological Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Biological Psychology.txt",
+  "chunk_index": 7,
+  "text": "ys modifications of something found in ancestral species. For example, bat wings are modified arms, and porcupine quills are modified hairs. In behavior, monkeys use tools occasionally, and humans evolved elaborations on those abilities that enable us to use tools even better (Peeters et al., 2009). Evolutionary explanations call attention to behavioral similarities among related species.\n\nA functional explanation describes why a structure or behavior evolved as it did. Within a small, isolated population, a gene can spread by accident through a process called genetic drift. For example, a dominant male with many offspring spreads all his genes, including some that may have been irrelevant or even disadvantageous. However, a gene that is prevalent throughout a species probably provided some advantage - at least in the past, though not necessarily today. A functional explanation identifies that advantage. For example, many species have an appearance that matches their background. A functional explanation is that camouflaged appearance makes the animal inconspicuous to predators. Some species use their behavior as part of the camouflage, such as fish that live among kelp, look like kelp, and act like kelp.\n\nTo illustrate two types of biological explanations, consider the example of how certain moth species react to sound. For sound waves that humans hear, up to about 20,000 Hz (hertz, or cycles per second), the moths do not react at all. For waves at 20,000 to 100,000 Hz, which we regard as ultrasonic, a moth turns and flies away from the sound source. If the sound gets louder, the moth either dives for the ground or flies erratically. The physiological explanation starts with the moth’s ears, which are sensitive only to sound waves at 20,000 to 100,000 Hz.",
+  "meta": {
+    "char_count": 1785,
+    "word_count": 283
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "1_Biological_Psychology_chunk_30",
+  "book_id": "1_Biological_Psychology",
+  "source_file": "Biological Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Biological Psychology.txt",
+  "chunk_index": 30,
+  "text": "brain—from antidepressants and other psychiatric drugs to marijuana and heroin. How fast a drug crosses the blood–brain barrier determines how fast it affects behavior. Chemotherapy drugs do not cross the blood–brain barrier, and that is a major reason why brain cancers are so difficult to treat.\n\nWater crosses through special protein channels in the wall of the endothelial cells. Sodium, potassium, and chloride ions also cross through specific channels. The brain uses active transport, a protein-mediated process that expends energy, to pump glucose (the brain’s main fuel), amino acids (the building blocks of proteins), omega-3 fatty acids, and several vitamins from the blood into the brain. The membrane also has mechanisms to transport ketones and several hormones into the brain.\n\nThe blood–brain barrier is essential to health. It tends to become less efficient in old age, especially in people with Alzheimer’s disease. The result is that some needed chemicals enter the brain more slowly than before, and some harmful chemicals enter more extensively than before.\n\nNourishment of Vertebrate Neurons\n\nMost cells use a variety of carbohydrates and fats for nutrition, but vertebrate brain cells depend almost entirely on glucose. Cancer cells and the testis cells that make sperm also rely overwhelmingly on glucose. Brain cells also use ketones (a kind of fat) and lactate, but those fuels do not reach the brain in sufficient quantity to meet the needs. Because metabolizing glucose requires oxygen, neurons need a steady supply of oxygen. Although the human brain constitutes only about 2 percent of the body’s weight, it uses about 20 percent of its oxygen and 25 percent of its glucosa.\n\nGlucose shortage is rarely a problem, except during starvation.",
+  "meta": {
+    "char_count": 1769,
+    "word_count": 277
+  }
+}

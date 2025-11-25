@@ -1,0 +1,12 @@
+{
+  "id": "1_Cognitive_Psychology_chunk_15",
+  "book_id": "1_Cognitive_Psychology",
+  "source_file": "Cognitive Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Cognitive Psychology.txt",
+  "chunk_index": 15,
+  "text": "processes. But like behaviorism, it has come to use precise \nquantitative analysis to study how people learn and think. \nEarly Role of Psychobiology \nIronically, one of Watson's former students, Karl Spencer Lashley, \nbrashly challenged the behaviorist view that the human brain is a passive organ \nmerely responding to environmental contingencies outside the individual. Instead, Lashley considered the brain to be an active, dynamic organizer of \nbehavior. Lashley sought to understand how the macro-organization of the human \nbrain made possible such complex, planned activities as musical performance, game \nplaying, and using language. None of these were, in his view, readily explicable in \nterms of simple conditioning. \nIn the same vein but at a different level of analysis, Donald Hebb proposed \nthe concept of cell assemblies as the basis for learning in the brain. Cell assemblies are \ncoordinated neural structures that develop through frequent stimulation. They develop \nover time as the ability of one neuron (nerve cell) to stimulate firing in a connected \nneuron increases. Behaviorists did not jump at the opportunity to agree with theorists \nlike Lashley and Hebb. In fact, behaviorist Skinner wrote an entire book \ndescribing how language acquisition and usage could be explained purely in terms of \nenvironmental contingencies. This work stretched Skinner's framework too far, leaving \nSkinner open to attack. An attack was indeed forthcoming. Linguist Noam Chomsky wrote a scathing review of Skinner's ideas. In his article, Chomsky stressed both \nthe biological basis and the creative potential of language. He pointed out the infinite \nnumbers of sentences we can produce with ease. He thereby defied behaviorist notions \nthat we learn language by reinforcement.",
+  "meta": {
+    "char_count": 1785,
+    "word_count": 267
+  }
+}

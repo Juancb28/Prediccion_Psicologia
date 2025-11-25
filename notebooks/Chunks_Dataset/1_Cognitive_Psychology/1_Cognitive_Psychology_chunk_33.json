@@ -1,0 +1,12 @@
+{
+  "id": "1_Cognitive_Psychology_chunk_33",
+  "book_id": "1_Cognitive_Psychology",
+  "source_file": "Cognitive Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Cognitive Psychology.txt",
+  "chunk_index": 33,
+  "text": "t emphasis is on environmental distinctions, not on individual differences.\nStrengths:\nAccess to rich contextual information, which may be unavailable by other means.\nWeaknesses:\nLack of experimental control.\nPossible influence on naturalistic behavior due to the presence of the observer.\nExamples:\nMichael Cole studied members of the Kpelle tribe in Africa, noting how the Kpelle’s definitions of intelligence compared with traditional Western definitions, and how cultural definitions of intelligence may govern intelligent behavior.\n\nMETHOD: COMPUTER SIMULATIONS AND ARTIFICIAL INTELLIGENCE\nDescription of method:\nSimulations: Attempt to make computers simulate human cognitive performance on various tasks.\nAI: Attempt to make computers demonstrate intelligent cognitive performance regardless of whether the process resembles human cognitive processing.\nValidity of causal inferences: random assignment:\nNot applicable.\nValidity of causal inferences: experimental control:\nFull control of variables of interest.\nSamples: size:\nNot applicable.\nSamples: representativeness:\nNot applicable.\nEcological validity:\nNot applicable.\nInformation about individual differences:\nNot applicable.\nStrengths:\nAllows exploration of a wide range of possibilities for modeling cognitive processes.\nAllows clear testing to see whether hypotheses accurately predict outcomes.\nMay lead to practical applications (robots for dangerous tasks or hazardous environments).\nWeaknesses:\nLimitations imposed by hardware (computer circuitry) and software (programs written by researchers).\nDistinctions between human intelligence and machine intelligence.\nEven with sophisticated modeling, simulations may imperfectly model the way the human brain thinks.\nExamples:",
+  "meta": {
+    "char_count": 1741,
+    "word_count": 220
+  }
+}

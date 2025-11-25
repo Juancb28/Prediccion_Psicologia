@@ -1,0 +1,12 @@
+{
+  "id": "1_Cognitive_Psychology_chunk_42",
+  "book_id": "1_Cognitive_Psychology",
+  "source_file": "Cognitive Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Cognitive Psychology.txt",
+  "chunk_index": 42,
+  "text": "em go \nbeyond the scope of this chapter \nAs just one example, for some kinds of cognitive activity, the available technology permits researchers to study the dynamic cerebral activity of normal human participants during cognitive processing.\nSelf-Reports, Case Studies, and Naturalistic Observation \nIndividual experiments and psychobiological studies often focus on precise specification of discrete aspects of cognition across individuals. To obtain richly textured \ninformation about how particular individuals think in a broad range of contexts, \nresearchers may use other methods. These methods include self-reports (an individual's own account of cognitive processes), case studies ( in-depth studies of individuals), and naturalistic observation (detailed studies of cognitive performance in \neveryday situations and nonlaboratory contexts). On the one hand, experimental \nresearch is most useful for testing hypotheses. On the other hand, research based on \nself-reports, case studies, and naturalistic observation is often particularly useful for \nthe formulation of hypotheses. These methods are also useful to generate descriptions of rare events or processes that we have no other way to measure. \nIn very specific circumstances, these methods may provide the only way to \ngather information. An example is the case of Genie, a girl who was locked in a \nroom until the age of 1 3 and thus provided with severely limited social and sensory \nexperiences. As a result of her imprisonment, Genie had severe physical impairments and no language skills. Through case-study methods, information was collected about how she later began to learn language. It would have been unethical experimentally to deny \na person any language experience for the first 1 3 years of life.",
+  "meta": {
+    "char_count": 1777,
+    "word_count": 262
+  }
+}

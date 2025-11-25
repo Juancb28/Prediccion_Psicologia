@@ -137,6 +137,10 @@ app.post('/api/upload-recording', uploadRecording.single('file'), (req, res) => 
     try{
         fs.renameSync(req.file.path, targetPath);
         const relUrl = `/recordings/${filename}`;
+        // After successfully storing the recording, DO NOT automatically launch
+        // the labeling/transcription pipeline. The UI should only show the
+        // `*_labeled.txt` when it exists. If automatic processing is desired
+        // it can be triggered explicitly via `/api/transcribe-recording`.
         return res.json({ ok: true, path: relUrl });
     }catch(e){
         console.error('Failed to move uploaded recording', e);
@@ -171,7 +175,31 @@ app.post('/api/delete-recording', (req, res) => {
     const filename = `patient_${String(patientId).replace(/[^0-9a-zA-Z_-]/g,'_')}.wav`;
     const filePath = path.join(recordingsDir, filename);
     if(fs.existsSync(filePath)){
-        try{ fs.unlinkSync(filePath); return res.json({ ok: true }); }catch(e){ return res.status(500).json({ error: e.message }); }
+        try{
+            fs.unlinkSync(filePath);
+            // Also remove any outputs produced for this patient
+            try{
+                const outDir = path.join(__dirname, 'outputs');
+                const stem = path.parse(filename).name; // patient_1
+                const candidates = [
+                    `${stem}_labeled.txt`,
+                    `${stem}_labeled.json`,
+                    `${stem}_transcription.txt`,
+                    `${stem}_transcription.json`,
+                    `process_${stem}.log`,
+                    `${stem}_diarization.txt`,
+                    `${stem}_diarization.json`
+                ];
+                const removed = [];
+                candidates.forEach(fn => {
+                    const p = path.join(outDir, fn);
+                    try{ if(fs.existsSync(p)){ fs.unlinkSync(p); removed.push(fn); } }catch(e){ /* ignore individual errors */ }
+                });
+                return res.json({ ok: true, removed_outputs: removed });
+            }catch(e){
+                return res.json({ ok: true, removed_outputs: [], warning: 'could_not_cleanup_outputs', detail: String(e && e.message) });
+            }
+        }catch(e){ return res.status(500).json({ error: e.message }); }
     }
     return res.status(404).json({ error: 'Recording not found' });
 });
@@ -204,6 +232,49 @@ app.use('/recordings', express.static(recordingsDir, {
 
 // Transcribe a recording for a patient by running the Python transcription CLI
 const { spawn } = require('child_process');
+// Helper to spawn process_all.py in background for a given filePath/stem
+function spawnProcessAll(filePath, stem){
+    try{
+        const outDir = path.join(__dirname, 'outputs');
+        if(!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+        const logPath = path.join(outDir, `process_${stem}.log`);
+        const logStream = fs.createWriteStream(logPath, { flags: 'a' });
+        logStream.write(`\n\n===== PROCESS_START ${new Date().toISOString()} =====\n`);
+
+        // Determine python executable similar to inline logic
+        let pyExec = 'python';
+        try{
+            const venvWin = path.join(__dirname, '.venv', 'Scripts', 'python.exe');
+            const venvUnix = path.join(__dirname, '.venv', 'bin', 'python');
+            if(fs.existsSync(venvWin)){
+                pyExec = venvWin;
+            } else if(fs.existsSync(venvUnix)){
+                pyExec = venvUnix;
+            } else if(process.env.PYTHON){
+                const candidate = process.env.PYTHON;
+                if(fs.existsSync(candidate)) pyExec = candidate;
+                else if(fs.existsSync(candidate + '.exe')) pyExec = candidate + '.exe';
+            }
+        }catch(e){ /* ignore */ }
+
+        const script = path.join(__dirname, 'transciption', 'process_all.py');
+        // child env
+        let childEnv = Object.assign({}, process.env);
+        try{ childEnv.PYTHONIOENCODING = childEnv.PYTHONIOENCODING || 'utf-8'; }catch(e){}
+        try{ childEnv.PYTHONUTF8 = childEnv.PYTHONUTF8 || '1'; }catch(e){}
+        try{ childEnv.LANG = childEnv.LANG || 'en_US.UTF-8'; }catch(e){}
+
+        const child = spawn(pyExec, [script, filePath, 'small', 'es', 'refs', String(process.env.PYANNOTE_THRESHOLD || 0.75), outDir], { env: childEnv, cwd: __dirname, detached: true, stdio: ['ignore','pipe','pipe'] });
+
+        if(child.stdout){ child.stdout.on('data', (c)=>{ try{ logStream.write(c.toString()); }catch(e){} }); }
+        if(child.stderr){ child.stderr.on('data', (c)=>{ try{ logStream.write(c.toString()); }catch(e){} }); }
+        child.on('error', (e)=>{ try{ logStream.write('\n[child_error] ' + String(e && e.message) + '\n'); }catch(_){} });
+        child.on('close', (code)=>{ try{ logStream.write('\n===== PROCESS_EXIT ' + code + ' ' + new Date().toISOString() + ' =====\n'); }catch(_){}; try{ logStream.end(); }catch(_){} });
+        try{ child.unref(); }catch(e){}
+        console.log('[info] Launched background process_all for', filePath, 'logs->', logPath);
+        return { ok:true, log: `/outputs/${path.basename(logPath)}` };
+    }catch(err){ console.error('spawnProcessAll error', err); return { ok:false, error: String(err && err.message) }; }
+}
 app.post('/api/transcribe-recording', express.json(), (req, res) => {
     const patientId = req.body && req.body.patientId;
     if(!patientId) return res.status(400).json({ ok:false, error: 'patientId required' });
@@ -255,54 +326,13 @@ app.post('/api/transcribe-recording', express.json(), (req, res) => {
 
     const script = path.join(__dirname, 'transciption', 'process_all.py');
     try{
-        // Ensure outputs dir exists
-        const outDir = path.join(__dirname, 'outputs');
-        if(!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-
-        // Create a per-patient log file for debugging the background process
         const stem = path.parse(filename).name; // patient_1
-        const logPath = path.join(outDir, `process_${stem}.log`);
-        const logStream = fs.createWriteStream(logPath, { flags: 'a' });
-        logStream.write(`\n\n===== PROCESS_START ${new Date().toISOString()} =====\n`);
-
-        // Attempt to autodetect a local pyannote pipeline snapshot in HF cache
-        // so child processes run fully offline without HF auth.
-        let childEnv = Object.assign({}, process.env);
-        try{
-            const hfHome = process.env.HF_HOME || path.join(require('os').homedir(), '.cache', 'huggingface');
-            const snapshotsDir = path.join(hfHome, 'hub', 'models--pyannote--speaker-diarization', 'snapshots');
-            if(fs.existsSync(snapshotsDir)){
-                const entries = fs.readdirSync(snapshotsDir).map(d => ({ d, p: path.join(snapshotsDir, d) }));
-                const dirs = entries.filter(x => fs.existsSync(x.p) && fs.statSync(x.p).isDirectory());
-                if(dirs.length){
-                    dirs.sort((a,b)=> fs.statSync(a.p).mtimeMs - fs.statSync(b.p).mtimeMs);
-                    const picked = dirs[dirs.length-1].p;
-                    childEnv.PYANNOTE_LOCAL_PIPELINE = picked;
-                    console.log('[info] Autodetected PYANNOTE_LOCAL_PIPELINE ->', picked);
-                }
-            }
-        }catch(e){ console.warn('[warn] could not autodetect pyannote cache', e); }
-
-        // Ensure Python prints/IO use UTF-8 to avoid UnicodeEncodeError on Windows consoles
-        try{ childEnv.PYTHONIOENCODING = childEnv.PYTHONIOENCODING || 'utf-8'; }catch(e){}
-        try{ childEnv.PYTHONUTF8 = childEnv.PYTHONUTF8 || '1'; }catch(e){}
-        try{ childEnv.LANG = childEnv.LANG || 'en_US.UTF-8'; }catch(e){}
-
-        const child = spawn(pyExec, [script, filePath, 'small', 'es', 'refs', String(process.env.PYANNOTE_THRESHOLD || 0.75), outDir], { env: childEnv, cwd: __dirname, detached: true, stdio: ['ignore','pipe','pipe'] });
-
-        if(child.stdout){
-            child.stdout.on('data', (c)=>{ try{ logStream.write(c.toString()); }catch(e){} });
+        const result = spawnProcessAll(filePath, stem);
+        if(result && result.ok){
+            return res.json({ ok:true, processing: true, message: 'processing_started', log: result.log });
+        } else {
+            return res.status(500).json({ ok:false, error: 'spawn_failed', detail: result && result.error });
         }
-        if(child.stderr){
-            child.stderr.on('data', (c)=>{ try{ logStream.write(c.toString()); }catch(e){} });
-        }
-        child.on('error', (e)=>{ try{ logStream.write('\n[child_error] ' + String(e && e.message) + '\n'); }catch(_){} });
-        child.on('close', (code)=>{ try{ logStream.write('\n===== PROCESS_EXIT ' + code + ' ' + new Date().toISOString() + ' =====\n'); }catch(_){}; try{ logStream.end(); }catch(_){} });
-
-        try{ child.unref(); }catch(e){ /* ignore */ }
-        console.log('[info] Launched background process_all for', filePath, 'logs->', logPath);
-        // update todo list status
-        return res.json({ ok:true, processing: true, message: 'processing_started', log: `/outputs/${path.basename(logPath)}` });
     }catch(err){
         console.error('Failed to spawn process_all', err);
         return res.status(500).json({ ok:false, error: 'spawn_failed', detail: String(err && err.message) });
@@ -324,62 +354,35 @@ app.get('/api/data', (req, res) => {
     res.json(d);
 });
 
-// Return already-processed transcription/label outputs for a patient if available.
-// Order of preference: labeled JSON/text -> transcription JSON/text
+// Return already-processed LABELLED transcription for a patient if available.
+// IMPORTANT: this endpoint now only returns `*_labeled.txt` / `*_labeled.json`.
+// Do NOT fall back to other transcription files; the UI must display only labeled outputs.
 app.get('/api/processed/:patientId', (req, res) => {
     const pid = req.params.patientId;
     if(!pid) return res.status(400).json({ ok:false, error: 'patientId required' });
     try{
         const outDir = path.join(__dirname, 'outputs');
         const stem = `patient_${String(pid).replace(/[^0-9a-zA-Z_-]/g,'_')}`;
-        const candidates = [
-            { type: 'labeled', json: path.join(outDir, `${stem}_labeled.json`), txt: path.join(outDir, `${stem}_labeled.txt`) },
-            { type: 'transcription', json: path.join(outDir, `${stem}_transcription.json`), txt: path.join(outDir, `${stem}_transcription.txt`) }
-        ];
+        const labeledTxt = path.join(outDir, `${stem}_labeled.txt`);
+        const labeledJson = path.join(outDir, `${stem}_labeled.json`);
 
-        for(const c of candidates){
-            // Prefer returning the raw text file when available (preserves speaker labels/timestamps).
-            if(fs.existsSync(c.txt)){
-                try{
-                    const raw = fs.readFileSync(c.txt, 'utf8');
-                    return res.json({ ok:true, stage: c.type, text: raw, txt_path: `/outputs/${path.basename(c.txt)}` });
-                }catch(e){ /* ignore and fallthrough to json handling */ }
-            }
-
-            if(fs.existsSync(c.json)){
-                try{
-                    const j = JSON.parse(fs.readFileSync(c.json, 'utf8'));
-                    // try to extract a human-friendly text field if no txt exists
-                    let text = '';
-                    if(j){
-                        if(j.labeled_text) text = j.labeled_text;
-                        else if(j.text) text = j.text;
-                        else if(j.transcription) text = j.transcription;
-                        else if(j.result) text = j.result;
-                        else if(j.output) text = j.output;
-                        else if(Array.isArray(j)){
-                            // assume array of segments [{start,end,speaker,text},...]
-                            text = j.map(seg => (seg.speaker ? (seg.speaker + ': ') : '') + (seg.text || '')).join('\n');
-                        } else if(j.segments && Array.isArray(j.segments)){
-                            text = j.segments.map(seg => (seg.speaker ? (seg.speaker + ': ') : '') + (seg.text || '')).join('\n');
-                        } else if(typeof j === 'object'){
-                            // try to find arrays under common keys
-                            const maybe = j.labeled || j.segments || j.output || j.items || null;
-                            if(Array.isArray(maybe)) text = maybe.map(seg => (seg.speaker ? (seg.speaker + ': ') : '') + (seg.text || '')).join('\n');
-                        }
-                    }
-                    // fallback: if text still empty, stringify minimal representation
-                    if(!text){
-                        try{ text = JSON.stringify(j).slice(0, 2000); }catch(e){ text = '' }
-                    }
-                    return res.json({ ok:true, stage: c.type, text, json_path: `/outputs/${path.basename(c.json)}`, raw: j });
-                }catch(e){
-                    // fallthrough to next candidate
-                }
-            }
+        if(fs.existsSync(labeledTxt)){
+            try{
+                const raw = fs.readFileSync(labeledTxt, 'utf8');
+                return res.json({ ok:true, stage: 'labeled', text: raw, txt_path: `/outputs/${path.basename(labeledTxt)}` });
+            }catch(e){ /* fallthrough to json */ }
         }
 
-        return res.status(404).json({ ok:false, error: 'processed_not_found' });
+        if(fs.existsSync(labeledJson)){
+            try{
+                const j = JSON.parse(fs.readFileSync(labeledJson, 'utf8'));
+                // prefer a labeled_text field if present
+                const text = j && (j.labeled_text || j.text || '');
+                return res.json({ ok:true, stage: 'labeled', text, json_path: `/outputs/${path.basename(labeledJson)}`, raw: j });
+            }catch(e){ /* ignore */ }
+        }
+
+        return res.status(404).json({ ok:false, error: 'labeled_not_found' });
     }catch(err){
         console.error('Error in /api/processed', err);
         return res.status(500).json({ ok:false, error: 'server_error', detail: String(err && err.message) });

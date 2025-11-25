@@ -59,9 +59,66 @@ const mockGenograma = {
 };
 
 let activePatientId = null;
+// Map to keep active polling intervals per patient while session view is open
+const _pp_active_intervals = {};
 // API base (backend server). Change `window.API_BASE_URL` to override in dev if needed.
 const API_BASE = (window.API_BASE_URL || 'http://localhost:3000');
 // Tooltip styles moved to `styles.css`
+
+// Helper: extract a formatted transcription text from the server response.
+// Prefer `text` if provided; otherwise, if `raw` is an array of segments,
+// rebuild a human-readable block with speaker headings and timestamps.
+function extractProcessedText(j){
+    if(!j) return '';
+    if(typeof j.text === 'string' && j.text.trim()){
+        const rawText = j.text.trim();
+        // If the server returned a full labeled .txt file (with header/footer),
+        // extract only the speaker-labeled blocks and ignore headers, separators and summary.
+        // Detect common markers used by the pipeline (e.g. 'TRANSCRIPCIÓN', 'RESUMEN', '=====')
+        if(/TRANSCRIPCIÓN|TRANSCRIPCIÓN|RESUMEN|====+/i.test(rawText)){
+            const lines = rawText.split(/\r?\n/);
+            // Find the first line that looks like a speaker header (e.g. 'SPEAKER_00:' or 'UNKNOWN:')
+            let start = -1;
+            for(let i=0;i<lines.length;i++){
+                if(/^\s*[A-Z0-9_]+:\s*$/.test(lines[i])){ start = i; break; }
+            }
+            if(start === -1){
+                // fall back to returning full text if we can't find speaker blocks
+                return rawText;
+            }
+            // Collect until we hit a separator line (====) or a RESUMEN section
+            const outLines = [];
+            for(let i=start;i<lines.length;i++){
+                const L = lines[i];
+                if(/^=+\s*$/.test(L)) break;
+                if(/^\s*RESUMEN\b/i.test(L)) break;
+                outLines.push(L);
+            }
+            // Trim leading/trailing blank lines
+            while(outLines.length && outLines[0].trim()==='') outLines.shift();
+            while(outLines.length && outLines[outLines.length-1].trim()==='') outLines.pop();
+            return outLines.join('\n');
+        }
+        return rawText;
+    }
+    if(Array.isArray(j.raw) && j.raw.length){
+        let out = '';
+        let curSpeaker = null;
+        for(const seg of j.raw){
+            const speaker = (seg && seg.speaker) ? seg.speaker : 'UNKNOWN';
+            if(speaker !== curSpeaker){
+                if(curSpeaker !== null) out += '\n\n';
+                out += speaker + ':\n';
+                curSpeaker = speaker;
+            }
+            const start = (typeof seg.start === 'number') ? seg.start.toFixed(1) : (seg.start || '');
+            const end = (typeof seg.end === 'number') ? seg.end.toFixed(1) : (seg.end || '');
+            out += `[${start}s - ${end}s] ${seg.text || ''}\n`;
+        }
+        return out.trim();
+    }
+    return '';
+}
 
 
 // ---------------------
@@ -177,19 +234,12 @@ function renderDashboard() {
             </div>
         </div>
     `;
-    // If a recording already exists for this session/patient, disable the start recording button
+    // Ensure no leftover tooltip on the dashboard start recording control (safe: don't access session-specific state here)
     setTimeout(()=>{
         try{
             const startBtnEl = document.getElementById('_start_recording_btn');
-            if(startBtnEl && s.grabacion && s.grabacion.length > 0){
-                startBtnEl.disabled = true;
-                // show styled tooltip next to button
-                showWarningTooltipForElement(startBtnEl, 'Ya existe una grabación para este paciente. Elimine la grabación antes de grabar una nueva.');
-                try{ startBtnEl.querySelector('span').textContent = 'Grabación existente'; }catch(e){ startBtnEl.textContent = 'Grabación existente'; }
-                startBtnEl.classList.add('disabled');
-            } else {
-                // ensure no leftover tooltip
-                if(startBtnEl) removeWarningTooltipForElement(startBtnEl);
+            if(startBtnEl){
+                removeWarningTooltipForElement(startBtnEl);
             }
         }catch(e){ /* ignore */ }
     }, 0);
@@ -432,10 +482,52 @@ function createModal(html){
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
     backdrop.innerHTML = `<div class="modal">${html}</div>`;
+    // Ensure backdrop covers the viewport and centers the modal
+    backdrop.style.position = 'fixed';
+    backdrop.style.inset = '0';
+    backdrop.style.display = 'flex';
+    backdrop.style.alignItems = 'center';
+    backdrop.style.justifyContent = 'center';
+    backdrop.style.padding = '24px';
+    backdrop.style.boxSizing = 'border-box';
+    backdrop.style.background = 'rgba(0,0,0,0.35)';
+    backdrop.style.zIndex = '9999';
+    // Prevent horizontal scroll from appearing on the viewport while modal is open
+    backdrop.style.overflowX = 'hidden';
+    // Prevent page body from scrolling while modal is open
+    const prevBodyOverflow = document.body.style.overflow;
+    try{ document.body.style.overflow = 'hidden'; }catch(e){}
     root.appendChild(backdrop);
+    // Ensure the inner modal is scrollable and contained
+    try{
+        const modalEl = backdrop.querySelector('.modal');
+        if(modalEl){
+            modalEl.style.maxHeight = '92vh';
+            // Make modal wider by default and add horizontal padding
+            modalEl.style.maxWidth = '1400px';
+            modalEl.style.width = 'min(96vw, 1400px)';
+            modalEl.style.minWidth = '560px';
+            modalEl.style.minHeight = '320px';
+            modalEl.style.overflow = 'auto';
+            modalEl.style.boxSizing = 'border-box';
+            modalEl.style.position = 'relative';
+            // Disable user resize (fixed modal size as requested)
+            modalEl.style.resize = 'none';
+            modalEl.style.background = 'white';
+            modalEl.style.borderRadius = modalEl.style.borderRadius || '12px';
+            modalEl.style.boxShadow = modalEl.style.boxShadow || '0 12px 40px rgba(0,0,0,0.25)';
+            // Add default padding to create space left/right and avoid overflow
+            modalEl.style.padding = modalEl.style.padding || '32px';
+            // Avoid horizontal overflow inside modal
+            modalEl.style.overflowX = 'hidden';
+        }
+    }catch(e){ /* ignore */ }
     return {
         backdrop,
-        close: ()=>{ root.removeChild(backdrop); }
+        close: ()=>{ 
+            try{ root.removeChild(backdrop); }catch(e){}
+            try{ document.body.style.overflow = prevBodyOverflow; }catch(e){}
+        }
     };
 }
 
@@ -673,10 +765,10 @@ function buildGrabacionesHTML(s, p, sessionIndex){
                                 const isProcessing = grab && grab.processing;
                                 if(isProcessing){
                                     return `
-                                            <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
-                                                <button class="btn" disabled style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white; opacity:0.85; cursor:default;">⏳ Procesando...</button>
-                                            </div>
-                                        `;
+                                                <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
+                                                    <button class="btn" disabled style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white; opacity:0.85; cursor:default;">⏳ Procesando...</button>
+                                                </div>
+                                            `;
                                 } else {
                                     return `<button class="btn" id="_view_trans_btn_${p.id}" onclick="openTranscriptionModal(${sessionIndex}, ${p.id})" style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white;">📝 Ver transcripción</button>`;
                                 }
@@ -691,61 +783,57 @@ function buildGrabacionesHTML(s, p, sessionIndex){
     `;
 }
 
-// Start a background poll to check for labeled output for a given patientId.
-// When labeled output is found, update session state and UI.
-function startProcessingPoll(patientId, sessionIndex){
-    const interval = 3000; // 3s
-    const timeout = 5 * 60 * 1000; // 5 minutes
-    let elapsed = 0;
-    const timer = setInterval(async ()=>{
-        try{
-            elapsed += interval;
-            const resp = await fetch(API_BASE + '/api/processed/' + encodeURIComponent(patientId));
-            if(resp && resp.ok){
-                const j = await resp.json();
-                if(j && j.stage && j.stage === 'labeled'){
-                    const txt = j.text || '';
-                    if(txt){
-                        try{
-                            const s = mockSesiones[sessionIndex];
-                            if(s){
-                                if(!s.grabacion) s.grabacion = [{}];
-                                s.grabacion[0].processing = false;
-                                s.grabacion[0].transcripcion = txt;
-                                await saveData();
-                                refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex);
-                                // Progress bar element removed from UI; no DOM width update needed
-                                const btn = document.getElementById('_view_trans_btn_' + patientId);
-                                if(btn) btn.disabled = false;
-                            }
-                        }catch(e){ console.warn('Error updating local session after processing', e); }
-                        clearInterval(timer);
-                        return;
-                    }
-                }
-            }
-        }catch(e){ console.warn('Processing poll error', e); }
-
-        if(elapsed >= timeout){
-            try{
-                const s = mockSesiones[sessionIndex];
-                if(s && s.grabacion && s.grabacion[0] && s.grabacion[0].processing){
-                    s.grabacion[0].processing = false;
-                    await saveData();
-                    refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex);
-                    // Progress bar element removed from UI; no DOM width update needed
-                }
-            }catch(e){ console.warn('Error clearing processing flag after timeout', e); }
-            clearInterval(timer);
-        }
-    }, interval);
-}
+// Polling for server-processed outputs has been removed.
+// The frontend no longer queries `/api/processed/:patientId`.
+// Server-side processing may still run, but the UI will not poll for results.
 
 // Update the grabaciones container and attach audio handlers (no navigation)
 function refreshGrabacionesUI(s, p, sessionIndex){
     const container = document.getElementById('_grabaciones_container');
     if(container){
         container.innerHTML = buildGrabacionesHTML(s, p, sessionIndex);
+            // Safety fallback: if the UI shows a disabled "Procesando..." button
+            // ensure there's an active poll for processed output. This covers
+            // cases where openSessionDetail didn't start the interval (state mismatch)
+            // and guarantees the UI will update when the server has finished.
+            try{
+                const procBtn = container.querySelector('button[disabled]');
+                const rec = s.grabacion && s.grabacion[0];
+                if(procBtn && p && p.id && rec && rec.remote && rec.processing){
+                    if(!(_pp_active_intervals[p.id] && _pp_active_intervals[p.id].timer)){
+                        const maxAttempts = 40;
+                        const delayMs = 3000;
+                        let attempts = 0;
+                        const timer = setInterval(async ()=>{
+                            attempts++;
+                            try{
+                                console.debug('[debug] safety polling attempt', attempts, 'for', p.id);
+                                const resp = await fetch(API_BASE + '/api/processed/' + p.id, { cache: 'no-store' });
+                                console.debug('[debug] safety polling status=', resp && resp.status);
+                                if(resp && resp.ok){
+                                    const j = await resp.json();
+                                    if(j && (j.stage === 'labeled' || j.stage === 'done' || j.text)){
+                                        const txt = j.text || j.transcription_text || '';
+                                        if(!s.grabacion) s.grabacion = [{}];
+                                        if(txt) s.grabacion[0].transcripcion = txt;
+                                        s.grabacion[0].processing = false;
+                                        try{ await saveData(); }catch(e){}
+                                        try{ refreshGrabacionesUI(s, p, sessionIndex); }catch(e){}
+                                        try{ clearInterval(timer); }catch(e){}
+                                        try{ delete _pp_active_intervals[p.id]; }catch(e){}
+                                        return;
+                                    }
+                                }
+                            }catch(e){ console.warn('safety polling fetch error', e); }
+                            if(attempts >= maxAttempts){
+                                try{ clearInterval(timer); }catch(e){}
+                                try{ delete _pp_active_intervals[p.id]; }catch(e){}
+                            }
+                        }, delayMs);
+                        _pp_active_intervals[p.id] = { timer, attempts: 0 };
+                    }
+                }
+            }catch(e){ /* ignore safety-poll errors */ }
         // Attach logging and error handlers to the audio element(s)
         try{
             const audios = container.querySelectorAll('audio');
@@ -803,30 +891,37 @@ function refreshGrabacionesUI(s, p, sessionIndex){
                     // Instead, try to fetch any already-processed (labeled) output and populate the local transcription if available.
                     aud.addEventListener('play', async ()=>{
                         try{
-                            if(aud.__fetchingProcessed) return;
                             const rec = s.grabacion && s.grabacion[0];
                             if(!rec) return;
                             if(rec.transcripcion) return; // already have text locally
-                            // Only attempt to fetch processed outputs for server-hosted recordings
-                            if(!rec.remote) return;
-                            aud.__fetchingProcessed = true;
-                            try{
-                                const resp = await fetch(API_BASE + '/api/processed/' + encodeURIComponent(p.id));
-                                if(resp && resp.ok){
-                                    const j = await resp.json();
-                                    // Only accept labeled stage — avoid showing plain transcription
-                                    if(j && j.stage && j.stage === 'labeled'){
-                                        const txt = j.text || '';
-                                        if(txt){
-                                            rec.transcripcion = txt;
-                                            await saveData();
-                                            refreshGrabacionesUI(s, p, sessionIndex);
+
+                            // One-time fetch: if this recording was uploaded to the server
+                            // and marked as processing, try to retrieve any already-processed
+                            // transcription once and update local state so the UI reflects
+                            // completion without reintroducing continuous polling.
+                            if(rec.remote && rec.processing){
+                                (async ()=>{
+                                    try{
+                                        const resp = await fetch(API_BASE + '/api/processed/' + p.id, { cache: 'no-store' });
+                                        if(resp && resp.ok){
+                                                    const j = await resp.json();
+                                                    // server returns labeled/text when ready
+                                                    if(j && (j.stage === 'labeled' || j.stage === 'done' || j.text || j.raw)){
+                                                        const txt = extractProcessedText(j) || (j.transcription_text || '');
+                                                        if(txt){
+                                                            s.grabacion[0].transcripcion = txt;
+                                                        }
+                                                s.grabacion[0].processing = false;
+                                                try{ await saveData(); }catch(e){}
+                                                // Refresh UI so buttons switch from "Procesando..." to "Ver transcripción"
+                                                try{ refreshGrabacionesUI(s, p, sessionIndex); }catch(e){}
+                                            }
                                         }
-                                    }
-                                }
-                            }catch(err){ console.warn('Error fetching processed outputs', err); }
-                            aud.__fetchingProcessed = false;
-                        }catch(e){ console.warn('play handler error', e); aud.__fetchingProcessed = false; }
+                                    }catch(fe){ /* ignore fetch errors here */ }
+                                })();
+                            }
+                            return;
+                        }catch(e){ console.warn('play handler error', e); }
                     });
                 // ensure browser parses metadata
                 try{ aud.load(); }catch(e){}
@@ -957,21 +1052,60 @@ async function openTranscriptionModal(sessionIndex, patientId){
         }
     }
     
-    const html = `
-        <div class="row">
-            <label>Transcripción de la grabación</label>
-            <textarea name="transcripcion" rows="15" style="font-family: monospace; font-size: 14px;" placeholder="Ingrese aquí la transcripción de la grabación...">${transcription}</textarea>
+    // Build a modal that shows the formatted transcription read-only (preserves speakers/timestamps)
+    // The transcription is presented in a single <pre> and is NOT editable by design.
+    // Increase modal and transcription area size per user request.
+    const modalHtml = `
+        <div style="width:100%; max-width:1200px; padding:20px; display:flex; flex-direction:column; gap:12px; box-sizing:border-box;">
+            <h3 style="margin:0;">📝 Transcripción</h3>
+
+            <!-- Non-resizable transcription container placed immediately under the title -->
+            <div id="_trans_wrapper" style="resize:none; overflow:auto; width:100%; height:60vh; min-width:360px; min-height:240px; max-width:100%; box-sizing:border-box; border-radius:8px;">
+                <pre id="_server_trans_pre" style="margin:0; white-space:pre-wrap; background:#fafafa; padding:22px; border-radius:8px; border:1px solid #eee; width:100%; height:100%; box-sizing:border-box; font-family: monospace; font-size:15px; line-height:1.45;">${''}</pre>
+            </div>
+
+            <div class="actions" style="display:flex; justify-content:flex-end; margin-top:8px;">
+                <button class="btn primary" id="_trans_close">Cerrar</button>
+            </div>
         </div>
     `;
-    
-    const data = await modalForm('📝 Transcripción', html);
-    if(!data) return;
-    
-    // Save transcription in the recording
-    s.grabacion[0].transcripcion = data.transcripcion || '';
-    await saveData();
-    alert('✅ Transcripción guardada');
+
+    const modal = createModal(modalHtml);
+    try{
+        // Ensure the outer modal element is enlarged so the content area and button
+        // are contained within the visible dialog (override CSS if necessary).
+        const modalEl = modal.backdrop.querySelector('.modal');
+        if(modalEl){
+            modalEl.style.width = 'min(96vw, 1400px)';
+            modalEl.style.maxWidth = '1400px';
+            modalEl.style.padding = '32px';
+            modalEl.style.boxSizing = 'border-box';
+            modalEl.style.resize = 'none';
+        }
+
+        // Set the pre element content via textContent to avoid HTML injection and
+        // make sure it fills the modal area.
+        const pre = modal.backdrop.querySelector('#_server_trans_pre');
+            if(pre){
+            pre.style.width = '100%';
+            pre.style.maxHeight = '72vh';
+            pre.style.boxSizing = 'border-box';
+            pre.style.fontSize = '15px';
+            pre.style.lineHeight = '1.45';
+            pre.style.whiteSpace = 'pre-wrap';
+            pre.style.wordBreak = 'break-word';
+            pre.style.overflowX = 'hidden';
+            pre.style.overflowY = 'auto';
+            pre.textContent = transcription && transcription.trim() ? transcription : '(No hay transcripción disponible aún)';
+        }
+
+        // Wire the close button (it's inside the modal HTML)
+        const closeBtn = modal.backdrop.querySelector('#_trans_close');
+        if(closeBtn) closeBtn.onclick = ()=> modal.close();
+    }catch(e){ console.error('openTranscriptionModal modal wiring error', e); }
 }
+
+
 
 function showPatient(id) {
     const p = getPatientById(id);
@@ -1506,6 +1640,8 @@ async function openSessionDetail(sessionIndex, patientId){
         // Restaurar sidebar y volver a vista de paciente
         document.querySelector('.sidebar').style.display = 'flex';
         document.querySelector('.content').style.padding = '30px';
+        // Clear any active polling interval for this patient
+        try{ if(_pp_active_intervals[p.id]){ clearInterval(_pp_active_intervals[p.id].timer); delete _pp_active_intervals[p.id]; } }catch(e){}
         showPatient(p.id);
     };
     
@@ -1516,6 +1652,8 @@ async function openSessionDetail(sessionIndex, patientId){
     let audioChunks = [];
 
     // On open, check server state and disable record button if a recording exists
+    // Also perform a one-time check for processed transcription output so the UI
+    // won't remain stuck on "Procesando..." when the server has already finished.
     (async ()=>{
         try{
             console.log('[debug] on openSessionDetail: checking existing recording for patient', p.id, 'GET', API_BASE + '/api/recording/' + p.id);
@@ -1531,11 +1669,104 @@ async function openSessionDetail(sessionIndex, patientId){
                         recordingBtn.classList.add('disabled');
                     }
                     // sync local state
-                    if(!s.grabacion || s.grabacion.length === 0){ s.grabacion = [{ fecha: new Date().toISOString(), audio: info.path, duracion: 0, remote:true }]; await saveData(); refreshGrabacionesUI(s,p,sessionIndex); }
+                    if(!s.grabacion || s.grabacion.length === 0){
+                        s.grabacion = [{ fecha: new Date().toISOString(), audio: info.path, duracion: 0, remote:true }];
+                        await saveData();
+                        refreshGrabacionesUI(s,p,sessionIndex);
+                    }
+
+                    // One-time processed check: if the server already has a transcription,
+                    // populate local state and clear the processing flag so the UI updates.
+                    try{
+                        console.debug('[debug] openSessionDetail: one-time processed check (presp) for', p.id);
+                        const presp = await fetch(API_BASE + '/api/processed/' + p.id, { cache: 'no-store' });
+                        console.debug('[debug] openSessionDetail: presp status=', presp && presp.status);
+                        if(presp && presp.ok){
+                            const pj = await presp.json();
+                            console.debug('[debug] openSessionDetail: presp json=', pj && (typeof pj === 'object' ? Object.keys(pj) : pj));
+                            if(pj && (pj.stage === 'labeled' || pj.stage === 'done' || pj.text || pj.raw)){
+                                const txt = extractProcessedText(pj) || (pj.transcription_text || '');
+                                if(!s.grabacion) s.grabacion = [{}];
+                                if(txt) s.grabacion[0].transcripcion = txt;
+                                s.grabacion[0].processing = false;
+                                try{ await saveData(); }catch(e){}
+                                try{ refreshGrabacionesUI(s, p, sessionIndex); }catch(e){}
+                            }
+                        }
+                    }catch(pe){ console.warn('openSessionDetail presp fetch error', pe); }
                 }
             }
+
+            // If persisted local state indicates a remote recording that is still
+            // marked processing, try a one-time fetch to clear it as well.
+            try{
+                if(s.grabacion && s.grabacion[0] && s.grabacion[0].remote && s.grabacion[0].processing){
+                    console.debug('[debug] openSessionDetail: persisted-state processed check for', p.id);
+                    const resp2 = await fetch(API_BASE + '/api/processed/' + p.id, { cache: 'no-store' });
+                    console.debug('[debug] openSessionDetail: resp2 status=', resp2 && resp2.status);
+                    if(resp2 && resp2.ok){
+                        const j2 = await resp2.json();
+                        console.debug('[debug] openSessionDetail: resp2 json keys=', j2 && (typeof j2 === 'object' ? Object.keys(j2) : j2));
+                        if(j2 && (j2.stage === 'labeled' || j2.stage === 'done' || j2.text || j2.raw)){
+                            const t = extractProcessedText(j2) || (j2.transcription_text || '');
+                            if(t) s.grabacion[0].transcripcion = t;
+                            s.grabacion[0].processing = false;
+                            try{ await saveData(); }catch(e){}
+                            try{ refreshGrabacionesUI(s, p, sessionIndex); }catch(e){}
+                        }
+                    }
+                }
+            }catch(pe2){ console.warn('openSessionDetail resp2 fetch error', pe2); }
+
         }catch(e){ /* ignore */ }
     })();
+
+    // Start a reliable interval-based poll while the session detail is open.
+    // The interval is registered in `_pp_active_intervals` so it can be
+    // cleared when the user closes the session view. It checks for processed
+    // outputs when there's a remote recording and no local transcription.
+    try{
+        const rec = s.grabacion && s.grabacion[0];
+        if(rec && rec.remote && !rec.transcripcion){
+            // avoid creating duplicate intervals for same patient
+            if(_pp_active_intervals[p.id] && _pp_active_intervals[p.id].timer) {
+                console.debug('[debug] polling already active for', p.id);
+            } else {
+                const maxAttempts = 40; // allow a longer window (e.g. ~2 minutes)
+                const delayMs = 3000;
+                let attempts = 0;
+                const timer = setInterval(async ()=>{
+                    attempts++;
+                    try{
+                        console.debug('[debug] interval polling attempt', attempts, 'for', p.id);
+                        const resp = await fetch(API_BASE + '/api/processed/' + p.id, { cache: 'no-store' });
+                        console.debug('[debug] interval polling status=', resp && resp.status);
+                        if(resp && resp.ok){
+                            const j = await resp.json();
+                            console.debug('[debug] interval polling json keys=', j && (typeof j === 'object' ? Object.keys(j) : j));
+                            if(j && (j.stage === 'labeled' || j.stage === 'done' || j.text || j.raw)){
+                                const txt = extractProcessedText(j) || (j.transcription_text || '');
+                                if(!s.grabacion) s.grabacion = [{}];
+                                if(txt) s.grabacion[0].transcripcion = txt;
+                                s.grabacion[0].processing = false;
+                                try{ await saveData(); }catch(e){}
+                                try{ refreshGrabacionesUI(s, p, sessionIndex); }catch(e){}
+                                // clear interval and cleanup
+                                try{ clearInterval(timer); }catch(e){}
+                                try{ delete _pp_active_intervals[p.id]; }catch(e){}
+                                return;
+                            }
+                        }
+                    }catch(e){ console.warn('interval polling fetch error', e); }
+                    if(attempts >= maxAttempts){
+                        try{ clearInterval(timer); }catch(e){}
+                        try{ delete _pp_active_intervals[p.id]; }catch(e){}
+                    }
+                }, delayMs);
+                _pp_active_intervals[p.id] = { timer, attempts: 0 };
+            }
+        }
+    }catch(e){ console.warn('Could not start interval polling', e); }
     
     if(recordingBtn){
         recordingBtn.addEventListener('click', async ()=>{
@@ -1681,7 +1912,8 @@ async function openSessionDetail(sessionIndex, patientId){
                                                                 s.grabacion[0].processing = true;
                                                                 await saveData();
                                                                 refreshGrabacionesUI(s, p, sessionIndex);
-                                                                startProcessingPoll(p.id, sessionIndex);
+                                                                // Note: frontend polling for `/api/processed` was removed —
+                                                                // server-side processing may still run, but the UI will not poll for it.
                                                             }catch(e){ console.warn('Could not mark processing locally', e); }
                                                         } else {
                                                             try{ const txt = await tResp.text(); console.warn('Transcription request failed', tResp && tResp.status, txt); }catch(e){}
@@ -1804,23 +2036,30 @@ async function uploadAttachment(sessionIndex){
     modal.backdrop.querySelector('#_a_cancel').onclick = ()=> modal.close();
     modal.backdrop.querySelector('#_a_save').onclick = async ()=>{
         const fileInput = modal.backdrop.querySelector('#_att_file');
-        if(fileInput && fileInput.files && fileInput.files[0]){
+        if(!(fileInput && fileInput.files && fileInput.files[0])){
+            return alert('Seleccione un archivo para subir');
+        }
+        try{
             const res = await uploadFile(fileInput.files[0]);
             if(res && res.url){
-                s.attachments = s.attachments || [];
-                s.attachments.push(res.url);
+                if(!s.attachments) s.attachments = [];
+                s.attachments.push({ filename: res.filename || ('adjunto_' + Date.now()), url: res.url });
                 await saveData();
-                alert('Adjunto subido');
+                modal.close();
+                alert('✅ Archivo adjuntado correctamente');
+                // If the session detail is open, refresh the UI where appropriate
+                try{ refreshGrabacionesUI(s, getPatientById(s.pacienteId), sessionIndex); }catch(e){}
+                return;
             } else {
-                alert('Fallo al subir archivo');
+                alert('❌ No se pudo subir el archivo');
             }
+        }catch(e){
+            console.error('uploadAttachment error', e);
+            alert('Error subiendo archivo: ' + (e && e.message ? e.message : e));
         }
-        modal.close();
-        loadModule('sesiones');
     };
 }
 
-// Limpiar consentimientos múltiples al cargar (migración de datos)
 function cleanupConsents() {
     mockPacientes.forEach(p => {
         if (p.consents && p.consents.length > 1) {

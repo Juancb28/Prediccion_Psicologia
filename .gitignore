@@ -29,3 +29,6 @@ outputs/
 .cache/
 whisper/
 speechbrain/
+notebooks/modelo_final/
+notebooks/modelo_final/checkpoint-153/model.safetensors
+notebooks/modelo_final/checkpoint-153/optimizer.pt

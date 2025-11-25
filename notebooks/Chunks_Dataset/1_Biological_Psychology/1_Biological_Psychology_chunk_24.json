@@ -1,0 +1,12 @@
+{
+  "id": "1_Biological_Psychology_chunk_24",
+  "book_id": "1_Biological_Psychology",
+  "source_file": "Biological Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Biological Psychology.txt",
+  "chunk_index": 24,
+  "text": "increase the surface area available for synapses.\n\nThe cell body, or soma (Greek for “body”; plural: somata), contains the nucleus, ribosomes, and mitochondria. Cell bodies of neurons range in diameter from 0.005 millimeter (mm) to 0.1 mm in mammals, and up to a millimeter in certain invertebrates. In many neurons, the cell body, like the dendrites, is covered with synapses.\n\nThe axon is a thin fiber of constant diameter. The axon conveys an impulse to other neurons, an organ, or a muscle. Whereas dendrites are never more than a few millimeters long, some axons extend more than a meter, such as the axons from your spinal cord to your feet. An axon has branches near its end.\n\nMany vertebrate axons are covered with an insulating material called a myelin sheath with interruptions known as nodes of Ranvier (RAHN-vee-ay). Invertebrate axons do not have myelin sheaths. Although a neuron can have many dendrites, it has only one axon, which may have branches. The end of each branch has a swelling, called a presynaptic terminal, also known as an end bulb or bouton (French for “button”). At that point the axon releases chemicals that cross to another cell.\n\nOther terms associated with neurons are afferent, efferent, and intrinsic. An afferent axon brings information into a structure; an efferent axon carries information away from a structure. Every sensory neuron is an afferent to the nervous system, and every motor neuron is an efferent from the nervous system. Within the nervous system, any neuron is an afferent from one structure and an efferent to another. You can remember that afferent starts with a as in admit, and efferent starts with e as in exit.",
+  "meta": {
+    "char_count": 1673,
+    "word_count": 280
+  }
+}

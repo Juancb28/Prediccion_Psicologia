@@ -1,0 +1,12 @@
+{
+  "id": "1_Biological_Psychology_chunk_35",
+  "book_id": "1_Biological_Psychology",
+  "source_file": "Biological Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Biological Psychology.txt",
+  "chunk_index": 35,
+  "text": "nnels (or gates) that are sometimes open and sometimes closed, as depicted in Figure 1.21. When the membrane is at rest, the sodium and potassium channels are closed, permitting almost no flow of sodium and only a small flow of potassium. Stimulation can open these channels, permitting freer flow.\n\nThe sodium–potassium pump, a protein complex, repeatedly transports three sodium ions out of the cell while drawing two potassium ions in. Because of this pump, sodium ions are more than 10 times more concentrated outside the membrane than inside, and potassium ions are more concentrated inside than outside.\n\nThe sodium–potassium pump is effective only because the selective permeability of the membrane prevents the sodium ions that were pumped out from leaking back in again. When sodium ions are pumped out, they stay out. However, some of the potassium in the neuron slowly leaks out, carrying a positive charge. That leakage increases the electrical gradient across the membrane.\n\nWhen the neuron is at rest, two forces tend to push sodium into the cell. One is the electrical gradient. Sodium is positively charged, and the inside of the cell is negatively charged, mainly because of negatively charged proteins. Opposite electrical charges attract, so the electrical gradient attracts sodium into the cell. The other force is the concentration gradient, the difference in distribution of ions across the membrane. Sodium is more concentrated outside than inside, so just by the laws of probability, it is more likely to enter the cell than to leave. Sodium would enter rapidly if it could, but the sodium channels are closed.\n\nPotassium is subject to competing forces.",
+  "meta": {
+    "char_count": 1677,
+    "word_count": 268
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "1_Cognitive_Psychology_chunk_29",
+  "book_id": "1_Cognitive_Psychology",
+  "source_file": "Cognitive Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Cognitive Psychology.txt",
+  "chunk_index": 29,
+  "text": ", psychobiological research, self-reports, case studies, naturalistic observation, and computer simulations and artificial intelligence when studying cognitive phenomena. \n\nMETHOD: CONTROLLED LABORATORY EXPERIMENTS\nDescription of method:\nObtain samples of performance at a particular time and place.\nValidity of causal inferences: random assignment of subjects:\nUsually.\nValidity of causal inferences: experimental control of independent variables:\nUsually.\nSamples: size:\nMay be any size.\nSamples: representativeness:\nMay be representative.\nEcological validity:\nNot unlikely, depends on the task and the context to which it is being applied.\nInformation about individual differences:\nUsually de-emphasized.\nStrengths:\nEase of administration, scoring, and of statistical analysis make it relatively easy to apply to representative samples of a population;\nRelatively high probability of drawing valid causal inferences.\nWeaknesses:\nNot always possible to generalize results beyond a specific place, time, and task setting;\nDiscrepancies between real-life behavior and behavior in the laboratory.\nExamples:\nDavid Meyer and Roger Schvaneveldt developed a laboratory task in which they briefly presented two strings of letters (either words or nonwords) to subjects, and then they asked the subjects to make a decision about each of the strings of letters, such as deciding whether the letters made a word; when the letters were related in meaning, subjects made a judgment faster than when the letters were unrelated to a predesignated category.\n\nMETHOD: PSYCHOBIOLOGICAL RESEARCH\nDescription of method:\nStudy animal brains and human brains, using postmortem studies and various psychobiological measures or imaging techniques.\nValidity of causal inferences: random assignment of subjects:\nNot usually.",
+  "meta": {
+    "char_count": 1800,
+    "word_count": 246
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "1_Cognitive_Psychology_chunk_50",
+  "book_id": "1_Cognitive_Psychology",
+  "source_file": "Cognitive Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Cognitive Psychology.txt",
+  "chunk_index": 50,
+  "text": "es versus processes: \nThesis/Antithesis: Should we study the structures (contents, attributes, and \nproducts) of the human mind? Or should we focus on the processes of hu \nman thinking? \nSynthesis: How do mental processes operate on mental structures? \n\nDomain generality versus domain specificity: \nThesis/Antithesis: Are the processes we observe limited to single domains, \nor are they general across a variety of domains? Do observations in one \ndomain apply also to all domains, or do they apply only to the specific \ndomains observed? \nSynthesis: Which processes might be domain-general, and which domain \nspecific? \n\nValidity of causal inferences versus ecological validity: \nThesis/Antithesis: Should we study cognition by using highly controlled \nexperiments that increase the probability of valid inferences regarding \ncausality? Or should we use more naturalistic techniques, which increase \nthe likelihood of obtaining ecologically valid findings but possibly at the \nexpense of experimental control? \nSynthesis: How can a variety of methods be combined, including laboratory \nones and more naturalistic ones, so as to converge on findings that hold up, \nregardless of method of study? \n\nApplied versus basic research: \nThesis/Antithesis: Should we conduct research into fundamental cognitive \nprocesses? Or should we study ways in which to help people use cognition \neffectively in practical situations? \nSynthesis: Can the two kinds of research be combined dialectically so that \nbasic research leads to applied research, which leads to further basic re \nsearch, and so on? \n\nBiological versus behavioral methods: \nThesis/Antithesis: Should we study the brain and its functioning directly, \nperhaps even scanning the brain while people are performing cognitive \ntasks?",
+  "meta": {
+    "char_count": 1781,
+    "word_count": 253
+  }
+}

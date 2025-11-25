@@ -1,0 +1,12 @@
+{
+  "id": "1_Cognitive_Psychology_chunk_35",
+  "book_id": "1_Cognitive_Psychology",
+  "source_file": "Cognitive Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Cognitive Psychology.txt",
+  "chunk_index": 35,
+  "text": "dent variable is the amount of information that the students are given about their expected task performance. The dependent variable is how well both groups actually perform the task-that is, their score \non the math test. \nWhen the experimenter manipulates the independent variables, he or she con \ntrols for the effects of irrelevant variables and observes the effects on the dependent \nvariables (outcomes). These irrelevant variables that are held constant are called \ncontrol variables . Another type of variable is the confounding variable. Confounding \nvariables are a type of irrelevant variable that has been left uncontrolled in a study. \nFor example, imagine you want to examine the effectiveness of two problem-solving \ntechniques. You train and test one group under the first strategy at 6 A.M. and a second \ngroup under the second strategy at 6 P.M. In this experiment, time of day would be a \nconfounding variable. In other words, time of day may be causing differences in performance that have nothing to do with the problem-solving strategy. Obviously, \nwhen conducting research we must be careful to avoid the influence of confounding \nvariables. \nIn implementing the experimental method, the experimenter must use a representative and random sample of the population of interest. He or she must exert rigorous control over the experimental conditions. The experimenter also must randomly \nassign participants to the treatment and control conditions. If those requisites for the \nexperimental method are fulfilled, the experimenter may be able to infer probable \ncausality. This inference is of the effects of the independent variable or variables (the \ntreatment) on the dependent variable (the outcome) for the given population.",
+  "meta": {
+    "char_count": 1748,
+    "word_count": 268
+  }
+}

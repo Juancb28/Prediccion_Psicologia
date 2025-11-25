@@ -1,0 +1,12 @@
+{
+  "id": "1_Cognitive_Psychology_chunk_10",
+  "book_id": "1_Cognitive_Psychology",
+  "source_file": "Cognitive Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Cognitive Psychology.txt",
+  "chunk_index": 10,
+  "text": "that frequent repetition can fix mental as \nsociations more firmly in memory. Thus, repetition aids in learning \nAnother influential associationist, Edward Lee Thorndike, held \nthat the role of \"satisfaction\" is the key to forming associations. Thorndike termed \nthis principle the law of effect63..: A stimulus will tend to produce a certain response over time if an organism is rewarded for that response. Thorndike believed \nthat an organism learns to respond in a given way (the effect) in a given situation if \nit is rewarded repeatedly for doing so ( the satisfaction, which serves as a stimulus to \nfuture actions). Thus, a child given treats for solving arithmetic problems correctly \nlearns to solve arithmetic problems accurately because he or she forms associations \nbetween valid solutions and treats. \nFrom Associationism to Behaviorism \nOther researchers who were contemporaries of Thorndike used animal experiments to \nprobe stimulus-response relationships in ways that differed from those of Thorndike and \nhis fellow associationists. These researchers straddled the line between associationism \nand the emerging field of behaviorism. Behaviorism is a theoretical outlook that psychology should focus only on the relation between observable behavior and environ \nmental events or stimuli. The idea was to make physical whatever others might have \ncalled \"mental\". Some of these researchers, like Thorndike and other \nassociationists, studied responses that were voluntary (although perhaps lacking any \nconscious thought, as in Thorndike's work). Others studied responses that were involuntarily triggered, in response to what appear to be unrelated external events. \nIn Russia, Nobel Prize-winning physiologist Ivan Pavlov studied \ninvoluntary learning behavior of this sort.",
+  "meta": {
+    "char_count": 1792,
+    "word_count": 258
+  }
+}

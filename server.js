@@ -86,10 +86,6 @@ if(!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 const recordingsDir = path.join(__dirname, 'recordings');
 if(!fs.existsSync(recordingsDir)) fs.mkdirSync(recordingsDir);
 
-// Outputs dir (transcriptions, labeled, logs)
-const outputsDir = path.join(__dirname, 'outputs');
-if(!fs.existsSync(outputsDir)) fs.mkdirSync(outputsDir);
-
 const storage = multer.diskStorage({
     destination: function (req, file, cb) { cb(null, uploadsDir); },
     filename: function (req, file, cb) { const safe = Date.now() + '-' + file.originalname.replace(/\s+/g,'_'); cb(null, safe); }
@@ -175,29 +171,7 @@ app.post('/api/delete-recording', (req, res) => {
     const filename = `patient_${String(patientId).replace(/[^0-9a-zA-Z_-]/g,'_')}.wav`;
     const filePath = path.join(recordingsDir, filename);
     if(fs.existsSync(filePath)){
-        try{
-            fs.unlinkSync(filePath);
-            // Also remove any generated outputs for this patient (transcription, diarization, labeled, logs)
-            const stem = path.parse(filename).name; // e.g. patient_1
-            const filesToRemove = [
-                path.join(outputsDir, `${stem}_transcription.json`),
-                path.join(outputsDir, `${stem}_transcription.txt`),
-                path.join(outputsDir, `${stem}_diarization.txt`),
-                path.join(outputsDir, `${stem}_labeled.json`),
-                path.join(outputsDir, `${stem}_labeled.txt`),
-                path.join(outputsDir, `process_${stem}.log`)
-            ];
-            const removed = [];
-            filesToRemove.forEach(f => {
-                try{
-                    if(fs.existsSync(f)){
-                        fs.unlinkSync(f);
-                        removed.push(path.basename(f));
-                    }
-                }catch(e){ /* ignore individual removal errors */ }
-            });
-            return res.json({ ok: true, removed_outputs: removed });
-        }catch(e){ return res.status(500).json({ error: e.message }); }
+        try{ fs.unlinkSync(filePath); return res.json({ ok: true }); }catch(e){ return res.status(500).json({ error: e.message }); }
     }
     return res.status(404).json({ error: 'Recording not found' });
 });
@@ -224,22 +198,6 @@ app.use('/recordings', express.static(recordingsDir, {
             res.setHeader('Content-Type', 'audio/wav');
         }
         // avoid aggressive caching during development
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    }
-}));
-
-// Serve outputs (transcriptions, labeled files). Strip Range header to avoid RangeNotSatisfiable errors
-app.use('/outputs', (req, res, next) => {
-    try{
-        if(req.headers && req.headers.range){
-            // remove range to avoid partial-range serving issues for small files
-            delete req.headers.range;
-        }
-    }catch(e){ /* ignore */ }
-    next();
-}, express.static(outputsDir, {
-    setHeaders: (res, filePath) => {
-        res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     }
 }));
@@ -371,21 +329,27 @@ app.get('/api/data', (req, res) => {
 app.get('/api/processed/:patientId', (req, res) => {
     const pid = req.params.patientId;
     if(!pid) return res.status(400).json({ ok:false, error: 'patientId required' });
-    console.log('[debug] /api/processed request for patientId=', pid);
     try{
         const outDir = path.join(__dirname, 'outputs');
         const stem = `patient_${String(pid).replace(/[^0-9a-zA-Z_-]/g,'_')}`;
-        console.log('[debug] resolved stem =', stem, 'looking in', outDir);
         const candidates = [
             { type: 'labeled', json: path.join(outDir, `${stem}_labeled.json`), txt: path.join(outDir, `${stem}_labeled.txt`) },
             { type: 'transcription', json: path.join(outDir, `${stem}_transcription.json`), txt: path.join(outDir, `${stem}_transcription.txt`) }
         ];
 
         for(const c of candidates){
+            // Prefer returning the raw text file when available (preserves speaker labels/timestamps).
+            if(fs.existsSync(c.txt)){
+                try{
+                    const raw = fs.readFileSync(c.txt, 'utf8');
+                    return res.json({ ok:true, stage: c.type, text: raw, txt_path: `/outputs/${path.basename(c.txt)}` });
+                }catch(e){ /* ignore and fallthrough to json handling */ }
+            }
+
             if(fs.existsSync(c.json)){
                 try{
                     const j = JSON.parse(fs.readFileSync(c.json, 'utf8'));
-                    // try to extract a human-friendly text field
+                    // try to extract a human-friendly text field if no txt exists
                     let text = '';
                     if(j){
                         if(j.labeled_text) text = j.labeled_text;
@@ -410,16 +374,8 @@ app.get('/api/processed/:patientId', (req, res) => {
                     }
                     return res.json({ ok:true, stage: c.type, text, json_path: `/outputs/${path.basename(c.json)}`, raw: j });
                 }catch(e){
-                    // fallthrough to return raw file content as text
-                    const raw = fs.readFileSync(c.json, 'utf8');
-                    return res.json({ ok:true, stage: c.type, text: raw, json_path: `/outputs/${path.basename(c.json)}` });
+                    // fallthrough to next candidate
                 }
-            }
-            if(fs.existsSync(c.txt)){
-                try{
-                    const raw = fs.readFileSync(c.txt, 'utf8');
-                    return res.json({ ok:true, stage: c.type, text: raw, txt_path: `/outputs/${path.basename(c.txt)}` });
-                }catch(e){ /* ignore */ }
             }
         }
 

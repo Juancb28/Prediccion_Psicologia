@@ -762,7 +762,10 @@ function buildGrabacionesHTML(s, p, sessionIndex){
                         </div>
                         <div style="display:flex; gap:8px; align-items:center;">
                             ${(() => {
-                                const isProcessing = grab && grab.processing;
+                                // Consider the recording "processing" while there is no local transcription
+                                // for a remote recording (server-side processing may still be running).
+                                const hasLocalText = grab && grab.transcripcion && String(grab.transcripcion).trim().length > 0;
+                                const isProcessing = grab && (grab.processing === true || (grab.remote && !hasLocalText));
                                 if(isProcessing){
                                     return `
                                                 <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
@@ -1018,39 +1021,26 @@ async function openTranscriptionModal(sessionIndex, patientId){
     // Get or initialize transcription
     let transcription = s.grabacion[0].transcripcion || '';
 
-    // If there's no local transcription but the recording was uploaded to server, try requesting transcription on demand
-    if(!transcription && s.grabacion[0].audio && s.grabacion[0].remote){
-        try{
-            // show a temporary modal informing user that transcription is being requested
-            const busyModal = createModal(`<h3>🕒 Solicitando transcripción</h3><div style="padding:12px;">La transcripción puede tardar. Por favor, espere...</div>`);
-            console.log('[debug] openTranscriptionModal: requesting transcription for patientId=', patientId, 'file=', s.grabacion[0].audio);
-            const resp = await fetch(API_BASE + '/api/transcribe-recording', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ patientId: patientId })
-            });
-            console.log('[debug] openTranscriptionModal: transcription request finished, resp.ok=', resp && resp.ok, 'status=', resp && resp.status);
-            busyModal.close();
-            if(!resp.ok){
-                try{ const txt = await resp.text(); console.warn('Transcription request failed', resp.status, txt); }catch(e){}
+    // Prefer the server's labeled text file when available. Do NOT trigger processing here.
+    // This ensures the modal only shows the `_labeled.txt` content (speaker-labelled blocks).
+    try{
+        const resp = await fetch(API_BASE + '/api/processed/' + patientId, { cache: 'no-store' });
+        if(resp && resp.ok){
+            const pj = await resp.json();
+            const txt = extractProcessedText(pj) || (pj.transcription_text || pj.text || '');
+            if(txt && String(txt).trim()){
+                transcription = txt;
+                // persist locally for UI consistency
+                if(!s.grabacion) s.grabacion = [{}];
+                s.grabacion[0].transcripcion = txt;
+                s.grabacion[0].processing = false;
+                try{ await saveData(); }catch(e){}
+                try{ refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex); }catch(e){}
             } else {
-                const j = await resp.json();
-                const txt = j && (j.transcription_text || j.text || '');
-                console.log('[debug] openTranscriptionModal: transcription response json', j);
-                if(txt){
-                    s.grabacion[0].transcripcion = txt;
-                    transcription = txt;
-                    await saveData();
-                    console.log('[debug] openTranscriptionModal: saved transcription locally, length=', (txt||'').length);
-                    // refresh UI so user sees updated state
-                    refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex);
-                }
+                // leave transcription empty — will show 'no transcription available' message
             }
-        }catch(e){
-            console.error('[debug] openTranscriptionModal: error requesting transcription', e);
-            console.warn('Error requesting transcription on-demand', e);
         }
-    }
+    }catch(e){ console.warn('openTranscriptionModal: error checking /api/processed/', e); }
     
     // Build a modal that shows the formatted transcription read-only (preserves speakers/timestamps)
     // The transcription is presented in a single <pre> and is NOT editable by design.
@@ -1084,9 +1074,9 @@ async function openTranscriptionModal(sessionIndex, patientId){
         }
 
         // Set the pre element content via textContent to avoid HTML injection and
-        // make sure it fills the modal area.
+        // make sure it fills the modal area. Only show labeled transcription blocks.
         const pre = modal.backdrop.querySelector('#_server_trans_pre');
-            if(pre){
+        if(pre){
             pre.style.width = '100%';
             pre.style.maxHeight = '72vh';
             pre.style.boxSizing = 'border-box';
@@ -1096,7 +1086,8 @@ async function openTranscriptionModal(sessionIndex, patientId){
             pre.style.wordBreak = 'break-word';
             pre.style.overflowX = 'hidden';
             pre.style.overflowY = 'auto';
-            pre.textContent = transcription && transcription.trim() ? transcription : '(No hay transcripción disponible aún)';
+            // If transcription is empty, show a clear message that the labeled file is not ready
+            pre.textContent = transcription && String(transcription).trim() ? transcription : '(No hay transcripción etiquetada disponible aún)';
         }
 
         // Wire the close button (it's inside the modal HTML)

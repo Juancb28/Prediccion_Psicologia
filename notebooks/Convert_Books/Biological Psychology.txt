@@ -1,0 +1,292 @@
+
+It is often said that Man is unique among animals. It is worth looking at this term unique before we discuss our subject proper. The word may in this context have two slightly different meanings. It may mean: Man is strikingly different - he is not identical with any animal. This is of course true. It is true also of all other animals: Each species, even each individual is unique in this sense. But the term is also often used in a more absolute sense: Man is so different, so "essentially different" (whatever that means) that the gap between him and animals cannot possibly be bridged - he is something altogether new. 
+Used in this absolute sense the term is scientifically meaningless. Its use also reveals and may reinforce conceit, and it leads to complacency and defeatism because it assumes that it will be futile even to search for animal roots. It is prejudging the issue.
+
+Module 1
+
+Module 1.1 The Biological Approach to Behavior 
+
+So how did that happen? Furthermore, given the existence of a universe, why this particular type of universe? As Steven Vigdor noted, "Our universe is habitable. It did not have to be so." The Big Bang that started the universe contained an as-yet unexplained asymmetry that caused the development of more matter than antimatter. If matter and antimatter had been equal, there could be no stars, planets, or anything else. Our universe has protons, neutrons, and electrons with particular imensions of mass and charge. It has four fundamental forces: gravity, electromagnetism, the strong nuclear force, and the weak nuclear force. Those properties and dimensions have values that seem arbitrary, but if they had been much different, stars and planets could not have developed, or if they had developed, they would not have lasted long enough for life to evolve. Life could have evolved in a slightly different universe - and, who knows, maybe some universes could have been even better - but many aspects of the universe had to be almost exactly what they are. One item that had to be narrowly constrained is the structure of a water molecule. In a water molecule, the two hydrogen ions form a 104.5° angle. Because of that angle, one end of the water molecule has a slight positive charge and the other has a slight negative charge. The charge difference enables water molecules to attract one another electrically by just the right amount. If water molecules attracted one another a bit less, all water would be a gas (steam). If the molecules attracted one another a bit more strongly, water would always be a solid (ice).
+
+Why is the universe suitable for sustaining life? Maybe it's just a coincidence. (Lucky for us, huh?) Or maybe intelligence of some sort guided the formation of the universe. That hypothesis clearly goes beyond the reach of empirical science. Another possibility is that other universes exist, and we know about only the one in which life like ours could evolve. Physicists have persuasive theoretical reasons for supposing other universes, but that idea also goesbeyond the reach of empirical science.
+
+I said that two questions stand out as the most profound. The second one is this: In a universe composed of matter and energy, why is there such a thing as consciousness? In our universe, consciousness exists. It did not have to be so. Computers can perform increasingly intelligent operations, presumably without being conscious, but when we perform the same operations, conscious experience accompanies them. Why? The mind-brain problem or the mind-body problem is the question of how and why certain types of brain activity are conscious. We shall deal with this question in more detail in a later chapter.
+
+The Field of Biological Psychology 
+
+In a sense, all psychology is biological. You are a biological organism, and everything that you do is part of your biology. However, it is helpful to distinguish among levels of explanation. Some aspects of psychology are best described in terms of cultural, social, and cognitive influences, while others require reference to genetics, evolution, hormones, body physiology, and brain mechanisms.
+
+Biological psychology is the study of the physiological, evolutionary, and developmental mechanisms of behavior and experience. It is approximately synonymous with the terms biopsychology, psychobiology, physiological psychology, and behavioral neuroscience. The term biological psychology emphasizes that the goal is to relate biology to issues of psychology. Neuroscience includes much that is relevant to behavior, but it includes more detail about anatomy and chemistry.
+
+Biological psychology is not only a field of study but also a point of view. It holds that we think and act as we do because of brain mechanisms, and that we evolved those brain mechanisms because ancient animals built this way survived and reproduced.
+
+Biological psychology deals with brain activity. Offers a view of the human brain from the top (what anatomists call a dorsal view) and from the bottom (a ventral view). The labels point to a few important areas that will become more familiar as you proceed through this text. An inspection of a brain reveals distinct subareas. At the microscopic level, we find two kinds of cells: the neurons and the glia. Neurons, which convey messages to one another and to muscles and glands, vary enormously in size, shape, and functions. The glia, generally smaller than neurons, have many functions but they do not convey information over great distances. The activities of neurons and glia somehow produce an enormous wealth of behavior and experience. This book is about researchers’ attempts to elaborate on that word somehow.
+
+Three Main Points to Remember
+
+This book presents a great deal of factual information. Regardless of how many details you learn or forget, at least three general points should stick with you forever:
+
+1. Perception occurs in your brain. When something contacts your hand, the hand sends a message to your brain. You feel it in your brain, not your hand. Electrical stimulation of your brain could produce a hand experience even if you had no hand. A hand disconnected from your brain has no experience. Similarly, when you see something, the experience is in your head, not “out there.” You do not send “sight rays” out of your eyes, and even if you did, they wouldn’t do you any good. The chapter on vision elaborates on this point. Furthermore, what you perceive is not what something actually is. Colors are what the light rays cause your brain to do, and sounds are what air waves cause your brain to do. Light waves are not colors and air waves are not sounds.
+
+2. Mental activity and certain types of brain activity are, so far as we can tell, inseparable. This position is known as monism, the idea that the universe consists of only one type of being. (The opposite is dualism, the idea that minds are one type of substance and matter is another.) Nearly all neuroscientists and philosophers support some version of monism.
+
+It is not easy to get used to the concept of monism. People sometimes ask whether brain activity causes thoughts, or whether thoughts direct the brain activity (e.g., Miller, 2010). According to monism, that question is like asking whether temperature controls the movement of molecules, or whether the movement of molecules causes temperature. Neither one causes the other.They are just different ways of describing the same thing.
+
+3. People differ from one another in countless ways, and many of the differences can be traced to differences in the brain. Close your eyes and imagine the Eiffel Tower. Do you suppose that other people have nearly the same experience when they picture it “in their mind’s eye”? Nope. Some people have an experience almost as clear and detailed as actually seeing something, and others have no visual experience at all. People vary in how well they recognize faces. They differ in their sensitivity to tastes, smells, and pain. They differ in their ability to understand voices in a noisy environment, and in their ability to recall personal experiences. They differ in how much sleep they need per night. The list goes on, and the behavioral differences are rooted in brain differences.
+
+Biological Explanations of Behavior
+
+Commonsense explanations of behavior often refer to intentional goals such as, “He did this because he was trying to ...” or “She did that because she wanted to ...” But often, we have no reason to assume intentions. A 4-month-old
+bird migrating south for the first time presumably does not know why. The next spring, when she lays an egg, sits on it, and defends it from predators, she doesn’t know why. Even humans don’t always know the reasons for their own behaviors. Yawning and laughter are two examples. You do them, but can you explain what they accomplish? Even when an intention is clear—for example, you are buying a sándwich because you plan to eat it—the intention does not explain anything. Something else, after all, caused the intention.
+
+In contrast to commonsense explanations, biological explanations of behavior fall into four categories: physiological, ontogenetic, evolutionary, and functional (Tinbergen, 1951). A physiological explanation relates a behavior to the activity of the brain and other organs. It deals with the machinery of the body, for example, the chemical reactions that enable hormones to influence brain activity and the routes by which brain activity controls muscle contractions.
+
+The term ontogenetic comes from Greek roots meaning the origin (or genesis) of being. An ontogenetic explanation describes how something develops. For example, if we want to explain why males and females differ on average in some 
+regard, we might examine behavior at various ages and relate it to changes in the nervous system.
+
+An evolutionary explanation reconstructs the evolutionary history of a structure or behavior. The characteristic features of an animal are almost always modifications of something found in ancestral species. For example, bat wings are modified arms, and porcupine quills are modified hairs. In behavior, monkeys use tools occasionally, and humans evolved elaborations on those abilities that enable us to use tools even better (Peeters et al., 2009). Evolutionary explanations call attention to behavioral similarities among related species.
+
+A functional explanation describes why a structure or behavior evolved as it did. Within a small, isolated population, a gene can spread by accident through a process called genetic drift. For example, a dominant male with many offspring spreads all his genes, including some that may have been irrelevant or even disadvantageous. However, a gene that is prevalent throughout a species probably provided some advantage - at least in the past, though not necessarily today. A functional explanation identifies that advantage. For example, many species have an appearance that matches their background. A functional explanation is that camouflaged appearance makes the animal inconspicuous to predators. Some species use their behavior as part of the camouflage, such as fish that live among kelp, look like kelp, and act like kelp.
+
+To illustrate two types of biological explanations, consider the example of how certain moth species react to sound. For sound waves that humans hear, up to about 20,000 Hz (hertz, or cycles per second), the moths do not react at all. For waves at 20,000 to 100,000 Hz, which we regard as ultrasonic, a moth turns and flies away from the sound source. If the sound gets louder, the moth either dives for the ground or flies erratically. The physiological explanation starts with the moth’s ears, which are sensitive only to sound waves at 20,000 to 100,000 Hz. When the sound is louder in one ear than in the other, it triggers a reflex that turns the moth until the two ears respond equally, enabling the moth to fly away. At a certain level of loudness, the ears respond equally and at maximum, no matter where the moth turns. At that point, connections in the moth’s head stimulate either a dive or helter-skelter flight (Roeder, 1967).
+
+A functional explanation deals with why the moth’s hearing system evolved this way. Moths in flight are vulnerable to attack by bats that find moths by emitting calls at 20,000 to 100,000 Hz and listening for echoes. As soon as a moth hears anything, it treats it as danger. By turning until the ears are equally stimulated, it can fly away from the bat. A moth can hear bat calls when the bat is too far away to hear the echo. If the bat gets close enough to hear an echo, that is the distance at which the bat’s calls will be so loud to the moth that both ears reach maximum response. At that point, flying away is no longer a good strategy, because bats are faster. Diving for the ground or flying helter-skelter might work. Probably not, but worth a try. The moths evolved a simple hearing system that increases their chance for survival.
+
+Just for fun, here is something you can try yourself: 
+
+When you observe moths clustering around your house light at night, jingle some keys. If you manage to produce some high-frequency sound waves, the moths will react strongly. You managed to drive the moths “batty.”
+
+To further illustrate the four types of biological explanation, consider how they all apply to another example, birdsong (Catchpole and Slater, 1995):
+
+Type of Explanation
+
+Physiological: A particular area of a songbird brain grows under the influence of testosterone; hence, it is larger in breeding males than in females or immature birds. That brain área enables a mature male to sing.
+
+Ontogenetic: In certain species, a young male bird learns its song by listening to adult males. Development of the song requires certain genes and the opportunity to hear the appropriate song during a sensitive period early in life.
+
+Evolutionary: Certain pairs of species have similar calls. For example, dunlins and Baird’s sandpipers, two shorebird species, give their calls in distinct pulses, unlike other shorebirds. The similarity suggests that the two evolved from a single ancestor.
+
+Functional: In many bird species, only the male sings. He sings only during the reproductive season and only in his territory. The functions of the song are to attract females and warn away other males.
+
+Fields of therapy include clinical psychology, counseling psychology, school psychology, medicine, and allied medical practice such as physical therapy. These fields range from neurologists (who deal exclusively with brain disorders) to social workers and clinical psychologists, who need to recognize possible signs of brain disorder so they can refer a client to a proper specialist
+
+Anyone who pursues a career in research needs to stay up to date on new developments by attending conventions, consulting with colleagues, and reading research journals, such as Neuron, Journal of Neuroscience, Neurology, Behavioral Neuroscience, Brain Research, Nature Neuroscience, Journal of Cognitive Neuroscience, and Archives of General Psychiatry. But what if you are entering a field on the outskirts of neuroscience, such as clinical psychology, school psychology, social work, or physical therapy? In that case, you want to stay current on major developments, at least enough to converse intelligently with medical colleagues.
+
+Neuroethics
+
+Research in biological psychology and related fields attempts to understand and sometimes modify behavior. Difficult ethical issues arise.
+
+Issues Concerning Animal Research
+
+Several ethical disputes resist agreement. Among those issues are abortion and the use of animals in research. In both cases, well-meaning people on each side of the issue insist that their position is proper and ethical. The dispute is not between good people and bad people. It is between two views of what is Good.
+
+Given that most biological psychologists and neuroscientists are primarily interested in the human brain and human behavior, why do they study nonhumans? Here are four reasons:
+
+1. Many of the mechanisms of behavior are similar across species, and sometimes they are easier to study in a nonhuman species. If you want to understand a complex machine, you might begin by examining a simpler machine. We also learn about brain–behavior relationships by starting with simpler cases. Much research has been conducted on squid nerves, which are thicker than human nerves and therefore easier to study. The roundworm Caenorhabditis elegans has only 302 neurons, the same for all individuals, enabling researchers to map all the cells and all their interconnections. The sea slug Aplysia also has neurons that are almost always the same, including many large ones that are easy to study. Many vertebrates also have brains that are easy to study, and their brains resemble human brains in many regards.
+
+2. We are interested in animals for their own sake. Humans are naturally curstious. We would like to understand how bats chase insects in the dark, how migratory birds find their way over unfamiliar territory, how schools of fish manage to swim in unison, and much more.
+
+3. What we learn about animals sheds light on human evolution. How do we resemble chimpanzees and other primates, and how do we differ from them? Why and how did primates evolve larger brains than other species?
+
+4. Legal or ethical restrictions prevent certain kinds of research on humans. Investigators sometimes insert electrodes into the brains of rats and other animals to determine the relationship between brain activity and behavior. They also inject chemicals, extract brain chemicals, and study the effects of brain damage. Such experiments answer questions that investigators cannot address in any other way, including some questions that are critical for medical progress. However, they do raise an ethical issue: When a research study is unacceptable with humans, is it acceptable with other species? If so, under what circumstances?
+
+Research raises no objections when investigators simply observe how animal behavior varies as a function of times of day, seasons of the year, changes in diet, and so forth. In other studies, however, including many discussed in this book, animals have been subjected to procedures that are clearly harmful to them. Anyone with a conscience, including scientists, is distressed by this fact. Nevertheless, experimentation with animals has been critical to the medical research that led to methods for the prevention or treatment of polio, diabetes, measles, smallpox, massive burns, heart disease, and other serious conditions. Retinal implants to alleviate blindness and cochlear implants for hearing loss began with animal research. Progress toward treating or preventing AIDS, Alzheimer’s disease, Parkinson’s disease, stroke, and other disorders depends largely on animal research. In much of medicine and biological psychology, research would progress slowly or not at all without animals.
+
+Degrees of Opposition
+
+Opposition to animal research ranges in degree. “Minimalists” accept certain types of animal research but not others depending on the probable value of the research, the amount of distress to the animal, and the type of animal. Few people have serious qualms about hurting an insect, for example. They favor firm regulations on research. Researchers agree in principle, although they often differ in where they draw the line between acceptable and unacceptable research. Comparing probable harm to benefits is difficult, and research often fails to live up to the optimistic expectations.
+
+The legal standard emphasizes “the three Rs”: reduction of animal numbers (using fewer animals), replacement (using computer models or other substitutes for animals, when possible), and refinement (modifying the procedures to reduce pain and discomfort). In the United States, every college or other institution that receives government research funds is required to have an Institutional Animal Care and Use Committee, composed of veterinarians, community representatives, and scientists that evaluate proposed experiments, decide whether they are acceptable, and specify procedures to minimize pain and discomfort. Similar regulations and committees govern research on human subjects. In addition, research laboratories must abide by national laws requiring standards of cleanliness and animal care. Scientific journals accept publications only after researchers state that they followed all the laws and regulations. Professional organizations such as the Society for Neuroscience publish guidelines for the use of animals in research (refer to Appendix B). Rules differ from one country to another. For example, research on treatments for Ebola, Zika, and other viruses requires studies on monkeys, but political pressures in the United States and Europe block nearly all such research, leaving the world to rely on researchers in China, where the government is more permissive.
+
+In contrast to “minimalists,” the “abolitionists” find no room for compromise. Abolitionists maintain that all animals have the same rights as humans. They regard killing an animal as murder, regardless of whether the intention is to eat it, use its fur, or gain scientific knowledge. Keeping an animal in a cage (presumably even a pet) is, in their view, slavery. Because animals cannot give informed consent to research, abolitionists insist it is wrong to use them in any way, regardless of the circumstances. According to one opponent of animal research, “We have no moral option but to bring this research to a halt. Completely.... We Will not be satisfied until every cage is empty” (Regan, 1986, pp. 39–40). Advocates of this position sometimes claim that most animal research is painful and that it never leads to important results. However, for a true abolitionist, neither of those points matters. Their moral imperative is that people have no right to use animals at all, even if the research is highly useful and totally painless.
+
+The disagreement between abolitionists and animal researchers is a dispute between two ethical positions: “Never knowingly harm an innocent” and “Sometimes a little harm leads to a greater good.” On the one hand, permitting research has the undeniable consequence of inflicting pain or distress. On the other hand, banning all use of animals would mean a great setback in medical research as well as the end of animal-to-human transplants (e.g., transplanting pig heart valves to prolong lives of people with heart diseases). Medical researchers and brain researchers would welcome the day when they can do without animal research, but that day is not at hand.
+
+It would be nice to say that this ethical debate has always proceeded in an intelligent and mutually respectful way. Unfortunately, it has not. Over the years, abolitionists have sometimes advanced their cause through intimidation. Examples include vandalizing laboratories, placing a bomb under a professor’s car, placing a bomb on a porch (intended for a researcher but accidentally placed on the neighbor’s porch), banging on a researcher’s children’s windows at night, and inserting a garden hose through a researcher’s window to flood the house. Michael Conn and James Parker quote a spokesperson for the Animal Defense League as follows: “I don’t think you’d have to kill—assassinate—too many [doctors involved with animal testing]. . . . I think for 5 lives, 10 lives, 15 human lives, we could save a million, 2 million, 10 million nonhuman lives.” One researcher, Dario Ringach, finally agreed to stop his research on monkeys, if animal-rights extremists would stop harassing and threatening his children. He emailed them, “You win.” In addition to researchers who quit in the face of attacks, many colleges and other institutions have declined to open animal research laboratories because of their fear of violence.
+
+The often fervent and extreme nature of the opposition makes it difficult for researchers to express intermediate or nuanced views. Many of them remark that they really do care about animals, despite using them for research. Some neuroscientists are vegetarians. But admitting to doubts seems almost like giving in to intimidation. The result is extreme polarization that interferes with open-minded contemplation of the difficult issues.
+
+We began this chapter with a quote from the Nobel Prize-winning biologist Niko Tinbergen, who argued that no fundamental gulf separates humans from other animal species. Because we are similar in many ways to other species, we learn much about ourselves from animal studies. Also because of that similarity, we wish not to hurt them. Neuroscience researchers who decide to conduct animal research do not, as a rule, take the decision lightly. They believe it is better to inflict distress under controlled conditions than to permit ignorance and disease to inflict greater distress. In some cases, however, it is a difficult decision.
+
+Issues in Human Research
+
+Research with humans raises different types of ethical concerns. Brain surgery is sometimes conducted while a person is under only local anesthesia, and therefore awake. (The skin of the scalp has pain receptors, but the brain itself does not.) Sometimes a patient undergoing such surgery is invited to participate in a study where researchers will record from brain cells while presenting sensory stimuli. So far as we know, the procedure causes the patient no harm, but it also provides no benefit. The shaky part of the ethics is getting informed consent. If your surgeon asked you to participate, would you say yes, just to please your surgeon?
+
+Another issue: Sometimes a patient with Parkinson’s disease has electrodes implanted to stimulate areas deep in the brain, after other types of treatment have failed. The procedure is usually successful, and usually without any serious negative effects, but occasionally the person shows troublesome behavioral changes. When that happens, is the individual personally responsible for the misbehavior? Or is it the fault of the electrodes?
+
+Yet another concern: Because most research has been done in North America or Europe, most studies of humans have used relatively prosperous people, mostly people of European ancestry, not a representative sample of all humanity. For some purposes, that is not a problem. Brain anatomy is the same for people throughout the world. The basic principles of neurons, synapses, and sensory organs are the same for all people, and in some respects almost the same for all mammals. Where diversity, or the lack of it, becomes a big issue is the effects of medications. Some medications affect people differently because of small changes in their genetics. Some medications affect females differently from males. Several pharmaceutical companies have faced complaints, even lawsuits, because they marketed a drug after testing it on only one type of person. One excuse for not using a broader sample has been researchers’ assumption that minority group members would refuse, because they knew about past cases of abuse. An especially shameful example was the Tuskegee study from 1932 to 1972, in which investigators knowingly failed to treat syphilis in Black men, just to observe how the disease progressed. However, researchers have found that minority group members are mostly willing to participate, if they are given proper explanations about the proposed research.
+
+Module 1.2 Neurons and Other Cells
+
+Neurons
+
+The nervous system consists of two kinds of cells, neurons and glia. Neurons receive information and transmit it to other cells. We consider glia later in this module. According to the best estimate, the adult human brain contains approximately 86 billion neurons, on average. However, that number is just an average. People vary in their neuron numbers more than they vary in their height (von Bartheld et al., 2016).
+
+Santiago Ramón y Cajal, a Pioneer of Neuroscience 
+
+Two scientists of the late 1800s and early 1900s, who knew each other well, pioneered the field of neuroscience: Charles Sherrington, whom we shall discuss in the chapter on synapses, and Santiago Ramón y Cajal (1852–1934). Cajal’s early education did not progress smoothly. At one point, he was imprisoned in a solitary cell, limited to one meal a day, and taken out daily for public floggings—at the age of 10—for the crime of not paying attention during his Latin class (Cajal, 1901–1917/1937).
+
+Cajal wanted to become an artist, but his father insisted that he study medicine as a safer way to make a living. He managed to combine the two fields, using his drawing skills to illustrate his medical research. His detailed drawings of the nervous system are still considered definitive today. One of his major contributions was an idea that we now take for granted—the idea that the brain consists of individual cells.
+
+During the 1800s biologists discovered that the body consists of cells, but at first, they were not sure that the same was true of the brain. In the rest of the body, microscopes revealed cells that were either roundish or elongated. When biologists examined at the brain, they found peculiar shapes that looked nothing like the other cells, with long fibers stretching from one place to another. Were those weird-looking things really cells? Or was the brain different from the rest of the body? Maybe everything in the brain joined together in a single mesh.
+
+At first, microscopes did not provide enough detail to answer the question. Then, in the late 1800s, the Italian investigator Camillo Golgi found a way to stain nerve cells with silver salts. This method, which completely stains some cells without affecting others at all, enabled researchers to examine the structure of a single cell. Using this method to examine the brain, Golgi concluded that the fibers of the brain all link together. That is, he concluded that the brain is like a mesh, without separate cells.
+
+Spanish investigator Cajal used Golgi’s staining method, but he applied it to infant brains, in which the cells are smaller and easier to examine on a single slide. He came to the opposite conclusion: Nerve cells remain separate instead of merging into one another. A small gap separates the tip of a neuron’s fiber from the surface of the next neuron. The brain, like the rest of the body, does indeed consist of individual cells.
+
+In 1906, Cajal and Golgi shared the 1906 Nobel Prize for Physiology or Medicine. Cajal used his acceptance speech to outline the cellular basis of the brain. In spite of Cajal’s evidence, which had persuaded almost everyone else, Golgi continued to defend the theory that all nerve cells merge directly into one another. It was the only time in history when those who shared a Nobel prize used the occasion to give acceptance speeches that contradicted each other.
+
+The Structures of an Animal Cell
+
+Neurons have much in common with the rest of the body’s cells. The surface of a cell is its membrane (or plasma membrane), a structure that separates the inside of the cell from the outside environment. Most chemicals cannot cross the membrane, but protein channels in the membrane permit a controlled Flow of water, oxygen, sodium, potassium, calcium, chloride, and other important chemicals.
+
+Except for mammalian red blood cells, all animal cells have a nucleus, the structure that contains the chromosomes. The chromosomes do not just float around loosely. DNA, the chemical that forms the chromosomes, is not stable for long in water solution. The DNA and other key chemicals are carefully scaffolded by other molecules.
+
+Cells also contain ribosomes, structures that synthesize new protein molecules. Some ribosomes float freely within the cell, but others attach to the endoplasmic reticulum, a network of thin tubes that transport newly synthesized proteins to other locations.
+
+A mitochondrion (plural: mitochondria) performs metabolic activities, providing the energy that the cell uses for all activities. For many years, neuroscientists and psychologists paid little attention to mitochondria, but later research has increased their interest. Mitochondria are not all the same. Mitochondria have their own genes, separate from those in the nucleus of a cell. Mitochondria are inherited in the cytoplasm of the egg cell. Therefore, you inherited your mitochondria from your biological mother, who got them from her mother, and so on. 
+
+Because brain activity requires more energy than the activity of any other organ, the brain is especially dependent on good mitochondrial functioning. Healthy mitochondria promote health, brain activity, and cognition. Mitochondria can be less active than average either because of genes within the mitochondria themselves or because of toxic chemicals, stress, or illnesses that produce inflammation. Decreased mitochondrial function means decreased mental energy and a high probability of depression. Impairments of mitochondria have also been linked to increased severity of epilepsy, Alzheimer’s disease, Parkinson’s disease, and Huntington’s disease.
+
+The Structure of Neurons
+
+Compared to other cells, the most distinctive feature of neurons is their highly variable shape. All neurons include a soma (cell body), and most also have dendrites, an axon, and presynaptic terminals. The tiniest neurons lack axons, and some neurons lack well-defined dendrites. Contrast the motor neuron in and the sensory neuron. A motor neuron, with its soma in the spinal cord, receives excitation through its dendrites and conducts impulses along its axon to a muscle. A sensory neuron is specialized at one end to be highly sensitive to a particular type of stimulation, such as touch. The sensory neuron conducts touch information from the skin to the spinal cord. Tiny branches lead directly from the receptors into the axon, and the cell’s soma is located on a little stalk off the main trunk.
+
+Dendrites are branching fibers that get narrower near their ends. The term dendrite comes from a Greek root word meaning “tree.” Giorgio Ascoli (2015) offers this analogy: If you expanded a dendrite to the height of a tree, the dendrite would be as thick as your little finger, its branches would be as thin as spaghetti, and the cell’s axon would extend for more than 25 city blocks.
+
+The dendrite’s surface is lined with specialized synaptic receptors, at which the dendrite receives information from other neurons. Many dendrites contain dendritic spines, short outgrowths that increase the surface area available for synapses.
+
+The cell body, or soma (Greek for “body”; plural: somata), contains the nucleus, ribosomes, and mitochondria. Cell bodies of neurons range in diameter from 0.005 millimeter (mm) to 0.1 mm in mammals, and up to a millimeter in certain invertebrates. In many neurons, the cell body, like the dendrites, is covered with synapses.
+
+The axon is a thin fiber of constant diameter. The axon conveys an impulse to other neurons, an organ, or a muscle. Whereas dendrites are never more than a few millimeters long, some axons extend more than a meter, such as the axons from your spinal cord to your feet. An axon has branches near its end.
+
+Many vertebrate axons are covered with an insulating material called a myelin sheath with interruptions known as nodes of Ranvier (RAHN-vee-ay). Invertebrate axons do not have myelin sheaths. Although a neuron can have many dendrites, it has only one axon, which may have branches. The end of each branch has a swelling, called a presynaptic terminal, also known as an end bulb or bouton (French for “button”). At that point the axon releases chemicals that cross to another cell.
+
+Other terms associated with neurons are afferent, efferent, and intrinsic. An afferent axon brings information into a structure; an efferent axon carries information away from a structure. Every sensory neuron is an afferent to the nervous system, and every motor neuron is an efferent from the nervous system. Within the nervous system, any neuron is an afferent from one structure and an efferent to another. You can remember that afferent starts with a as in admit, and efferent starts with e as in exit. If a cell’s dendrites and axon are entirely contained within a single structure, the cell is an interneuron or intrinsic neuron of the structure.
+
+Variations among Neurons
+
+Neurons vary enormously in size, shape, and function. The shape of a neuron determines its connections with other cells and thereby determines its function. The widely branching dendrites of the Purkinje cell in the cerebellum enable it to receive input from up to 200,000 other neurons. By contrast, the tiny bipolar neurons in the retina might receive input from as few as two other cells.
+
+Glia
+
+Glia (or neuroglia), the other components of the nervous system, perform many functions. The term glia, derived from a Greek word meaning “glue,” reflects early investigators’ idea that glia served a function like glue, to hold the neurons together. Although that concept is obsolete, the term remains. At one time, neuroscientists believed that glia greatly outnumbered neurons. According to later, more accurate measurements, neurons slightly outnumber glia. The ratio of neurons to glia varies from one brain area to another.
+
+The brain has several types of glia. The star-shaped astrocytes wrap around the dendrites connecting to functionally related axons. A single astrocyte might surround the tips of a few hundred dendrites. By surrounding a connection between neurons, an astrocyte shields it from chemicals circulating in the surround. Also, by taking up the ions and transmitters released by axons and then releasing them back, an astrocyte helps synchronize closely related neurons, enabling their axons to send messages in waves. Astrocytes are therefore important for generating rhythms, such as your rhythm of breathing. Astrocytes also dilate the blood vessels to bring more nutrients into the most active brain areas.
+
+According to a popular hypothesis known as the tripartite synapse, the tip of an axon releases chemicals that cause the neighboring astrocyte to release its own chemicals, thus modifying the message to the next neuron. In some brain areas, astrocytes respond to hormones and thereby influence neurons. They also control the critical period for modification of the visual cortex early in life. In short, astrocytes are active partners of neurons.
+
+Tiny cells called microglia act as part of the immune system, removing viruses and fungi from the brain. They proliferate after brain damage, removing dead or damaged neurons. Together with astrocytes, microglia prune ineffective synapses and adjust the effectiveness of others. Pruning the inappropriate synapses is an important process. Either too much pruning or too little pruning during early development leads to developmental disorders. Yet another function of microglia is to provide negative feedback to put the brakes on neuronal activity. A loss of microglia leads to seizures.
+
+Oligodendrocytes (OL-i-go-DEN-druh-sites) in the brain and spinal cord and Schwann cells in the periphery of the body build the myelin sheaths that surround and insulate certain vertebrate axons. They also supply an axon with nutrients necessary for proper functioning. Oligodendrocytes respond to neural activity by altering the myelin sheaths, thereby altering the timing of axons’ responses. In that way they participate in certain types of learning and memory. Radial glia guide the migration of neurons and their axons and dendrites during embryonic development.
+
+The Blood–Brain Barrier 
+
+Although the brain, like any other organ, needs to receive nutrients from the blood, many chemicals cannot cross from the blood to the brain. The mechanism that excludes most chemicals from the vertebrate brain is known as the blood–brain barrier. First, let’s consider why we need it.
+
+Why We Need a Blood–Brain Barrier
+
+When a virus invades a cell, mechanisms within the cell extrude virus particles through the membrane so that the immune system can find them. When the immune system cells find a virus, they kill it and the cell that contains it. In effect, a cell exposing a virus through its membrane says, “Look, immune system, I’m infected with this virus. Kill me and save the others.”
+
+This plan works well if the virus-infected cell is a skin cell or a blood cell, which the body replaces easily. However, with almost no exceptions, the vertebrate brain cannot replace damaged neurons. You can’t afford to sacrifice brain cells because of a viral infection. To minimize the risk, the body lines the brain’s blood vessels with tightly packed cells that keep out most viruses and bacteria.
+
+Unfortunately, a few viruses do cross the blood–brain barrier. What happens then? The brain’s microglia attack most viruses that enter the nervous system, mounting an inflammatory response that fights the virus without killing the neuron. However, this response controls the virus without eliminating it. The spirochete responsible for syphilis can penetrate the blood–brain barrier, producing long-lasting and potentially fatal consequences if it is not properly treated. When the chicken pox virus enters spinal cord cells, virus particles remain there long after they have been exterminated from the rest of the body. The virus may emerge decades later, causing a painful condition called shingles. Similarly, the virus responsible for genital herpes hides in the nervous system, producing little harm there but periodically emerging to cause new genital infections.
+
+The COVID-19 virus crosses the blood–brain barrier in mice, although we do not yet know about humans (Rhea et al., 2021). We do know that some people infected with that virus develop seizures, confusion (“brain fog”), or impairments of vision, taste, and smell. Even if the virus does not cross the blood–brain barrier, it could harm the brain by constricting capillaries, thus decreasing blood flow to the brain, and by triggering a great increase in the immune response. When immune cells become highly abundant, some of them attack the body’s organs, including the brain, instead of the virus itself.
+
+How the Blood–Brain Barrier Works
+
+The blood–brain barrier depends on the endothelial cells that form the walls of the capillaries. Outside the brain, cells along the capillaries are separated by small gaps, but in the brain, they join so tightly that they block almost anything from passage.
+
+“If the blood–brain barrier is such a good defense,” you might ask, “why don’t we have similar walls around all our organs?” The answer is that the barrier keeps out useful chemicals as well as harmful ones. For these chemicals to cross the blood–brain barrier, the brain needs special mechanisms. Because the membrane is made of fats, chemicals that dissolve in fats cross freely through the cell wall. Examples include oxygen, carbon dioxide, vitamins A and D, and all the drugs that affect the brain—from antidepressants and other psychiatric drugs to marijuana and heroin. How fast a drug crosses the blood–brain barrier determines how fast it affects behavior. Chemotherapy drugs do not cross the blood–brain barrier, and that is a major reason why brain cancers are so difficult to treat.
+
+Water crosses through special protein channels in the wall of the endothelial cells. Sodium, potassium, and chloride ions also cross through specific channels. The brain uses active transport, a protein-mediated process that expends energy, to pump glucose (the brain’s main fuel), amino acids (the building blocks of proteins), omega-3 fatty acids, and several vitamins from the blood into the brain. The membrane also has mechanisms to transport ketones and several hormones into the brain.
+
+The blood–brain barrier is essential to health. It tends to become less efficient in old age, especially in people with Alzheimer’s disease. The result is that some needed chemicals enter the brain more slowly than before, and some harmful chemicals enter more extensively than before.
+
+Nourishment of Vertebrate Neurons
+
+Most cells use a variety of carbohydrates and fats for nutrition, but vertebrate brain cells depend almost entirely on glucose. Cancer cells and the testis cells that make sperm also rely overwhelmingly on glucose. Brain cells also use ketones (a kind of fat) and lactate, but those fuels do not reach the brain in sufficient quantity to meet the needs. Because metabolizing glucose requires oxygen, neurons need a steady supply of oxygen. Although the human brain constitutes only about 2 percent of the body’s weight, it uses about 20 percent of its oxygen and 25 percent of its glucosa.
+
+Glucose shortage is rarely a problem, except during starvation. The liver makes glucose from many kinds of carbohydrates and amino acids, as well as from glycerol, a breakdown product from fats. A more likely problem is an inability to use glucose. To use glucose, the body needs vitamin B1, thiamine. Prolonged thiamine deficiency, common in chronic alcoholism, leads to death of neurons and a condition called Korsakoff’s syndrome, marked by memory impairments.
+
+Other Cells: The Gut Bacteria
+
+Another influence on your behavior comes from cells that are not really you, genetically. They are “guests” in your body—the bacteria in your gut. It is difficult to get an accurate count of the number of cells in your body or the number of bacteria in your intestines—and, anyway, not worth the bother—but the best estimate is that the numbers are about equal, a one-to-one ratio, within the error of measurement.
+
+Your gut bacteria include many species, which vary from person to person. Bacteria influence brain activity in several ways. One way is to stimulate the vagus nerve, which runs from the intestines to the brain. Another is to release chemicals that cross the lining of the intestines and enter the blood. Those chemicals include vitamins and amino acids, but they can also include chemicals that cause inflammation. The amount and type of chemicals that bacteria release affect your mood and motivations, including your motivations for food, sex, socialization, and abused drugs.
+
+Stress increases the type of bacteria that cause inflammation and mitochondrial damage. People with depression tend to have more of those bacteria, as well as less of the bacteria with anti-inflammatory effects (Chen and Vitetta, 2020; Jiang et al., 2015). Some antidepressant drugs attack bacteria. Given that people with depression have many inflammatory bacteria, attacking them can be beneficial. However, it is not a good idea to get rid of too many of your intestinal bacteria. Removing most or all bacteria causes an increase in anxiety and depression. When people take antibiotics to attack bacteria, the side effects often include depression and anxiety. “Probiotics” are diet supplements that contain “good” bacteria, and some authorities recommend them as part of a treatment program for depression.
+
+Module 1.3 The Action Potential
+
+Although the axon’s method of transmitting an impulse prevents a touch on your shoulder from feeling stronger than one on your toes, it introduces a different problem: Because axons transmit information at moderate speeds (varying from less than 1 meter/second to more than 100 m/s), a touch on your shoulder reaches your brain sooner than does a touch on your toes. The difference is small and generally unimportant.
+
+In vision, however, your brain needs to know whether one stimulus began even slightly before or after another one. If light moves from point A on your retina to point B, then the input from A will reach your brain slightly before the input from B, and that difference tells you that something moved from A to B. But what if point A or B on the retina is slightly closer to the brain? If so, its input would reach the brain first, even if A and B were stimulated at the same time. To detect movement as accurately as possible, your visual system has the axons from more distant spots of the eye transmit slightly faster. If input from two parts of the eye start at the same time, they reach the brain at the same time, even if one part is slightly closer to the brain.
+
+In short, the properties of impulse conduction in an axon are amazingly well adapted to your needs. Let’s examine the mechanics of impulse transmission.
+
+The Resting Potential of the Neuron
+
+First, we need to consider the resting potential—the difference in electrical charge between the inside and the outside of a neuron. All parts of a neuron are covered by a membrane about 8 nanometers (nm) thick. That is about one ten-thousandth the width of a human hair. The membrane is composed of two layers of phospholipid molecules (chains of fatty acids linked to a phosphate group). Embedded among the phospholipids are cylindrical proteins that let certain chemicals pass.
+
+When at rest, the membrane maintains an electrical gradient, also known as polarization—a difference in electrical charge between the inside and outside of the cell. The inside of the membrane has a slight negative charge compared to the outside, mainly because of negatively charged proteins inside the cell. This difference in voltage is called the resting potential.
+
+Researchers measure the resting potential by inserting a very thin microelectrode into the cell body. The most common electrode is a fine glass tube filled with a salt solution. A reference electrode outside the cell completes the circuit. Connecting the electrodes to a voltmeter, we find that the neuron’s interior has a negative potential relative to its exterior. The magnitude varies, but a typical level is 270 millivolts (mV).
+
+Forces Acting on Sodium and Potassium Ions
+
+If charged ions could flow freely across the membrane, enough positive ions would enter to depolarize the membrane. However, the membrane is selectively permeable, letting some chemicals pass more freely than others. Oxygen, carbon dioxide, urea, and water are uncharged chemicals that cross freely through channels that are always open. Sodium, potassium, calcium, and chloride are charged ions that cross through channels (or gates) that are sometimes open and sometimes closed, as depicted in Figure 1.21. When the membrane is at rest, the sodium and potassium channels are closed, permitting almost no flow of sodium and only a small flow of potassium. Stimulation can open these channels, permitting freer flow.
+
+The sodium–potassium pump, a protein complex, repeatedly transports three sodium ions out of the cell while drawing two potassium ions in. Because of this pump, sodium ions are more than 10 times more concentrated outside the membrane than inside, and potassium ions are more concentrated inside than outside.
+
+The sodium–potassium pump is effective only because the selective permeability of the membrane prevents the sodium ions that were pumped out from leaking back in again. When sodium ions are pumped out, they stay out. However, some of the potassium in the neuron slowly leaks out, carrying a positive charge. That leakage increases the electrical gradient across the membrane.
+
+When the neuron is at rest, two forces tend to push sodium into the cell. One is the electrical gradient. Sodium is positively charged, and the inside of the cell is negatively charged, mainly because of negatively charged proteins. Opposite electrical charges attract, so the electrical gradient attracts sodium into the cell. The other force is the concentration gradient, the difference in distribution of ions across the membrane. Sodium is more concentrated outside than inside, so just by the laws of probability, it is more likely to enter the cell than to leave. Sodium would enter rapidly if it could, but the sodium channels are closed.
+
+Potassium is subject to competing forces. Potassium is positively charged, and the inside of the cell is negatively charged, so the electrical gradient tends to attract potassium into the cell. However, potassium is more concentrated inside the cell than outside, so the concentration gradient tends to drive it out. (For an analogy, imagine many cats inside a room with food. The cats are attracted to the food, but when they get too crowded, some of them leave.) The potassium channels, almost completely closed, permit a small amount of potassium flow, more outward than inward, but the sodium–potassium pump continues pulling potassium back into the cell.
+
+Why a Resting Potential?
+
+The body invests much energy to operate the sodium–potassium pump that maintains the resting potential. Why is it worth so much energy? The resting potential prepares the neuron to respond rapidly. Excitation of the neuron opens sodium channels, letting sodium enter the cell rapidly. Because the membrane did its work in advance by keeping so much sodium outside, the cell is prepared to respond vigorously to a stimulus.
+
+Compare the resting potential of a neuron to a poised bow and arrow: An archer who pulls the bow in advance and then waits is ready to fire at the appropriate moment. The neuron uses the same strategy. The resting potential remains stable until the neuron is stimulated.
+
+The Action Potential
+
+Axons send messages called action potentials. Let’s begin by considering what happens when the resting potential is disturbed. When an axon’s membrane is at rest, a microelectrode, shows a negative potential inside the axon. If we now use a different electrode to increase the negative charge, we can produce hyperpolarization, which means increased polarization. When the stimulation ends, the charge returns to its original resting level.
+
+Now let’s apply a brief current to depolarize the neuron—that is, reduce its polarization toward zero.
+
+With a slightly stronger depolarizing current, the potential rises slightly higher but again returns to the resting level.
+
+Now let’s apply a still stronger current. When the potential reaches the threshold, the membrane opens its sodium channels and permits sodium ions to flow into the cell, driving the membrane potential upward, far beyond what the stimulus itself provided.
+
+Any subthreshold stimulation produces a small response that quickly decays. Any stimulation beyond the threshold, regardless of how far beyond, produces a big response like the one depicted, known as the action potential. The peak of the action potential, shown as 130 mV in this illustration, varies from one axon to another, but it is consistent for a given axon.
+
+The All-or-None Law
+
+Any depolarization that reaches or passes the threshold produces an action potential. For a given neuron, all action potentials are approximately equal in amplitude (intensity) and velocity. Slight variations occur spontaneously, but not because of the stimulus. More properly stated, the all-or-none law is that the amplitude and velocity of an action potential are independent of the intensity of the stimulus that initiated it, provided that the stimulus reaches the threshold. By analogy, imagine flushing a toilet: You need to press at least a certain strength (the threshold), but pressing harder does not make the toilet flush faster or more vigorously. Similarly, when you flick the switch to turn on the lights in your room, flicking the switch harder would not make the lights brighter.
+
+The all-or-none law constrains how an axon can send a message. To signal the difference between a weak stimulus and a strong stimulus, all that an axon can change is the frequency of its action potentials, or their timing. By analogy, if you wanted to flick the lights in your room to send signals to someone outside, you could flick the switch frequently to mean one thing and flick it less often to mean something else. You could also flick the switch on and off at different rhythms.
+
+Flash-flash ... [long pause] ... flash-flash
+
+might mean something different from
+
+Flash ... [pause] ... flash ... [pause] ... flash ... [pause] ... flash.
+
+The nervous system uses both types of coding. For example, a taste axon shows one rhythm of responses for sweet tastes and a different rhythm for bitter tastes.
+
+The Molecular Basis of the Action Potential
+
+The chemical events behind the action potential make sense if you remember three principles:
+
+First At the start, sodium ions are mostly outside the neuron, and potassium ions are mostly inside.
+
+Second Depolarizing the membrane opens the sodium and potassium channels.
+
+Third At the peak of the action potential, the sodium channels close.
+
+
+

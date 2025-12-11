@@ -134,3 +134,6 @@ node server.js
 source .venv/Scripts/activate
 export PYTHON="$(which python)"  
 node server.js
+
+what do dendritic spines do?
+What is meant "monism"?

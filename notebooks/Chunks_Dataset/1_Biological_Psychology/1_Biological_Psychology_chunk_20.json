@@ -1,0 +1,12 @@
+{
+  "id": "1_Biological_Psychology_chunk_20",
+  "book_id": "1_Biological_Psychology",
+  "source_file": "Biological Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Biological Psychology.txt",
+  "chunk_index": 20,
+  "text": "ll considered definitive today. One of his major contributions was an idea that we now take for granted—the idea that the brain consists of individual cells.\n\nDuring the 1800s biologists discovered that the body consists of cells, but at first, they were not sure that the same was true of the brain. In the rest of the body, microscopes revealed cells that were either roundish or elongated. When biologists examined at the brain, they found peculiar shapes that looked nothing like the other cells, with long fibers stretching from one place to another. Were those weird-looking things really cells? Or was the brain different from the rest of the body? Maybe everything in the brain joined together in a single mesh.\n\nAt first, microscopes did not provide enough detail to answer the question. Then, in the late 1800s, the Italian investigator Camillo Golgi found a way to stain nerve cells with silver salts. This method, which completely stains some cells without affecting others at all, enabled researchers to examine the structure of a single cell. Using this method to examine the brain, Golgi concluded that the fibers of the brain all link together. That is, he concluded that the brain is like a mesh, without separate cells.\n\nSpanish investigator Cajal used Golgi’s staining method, but he applied it to infant brains, in which the cells are smaller and easier to examine on a single slide. He came to the opposite conclusion: Nerve cells remain separate instead of merging into one another. A small gap separates the tip of a neuron’s fiber from the surface of the next neuron. The brain, like the rest of the body, does indeed consist of individual cells.\n\nIn 1906, Cajal and Golgi shared the 1906 Nobel Prize for Physiology or Medicine.",
+  "meta": {
+    "char_count": 1752,
+    "word_count": 296
+  }
+}

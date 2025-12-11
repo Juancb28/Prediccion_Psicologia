@@ -1,0 +1,12 @@
+{
+  "id": "1_Cognitive_Psychology_chunk_16",
+  "book_id": "1_Cognitive_Psychology",
+  "source_file": "Cognitive Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Cognitive Psychology.txt",
+  "chunk_index": 16,
+  "text": "wrote a scathing review of Skinner's ideas. In his article, Chomsky stressed both \nthe biological basis and the creative potential of language. He pointed out the infinite \nnumbers of sentences we can produce with ease. He thereby defied behaviorist notions \nthat we learn language by reinforcement. Even young children continually are producing novel sentences for which they could not have been reinforced in the past. \nChomsky argued that our understanding of language is constrained not so much by \nwhat we have heard, but rather by an innate language acquisition device (LAD) that \nall humans possess. This device allows the infant to use what it hears to infer the gram \nmar of its linguistic environment. In particular, the LAD actively limits the number of \npermissible grammatical constructions. Thus, it is the structure of the mind, rather than \nthe structure of environmental contingencies, that guides our acquisition of language. \nAdd a Dash of Technology': Engineering, \nComputation, and ApplieCi Cognitive Psychology \nBy the end of the 1 950s some psychologists were intrigued by the tantalizing notion that \nmachines could be programmed to demonstrate the intelligent processing of information. Turing suggested that soon it would be hard \nto distinguish the communication of machines from that of humans. He suggested a \ntest, now called the \"Turing test,\" by which a computer program would be judged as \nsuccessful to the extent that its output was indistinguishable, by humans, from the out \nput of humans. In other words, suppose you communicated with a computer and you could not tell that it was a computer. The computer then passed the Turing test. By 1956 a new phrase had \nentered our vocabulary. Artificial intelligence (AI) is the attempt by humans to con",
+  "meta": {
+    "char_count": 1783,
+    "word_count": 283
+  }
+}

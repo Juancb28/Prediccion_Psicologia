@@ -1,0 +1,12 @@
+{
+  "id": "1_Cognitive_Psychology_chunk_21",
+  "book_id": "1_Cognitive_Psychology",
+  "source_file": "Cognitive Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Cognitive Psychology.txt",
+  "chunk_index": 21,
+  "text": "ences from the data. Ideally, they use multiple \nconverging types of evidence to support their hypotheses. Sometimes, just a quick \nglance at the data leads to intuitive inferences regarding patterns that emerge from \nthose data. More commonly, however, researchers use various statistical means of \nanalyzing the data. \nData gathering and statistical analysis aid researchers in describing cognitive \nphenomena. No scientific pursuit could get far without such descriptions. However, \nmost cognitive psychologists want to understand more than the what of cognition; \nmost also seek to understand the how and the why of thinking. That is, researchers \nseek ways to explain cognition as well as to describe it. To move beyond descriptions, \ncognitive psychologists must leap from what is observed directly to what can be in ferred\nregarding observations. \nSuppose that we wish to study one particular aspect of cognition. An example \nwould be how people comprehend information in textbooks. We usually start with a \ntheory. A theory is an organized body of general explanatory principles regarding a \nphenomenon, usually based on observations. We seek to test a theory and thereby to \nsee whether it has the power to predict certain aspects of the phenomena with which \nit deals. In other words, our thought process is, \"If our theory is correct, then when \never x occurs, outcome y should result.\" This process results in the generation of hypotheses, tentative proposals regarding expected empirical consequences of the theory, such as the outcomes of research. \nNext, we test our hypotheses through experimentation. Even if particular findings appear to confirm a given hypothesis, the findings must be subjected to statistical \nanalysis to determine their statistical significance.",
+  "meta": {
+    "char_count": 1784,
+    "word_count": 271
+  }
+}

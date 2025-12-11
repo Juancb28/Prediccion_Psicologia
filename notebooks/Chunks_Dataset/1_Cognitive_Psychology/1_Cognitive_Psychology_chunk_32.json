@@ -1,0 +1,12 @@
+{
+  "id": "1_Cognitive_Psychology_chunk_32",
+  "book_id": "1_Cognitive_Psychology",
+  "source_file": "Cognitive Psychology.txt",
+  "source_path": "Convert_Books\\TestBookClean\\Cognitive Psychology.txt",
+  "chunk_index": 32,
+  "text": "general conclusions about behavior.\nValidity of causal inferences: random assignment:\nHighly unlikely.\nValidity of causal inferences: experimental control:\nHighly unlikely.\nSamples: size:\nAlmost certain to be small.\nSamples: representativeness:\nNot likely to be representative.\nEcological validity:\nHigh ecological validity for individual cases; lower generalizability to others.\nInformation about individual differences:\nYes; richly detailed information regarding individuals.\nStrengths:\nAccess to richly detailed information about individuals, including historical and current contexts.\nMay provide information unavailable by other means.\nMay lead to specialized applications for exceptional individuals (prodigies, persons with brain damage).\nWeaknesses:\nGeneralizability to other persons limited due to small sample size.\nNonrepresentativeness of sample generally limits applicability to population.\nExamples:\nHoward Gruber conducted a case study of Charles Darwin to explore in depth the psychological context for great intellectual creativity.\n\nMETHOD: NATURALISTIC OBSERVATIONS\nDescription of method:\nObserve real-life situations, as in classrooms, work settings, or homes.\nValidity of causal inferences: random assignment:\nNot applicable.\nValidity of causal inferences: experimental control:\nNo.\nSamples: size:\nProbably small.\nSamples: representativeness:\nMay be representative.\nEcological validity:\nYes.\nInformation about individual differences:\nPossible, but emphasis is on environmental distinctions, not on individual differences.\nStrengths:\nAccess to rich contextual information, which may be unavailable by other means.\nWeaknesses:\nLack of experimental control.\nPossible influence on naturalistic behavior due to the presence of the observer.\nExamples:",
+  "meta": {
+    "char_count": 1766,
+    "word_count": 218
+  }
+}

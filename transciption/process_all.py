@@ -82,7 +82,9 @@ def process_audio_complete(audio_path, model_size="small", language="es",
 if __name__ == "__main__":
     # Accept command-line args to process any audio file in CI / server usage.
     # Usage: python process_all.py <audio_path> [model_size] [language] [refs_dir] [threshold] [output_dir]
+    
     audio_path = None
+    # audio_path = "D:/Software/Projects/AI _Project/Prediccion_Psicologia/recordings/Test.wav"
     model_size = "small"
     language = "es"
     refs_dir = "refs"

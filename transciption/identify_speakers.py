@@ -66,9 +66,9 @@ def extract_speaker_embeddings(audio_path, labeled_segments, output_dir="outputs
         if embeddings_list:
             # Promedio de embeddings
             speaker_embeddings[speaker] = np.mean(embeddings_list, axis=0)
-            print(f"    ✓ Embedding generado ({len(embeddings_list)} segmentos)")
+            print(f"Embedding generado ({len(embeddings_list)} segmentos)")
         else:
-            print(f"    ⚠ No se pudo generar embedding")
+            print(f"No se pudo generar embedding")
     
     return speaker_embeddings
 
@@ -85,7 +85,7 @@ def load_reference_embeddings(refs_dir="refs"):
     print(f"\nCargando audios de referencia desde '{refs_dir}'...")
     
     if not os.path.exists(refs_dir):
-        print(f"⚠ Directorio '{refs_dir}' no encontrado")
+        print(f"Directorio '{refs_dir}' no encontrado")
         return {}
     
     encoder = VoiceEncoder()
@@ -101,7 +101,7 @@ def load_reference_embeddings(refs_dir="refs"):
             reference_embeddings[name] = embedding
             print(f"    ✓ Embedding generado")
         except Exception as e:
-            print(f"    ⚠ Error: {e}")
+            print(f"    Error: {e}")
     
     return reference_embeddings
 
@@ -129,14 +129,14 @@ def identify_speakers(labeled_json_path, audio_path, refs_dir="refs", threshold=
     speaker_embeddings = extract_speaker_embeddings(audio_path, labeled_segments, output_dir)
     
     if not speaker_embeddings:
-        print("⚠ No se pudieron extraer embeddings de hablantes")
+        print("No se pudieron extraer embeddings de hablantes")
         return {}
     
     # Cargar embeddings de referencia
     reference_embeddings = load_reference_embeddings(refs_dir)
 
     if not reference_embeddings:
-        print("⚠ No hay audios de referencia para comparar")
+        print("No hay audios de referencia para comparar")
         return {}
 
     # Buscar la referencia al psicólogo (archivo cuyo nombre contenga 'psicolog')
@@ -149,7 +149,7 @@ def identify_speakers(labeled_json_path, audio_path, refs_dir="refs", threshold=
     if psych_key is None:
         # Si no hay un archivo claramente etiquetado, tomar el primero pero avisar
         psych_key = next(iter(reference_embeddings.keys()))
-        print(f"⚠ No se encontró referencia con 'psicolog' en el nombre. Usando '{psych_key}' como psicólogo.\n" +
+        print(f"No se encontró referencia con 'psicolog' en el nombre. Usando '{psych_key}' como psicólogo.\n" +
               "(Para evitar ambigüedad, añade un archivo de referencia cuyo nombre contenga 'psicologo' o 'psicóloga')")
 
     psych_emb = reference_embeddings[psych_key]
@@ -169,7 +169,7 @@ def identify_speakers(labeled_json_path, audio_path, refs_dir="refs", threshold=
             print(f"  ✓ {speaker} identificado como {psych_key} (similitud: {similarity:.3f})")
         else:
             speaker_mapping[speaker] = 'OTRO'
-            print(f"  ⚠ {speaker} marcado como OTRO (similitud: {similarity:.3f} < {threshold})")
+            print(f"  {speaker} marcado como OTRO (similitud: {similarity:.3f} < {threshold})")
     
     # Aplicar mapeo y guardar
     print("\n--- Generando transcripción identificada ---")
@@ -221,7 +221,7 @@ def identify_speakers(labeled_json_path, audio_path, refs_dir="refs", threshold=
     # Resumen
     #print(f"\n--- Resumen de Identificación ---")
     for orig, identified in speaker_mapping.items():
-        status = "✓ Identificado" if orig != identified else "⚠ No identificado"
+        status = "✓ Identificado" if orig != identified else "No identificado"
         print(f"{orig} → {identified} ({status})")
     
     return speaker_mapping
@@ -246,7 +246,7 @@ if __name__ == "__main__":
         identify_speakers(labeled_json, audio_path, refs_dir, threshold)
         print("\n✓ Identificación completada exitosamente")
     except Exception as e:
-        print(f"\n⚠ Error: {e}")
+        print(f"\nError: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

@@ -144,6 +144,7 @@ menuItems.forEach(item => {
 // ---------------------
 
 function loadModule(module) {
+    currentModule = module; // Track current module
     switch (module) {
         case 'dashboard':
             renderDashboard();
@@ -159,6 +160,10 @@ function loadModule(module) {
 
         case 'sesiones':
             renderSesiones();
+            break;
+
+        case 'psychologist-profile':
+            renderPsychologistProfile();
             break;
 
         case 'reportes':
@@ -195,42 +200,126 @@ function loadModule(module) {
 function renderDashboard() {
     const today = new Date().toISOString().slice(0,10);
     const citasHoy = mockAgenda.filter(a => a.fecha === today);
+    const citasPendientes = mockAgenda.filter(a => a.estado === 'Pendiente').length;
 
     mainContent.innerHTML = `
         <h1>Panel Principal</h1>
         <div class="dashboard-grid">
             <div class="card dashboard-calendar-card">
-                <h3>📅 Calendario del Mes</h3>
+                <div class="calendar-card-header">
+                    <h3>📅 Calendario del Mes</h3>
+                    <button class="calendar-today-btn" onclick="goToToday()">
+                        <span>📅</span>
+                        <span>Hoy</span>
+                    </button>
+                </div>
                 ${renderCalendarView()}
             </div>
 
-            <div class="card">
-                <h3>Próximas citas del día</h3>
-                ${citasHoy.length ? citasHoy.map(c => {
-                    const p = mockPacientes.find(x=>x.id===c.pacienteId);
-                    return `<div class="patient-item"><strong>${c.hora}</strong> - ${p? p.nombre : '—'} <br><small>${c.estado}</small></div>`;
-                }).join('') : '<div>No hay citas para hoy</div>'}
-            </div>
-
-            <div class="card">
-                <h3>Alertas</h3>
-                ${mockAgenda.some(a=>a.estado==='Pendiente') ? `<div class="alert">Tienes citas pendientes por confirmar.</div>` : '<div>No hay alertas</div>'}
-            </div>
-
-            <div class="card">
-                <h3>Acceso rápido</h3>
-                <div class="quick-actions">
-                    <button onclick="quickRegisterSession()">Registrar sesión</button>
-                    <button onclick="loadModule('pacientes')">Ver paciente</button>
-                    <button onclick="quickCreateCita()">Crear cita</button>
-                    <button onclick="loadModule('sesiones')">Historial clínico</button>
+            <div class="card dashboard-appointments-card">
+                <div class="dashboard-card-header">
+                    <h3>🕐 Próximas citas del día</h3>
+                    <span class="appointments-badge">${citasHoy.length}</span>
+                </div>
+                <div class="appointments-today-list">
+                    ${citasHoy.length ? citasHoy.map(c => {
+                        const p = mockPacientes.find(x=>x.id===c.pacienteId);
+                        const statusClass = c.estado === 'Confirmada' ? 'confirmed' : 
+                                           c.estado === 'Pendiente' ? 'pending' : 
+                                           c.estado === 'Finalizada' ? 'finished' : 'cancelled';
+                        return `
+                            <div class="today-appointment-item ${statusClass}">
+                                <div class="appointment-time-badge">
+                                    <span>🕐</span>
+                                    <span>${c.hora}</span>
+                                </div>
+                                <div class="appointment-patient-info">
+                                    <span class="patient-name-today">${p? p.nombre : '—'}</span>
+                                    <span class="appointment-status-mini status-${statusClass}">${c.estado}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('') : '<div class="empty-appointments">📭 No hay citas programadas para hoy</div>'}
                 </div>
             </div>
 
-            <div class="card">
-                <h3>Resumen</h3>
-                <div>Total pacientes: ${mockPacientes.length}</div>
-                <div>Total sesiones: ${mockSesiones.length}</div>
+            <div class="card dashboard-alerts-card">
+                <div class="dashboard-card-header">
+                    <h3>⚠️ Alertas</h3>
+                    ${citasPendientes > 0 ? `<span class="alert-count">${citasPendientes}</span>` : ''}
+                </div>
+                <div class="alerts-list">
+                    ${citasPendientes > 0 ? `
+                        <div class="alert-item warning">
+                            <div class="alert-icon">⚠️</div>
+                            <div class="alert-content">
+                                <span class="alert-title">Citas pendientes</span>
+                                <span class="alert-text">Tienes ${citasPendientes} cita${citasPendientes > 1 ? 's' : ''} pendiente${citasPendientes > 1 ? 's' : ''} por confirmar</span>
+                            </div>
+                        </div>
+                    ` : `
+                        <div class="alert-item success">
+                            <div class="alert-icon">✅</div>
+                            <div class="alert-content">
+                                <span class="alert-title">Todo en orden</span>
+                                <span class="alert-text">No hay alertas pendientes</span>
+                            </div>
+                        </div>
+                    `}
+                </div>
+            </div>
+
+            <div class="card dashboard-quick-actions-card">
+                <div class="dashboard-card-header">
+                    <h3>⚡ Acceso rápido</h3>
+                </div>
+                <div class="quick-actions-grid">
+                    <button class="quick-action-btn" onclick="quickRegisterSession()">
+                        <span class="action-icon">📝</span>
+                        <span class="action-label">Registrar sesión</span>
+                    </button>
+                    <button class="quick-action-btn" onclick="loadModule('pacientes')">
+                        <span class="action-icon">👥</span>
+                        <span class="action-label">Ver pacientes</span>
+                    </button>
+                    <button class="quick-action-btn" onclick="quickCreateCita()">
+                        <span class="action-icon">📅</span>
+                        <span class="action-label">Crear cita</span>
+                    </button>
+                    <button class="quick-action-btn" onclick="loadModule('sesiones')">
+                        <span class="action-icon">📋</span>
+                        <span class="action-label">Historial clínico</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="card dashboard-summary-card">
+                <div class="dashboard-card-header">
+                    <h3>📊 Resumen</h3>
+                </div>
+                <div class="summary-stats">
+                    <div class="stat-item">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-content">
+                            <span class="stat-value">${mockPacientes.length}</span>
+                            <span class="stat-label">Pacientes</span>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">💼</div>
+                        <div class="stat-content">
+                            <span class="stat-value">${mockSesiones.length}</span>
+                            <span class="stat-label">Sesiones</span>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">📅</div>
+                        <div class="stat-content">
+                            <span class="stat-value">${mockAgenda.length}</span>
+                            <span class="stat-label">Citas totales</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     `;
@@ -247,21 +336,50 @@ function renderDashboard() {
 
 function renderPacientes() {
     mainContent.innerHTML = `
-        <h1>Gestión de Pacientes</h1>
+        <div class="patients-header">
+            <h1>Gestión de Pacientes</h1>
+            <button class="add-patient-btn" onclick="addNewPatient()">
+                <span class="btn-icon">➕</span>
+                <span>Nuevo Paciente</span>
+            </button>
+        </div>
         <div class="card">
-            <h3>Lista de Pacientes</h3>
-            ${mockPacientes.map(p => `
-                <div class="patient-item" data-id="${p.id}">
-                    <strong>${p.nombre}</strong><br>
-                    Edad: ${p.edad}<br>
-                    Motivo: ${p.motivo}
-                </div>
-            `).join('')}
+            <div class="patients-grid">
+                ${mockPacientes.map(p => `
+                    <div class="patient-card" data-id="${p.id}">
+                        <div class="patient-card-header">
+                            <div class="patient-avatar">
+                                <span class="avatar-icon">👤</span>
+                            </div>
+                            <div class="patient-info">
+                                <h3 class="patient-name">${p.nombre}</h3>
+                                <div class="patient-age">
+                                    <span class="age-icon">🎂</span>
+                                    <span>${p.edad} años</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="patient-card-body">
+                            <div class="patient-reason">
+                                <span class="reason-icon">📋</span>
+                                <span class="reason-label">Motivo:</span>
+                                <span class="reason-text">${p.motivo}</span>
+                            </div>
+                        </div>
+                        <div class="patient-card-footer">
+                            <button class="patient-action-btn view-btn">
+                                <span>👁️</span>
+                                <span>Ver Detalles</span>
+                            </button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
         </div>
     `;
 
     // add click handlers to open detail
-    document.querySelectorAll('.patient-item').forEach(el=>{
+    document.querySelectorAll('.patient-card').forEach(el=>{
         el.addEventListener('click', ()=>{
             const id = parseInt(el.getAttribute('data-id'));
             showPatient(id);
@@ -271,41 +389,151 @@ function renderPacientes() {
 
 let agendaView = 'list';
 
+// Calendar navigation variables
+let calendarYear = new Date().getFullYear();
+let calendarMonth = new Date().getMonth();
+let currentModule = 'dashboard'; // Track current module
+
 function setAgendaView(v){ agendaView = v; renderAgenda(); }
 
+function changeCalendarMonth(offset) {
+    calendarMonth += offset;
+    if(calendarMonth > 11) {
+        calendarMonth = 0;
+        calendarYear++;
+    } else if(calendarMonth < 0) {
+        calendarMonth = 11;
+        calendarYear--;
+    }
+    // Re-render current module instead of always going to agenda
+    if(currentModule === 'dashboard') {
+        renderDashboard();
+    } else {
+        renderAgenda();
+    }
+}
+
+function goToToday() {
+    calendarYear = new Date().getFullYear();
+    calendarMonth = new Date().getMonth();
+    // Re-render current module instead of always going to agenda
+    if(currentModule === 'dashboard') {
+        renderDashboard();
+    } else {
+        renderAgenda();
+    }
+}
+
 function renderAgenda() {
-    const controls = `<div class="agenda-controls"><button class="view-btn" onclick="setAgendaView('list')">Lista</button><button class="view-btn" onclick="setAgendaView('calendar')">Calendario</button><button class="view-btn" onclick="setAgendaView('week')">Semanal</button><button class="view-btn" onclick="setAgendaView('month')">Mensual</button><button class="view-btn" onclick="quickCreateCita()">Crear cita</button></div>`;
+    const controls = `
+        <div class="agenda-controls">
+            <button class="view-btn ${agendaView === 'list' ? 'active-view' : ''}" onclick="setAgendaView('list')">
+                <span class="view-icon">📋</span>
+                <span>Lista</span>
+            </button>
+            <button class="view-btn ${agendaView === 'calendar' ? 'active-view' : ''}" onclick="setAgendaView('calendar')">
+                <span class="view-icon">📅</span>
+                <span>Calendario</span>
+            </button>
+            <button class="view-btn ${agendaView === 'week' ? 'active-view' : ''}" onclick="setAgendaView('week')">
+                <span class="view-icon">📆</span>
+                <span>Semanal</span>
+            </button>
+            <button class="view-btn ${agendaView === 'month' ? 'active-view' : ''}" onclick="setAgendaView('month')">
+                <span class="view-icon">🗓️</span>
+                <span>Mensual</span>
+            </button>
+            <button class="view-btn create-btn" onclick="quickCreateCita()">
+                <span class="view-icon">➕</span>
+                <span>Crear cita</span>
+            </button>
+        </div>
+    `;
     let body = '';
     
     if(agendaView === 'calendar'){
         body = renderCalendarView();
     } else if(agendaView === 'list'){
-        body = mockAgenda.map((e, idx) => `
-            <div class="patient-item" onclick="editCita(${idx})">
-                <strong>${e.fecha} ${e.hora}</strong><br>
-                Paciente: ${mockPacientes.find(p=>p.id===e.pacienteId)?.nombre || '—'}<br>
-                Estado: ${e.estado}
-            </div>
-        `).join('');
+        body = mockAgenda.map((e, idx) => {
+            const patient = mockPacientes.find(p=>p.id===e.pacienteId);
+            const statusClass = e.estado === 'Confirmada' ? 'confirmed' : 
+                               e.estado === 'Pendiente' ? 'pending' : 
+                               e.estado === 'Finalizada' ? 'finished' : 'cancelled';
+            return `
+                <div class="appointment-item ${statusClass}" onclick="editCita(${idx})">
+                    <div class="appointment-header">
+                        <div class="appointment-datetime">
+                            <span class="appointment-icon">🕐</span>
+                            <span class="appointment-date">${e.fecha}</span>
+                            <span class="appointment-time">${e.hora}</span>
+                        </div>
+                        <span class="appointment-status status-${statusClass}">${e.estado}</span>
+                    </div>
+                    <div class="appointment-patient">
+                        <span class="patient-icon">👤</span>
+                        <span class="patient-name">${patient?.nombre || '—'}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
     } else if(agendaView === 'week'){
-        // simple weekly grouping
         const today = new Date();
         const weekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
         const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate()+7);
         const items = mockAgenda.filter(a=> new Date(a.fecha) >= weekStart && new Date(a.fecha) < weekEnd);
-        body = items.length ? items.map((e, idx)=>`<div class="patient-item" onclick="editCita(${mockAgenda.indexOf(e)})"><strong>${e.fecha} ${e.hora}</strong> - ${mockPacientes.find(p=>p.id===e.pacienteId)?.nombre || '—'}</div>`).join('') : '<div>No hay citas esta semana</div>';
+        body = items.length ? items.map((e, idx)=>{
+            const patient = mockPacientes.find(p=>p.id===e.pacienteId);
+            const statusClass = e.estado === 'Confirmada' ? 'confirmed' : 
+                               e.estado === 'Pendiente' ? 'pending' : 
+                               e.estado === 'Finalizada' ? 'finished' : 'cancelled';
+            return `
+                <div class="appointment-item ${statusClass}" onclick="editCita(${mockAgenda.indexOf(e)})">
+                    <div class="appointment-header">
+                        <div class="appointment-datetime">
+                            <span class="appointment-icon">🕐</span>
+                            <span class="appointment-date">${e.fecha}</span>
+                            <span class="appointment-time">${e.hora}</span>
+                        </div>
+                        <span class="appointment-status status-${statusClass}">${e.estado}</span>
+                    </div>
+                    <div class="appointment-patient">
+                        <span class="patient-icon">👤</span>
+                        <span class="patient-name">${patient?.nombre || '—'}</span>
+                    </div>
+                </div>
+            `;
+        }).join('') : '<div class="empty-state">📭 No hay citas esta semana</div>';
     } else {
-        // month view
         const today = new Date();
         const monthItems = mockAgenda.filter(a=>{ const d=new Date(a.fecha); return d.getMonth()===today.getMonth() && d.getFullYear()===today.getFullYear(); });
-        body = monthItems.length ? monthItems.map((e)=>`<div class="patient-item" onclick="editCita(${mockAgenda.indexOf(e)})"><strong>${e.fecha} ${e.hora}</strong> - ${mockPacientes.find(p=>p.id===e.pacienteId)?.nombre || '—'}</div>`).join('') : '<div>No hay citas este mes</div>';
+        body = monthItems.length ? monthItems.map((e)=>{
+            const patient = mockPacientes.find(p=>p.id===e.pacienteId);
+            const statusClass = e.estado === 'Confirmada' ? 'confirmed' : 
+                               e.estado === 'Pendiente' ? 'pending' : 
+                               e.estado === 'Finalizada' ? 'finished' : 'cancelled';
+            return `
+                <div class="appointment-item ${statusClass}" onclick="editCita(${mockAgenda.indexOf(e)})">
+                    <div class="appointment-header">
+                        <div class="appointment-datetime">
+                            <span class="appointment-icon">🕐</span>
+                            <span class="appointment-date">${e.fecha}</span>
+                            <span class="appointment-time">${e.hora}</span>
+                        </div>
+                        <span class="appointment-status status-${statusClass}">${e.estado}</span>
+                    </div>
+                    <div class="appointment-patient">
+                        <span class="patient-icon">👤</span>
+                        <span class="patient-name">${patient?.nombre || '—'}</span>
+                    </div>
+                </div>
+            `;
+        }).join('') : '<div class="empty-state">📭 No hay citas este mes</div>';
     }
 
     mainContent.innerHTML = `
         <h1>Agenda</h1>
         ${controls}
         <div class="card">
-            <h3>Vista: ${agendaView === 'calendar' ? 'Calendario' : agendaView}</h3>
             ${body}
         </div>
     `;
@@ -313,22 +541,28 @@ function renderAgenda() {
 
 function renderCalendarView() {
     const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth();
     
     // Get first day of month and total days
-    const firstDay = new Date(currentYear, currentMonth, 1);
-    const lastDay = new Date(currentYear, currentMonth + 1, 0);
+    const firstDay = new Date(calendarYear, calendarMonth, 1);
+    const lastDay = new Date(calendarYear, calendarMonth + 1, 0);
     const totalDays = lastDay.getDate();
     const startDayOfWeek = firstDay.getDay(); // 0 = Sunday
     
     // Month names
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     
-    // Build calendar header
+    // Build calendar header with navigation
     let html = `
         <div class="calendar-header">
-            <h2>${monthNames[currentMonth]} ${currentYear}</h2>
+            <button class="calendar-nav-btn" onclick="changeCalendarMonth(-1)">
+                <span>◀️</span>
+                <span>Anterior</span>
+            </button>
+            <h2 class="calendar-month-title">${monthNames[calendarMonth]} ${calendarYear}</h2>
+            <button class="calendar-nav-btn" onclick="changeCalendarMonth(1)">
+                <span>Siguiente</span>
+                <span>▶️</span>
+            </button>
         </div>
         <div class="calendar-grid">
             <div class="calendar-day-header">Dom</div>
@@ -347,10 +581,10 @@ function renderCalendarView() {
     
     // Add days of month
     for(let day = 1; day <= totalDays; day++) {
-        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const dayAppointments = mockAgenda.filter(a => a.fecha === dateStr);
         
-        const isToday = day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
+        const isToday = day === today.getDate() && calendarMonth === today.getMonth() && calendarYear === today.getFullYear();
         
         let appointmentsHtml = '';
         if(dayAppointments.length > 0) {
@@ -379,28 +613,44 @@ function renderCalendarView() {
 
 async function quickCreateCitaForDate(dateStr) {
     const form = `
-        <div class="row">
-            <label>Paciente</label>
-            <select name="pid">
+        <div class="modern-form-group">
+            <label class="modern-label">
+                <span class="label-icon">👤</span>
+                <span>Paciente</span>
+            </label>
+            <select name="pid" class="modern-select">
                 ${mockPacientes.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('')}
             </select>
         </div>
-        <div class="row">
-            <label>Fecha</label>
-            <input name="fecha" type="date" value="${dateStr}">
+        <div class="modern-form-group">
+            <label class="modern-label">
+                <span class="label-icon">📅</span>
+                <span>Fecha</span>
+            </label>
+            <input name="fecha" type="date" value="${dateStr}" class="modern-input">
         </div>
-        <div class="row">
-            <label>Hora</label>
-            <input name="hora" type="time" value="09:00">
+        <div class="modern-form-group">
+            <label class="modern-label">
+                <span class="label-icon">🕐</span>
+                <span>Hora</span>
+            </label>
+            <input name="hora" type="time" value="09:00" class="modern-input">
         </div>
-        <div class="row">
-            <label>Estado</label>
-            <select name="estado">
+        <div class="modern-form-group">
+            <label class="modern-label">
+                <span class="label-icon">📊</span>
+                <span>Estado</span>
+            </label>
+            <select name="estado" class="modern-select">
                 <option>Pendiente</option>
                 <option>Confirmada</option>
                 <option>Finalizada</option>
                 <option>Anulada</option>
             </select>
+        </div>
+        <div class="form-hint">
+            <span class="hint-icon">💡</span>
+            <span>Creando cita para el ${dateStr}</span>
         </div>
     `;
     
@@ -415,14 +665,52 @@ async function quickCreateCitaForDate(dateStr) {
     });
     
     await saveData();
-    alert('Cita creada');
+    console.log('Cita creada');
     renderAgenda();
 }
 
 async function editCita(index){
     const e = mockAgenda[index];
-    if(!e) return alert('Cita no encontrada');
-    const form = `<div class="row"><label>Paciente ID</label><input name="pid" value="${e.pacienteId}"></div><div class="row"><label>Fecha</label><input name="fecha" type="date" value="${e.fecha}"></div><div class="row"><label>Hora</label><input name="hora" type="time" value="${e.hora}"></div><div class="row"><label>Estado</label><select name="estado"><option ${e.estado==='Pendiente'?'selected':''}>Pendiente</option><option ${e.estado==='Confirmada'?'selected':''}>Confirmada</option><option ${e.estado==='Finalizada'?'selected':''}>Finalizada</option><option ${e.estado==='Anulada'?'selected':''}>Anulada</option></select></div>`;
+    if(!e) return console.log('Cita no encontrada');
+    const patient = mockPacientes.find(p => p.id === e.pacienteId);
+    const form = `
+        <div class="modern-form-group">
+            <label class="modern-label">
+                <span class="label-icon">👤</span>
+                <span>Paciente ID</span>
+            </label>
+            <input name="pid" value="${e.pacienteId}" class="modern-input" readonly>
+            <div class="input-helper">Paciente: ${patient?.nombre || 'Desconocido'}</div>
+        </div>
+        <div class="modern-form-row">
+            <div class="modern-form-group">
+                <label class="modern-label">
+                    <span class="label-icon">📅</span>
+                    <span>Fecha</span>
+                </label>
+                <input name="fecha" type="date" value="${e.fecha}" class="modern-input">
+            </div>
+            <div class="modern-form-group">
+                <label class="modern-label">
+                    <span class="label-icon">🕐</span>
+                    <span>Hora</span>
+                </label>
+                <input name="hora" type="time" value="${e.hora}" class="modern-input">
+            </div>
+        </div>
+        <div class="modern-form-group">
+            <label class="modern-label">
+                <span class="label-icon">📊</span>
+                <span>Estado</span>
+            </label>
+            <select name="estado" class="modern-select">
+                <option ${e.estado==='Pendiente'?'selected':''}>Pendiente</option>
+                <option ${e.estado==='Confirmada'?'selected':''}>Confirmada</option>
+                <option ${e.estado==='Finalizada'?'selected':''}>Finalizada</option>
+                <option ${e.estado==='Anulada'?'selected':''}>Anulada</option>
+            </select>
+        </div>
+    `;
     const data = await modalForm('Editar cita', form);
     if(!data) return;
     e.pacienteId = parseInt(data.pid);
@@ -430,7 +718,7 @@ async function editCita(index){
     e.hora = data.hora;
     e.estado = data.estado;
     await saveData();
-    alert('Cita actualizada');
+    console.log('Cita actualizada');
     renderAgenda();
 }
 
@@ -440,21 +728,44 @@ function renderSesiones() {
         <div class="card">
             <h3>Lista de sesiones</h3>
             ${mockSesiones.map((s, idx) => `
-                <div class="patient-item">
-                    <strong>${mockPacientes.find(p=>p.id===s.pacienteId)?.nombre || '—'}</strong><br>
-                    Fecha: ${s.fecha}<br>
-                    Notas: ${s.notas}<br>
-                    <button onclick="openSoapForm(${idx})">Editar SOAP</button>
-                    <button onclick="uploadAttachment(${idx})">Adjuntos</button>
-                    <button onclick="viewGenograma(${s.pacienteId})">Ver genograma</button>
+                <div class="session-item">
+                    <div class="session-header">
+                        <div class="session-title">
+                            <span class="session-patient-name">${mockPacientes.find(p=>p.id===s.pacienteId)?.nombre || '—'}</span>
+                            <span class="session-date">📅 ${s.fecha}</span>
+                        </div>
+                        <div class="session-notes">${s.notas}</div>
+                    </div>
+                    <div class="session-actions">
+                        <button class="session-btn soap-btn" onclick="openSoapForm(${idx})">
+                            <span class="btn-icon">📋</span>
+                            <span class="btn-text">Editar SOAP</span>
+                        </button>
+                        <button class="session-btn attachment-btn" onclick="uploadAttachment(${idx})">
+                            <span class="btn-icon">📎</span>
+                            <span class="btn-text">Adjuntos</span>
+                        </button>
+                        <button class="session-btn genogram-btn" onclick="viewGenograma(${s.pacienteId})">
+                            <span class="btn-icon">🌳</span>
+                            <span class="btn-text">Genograma</span>
+                        </button>
+                    </div>
                 </div>
             `).join('')}
         </div>
         <div class="card">
-            <h3>Crear / Iniciar sesión (demostración)</h3>
-            <label>Paciente: <select id="sessionPatientSelect">${mockPacientes.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('')}</select></label>
-            <div style="margin-top:10px;">
-                <button onclick="startSessionPrompt()">Iniciar sesión</button>
+            <h3>Crear / Iniciar sesión</h3>
+            <div class="create-session-container">
+                <div class="input-group">
+                    <label class="input-label">Seleccionar paciente</label>
+                    <select id="sessionPatientSelect" class="modern-select">
+                        ${mockPacientes.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('')}
+                    </select>
+                </div>
+                <button class="session-btn start-session-btn" onclick="startSessionPrompt()">
+                    <span class="btn-icon">▶️</span>
+                    <span class="btn-text">Iniciar sesión</span>
+                </button>
             </div>
             <div id="sessionArea"></div>
         </div>
@@ -531,12 +842,124 @@ function createModal(html){
     };
 }
 
-function modalPrompt(label, defaultValue=''){
+function modalPrompt(label, defaultValue='', options={}){
     return new Promise(resolve=>{
-        const m = createModal(`<h3>${label}</h3><div class="row"><input id="_m_input" type="text" value="${defaultValue}"></div><div class="actions"><button class="btn ghost" id="_m_cancel">Cancelar</button><button class="btn primary" id="_m_ok">Aceptar</button></div>`);
-        m.backdrop.querySelector('#_m_cancel').onclick = ()=>{ m.close(); resolve(null); };
-        m.backdrop.querySelector('#_m_ok').onclick = ()=>{ const v = m.backdrop.querySelector('#_m_input').value; m.close(); resolve(v); };
-        setTimeout(()=> m.backdrop.querySelector('#_m_input').focus(),50);
+        let modalContent;
+        
+        if(options.isPin){
+            // PIN mode: 6 dígitos individuales
+            modalContent = `
+                <div class="pin-modal-container">
+                    <h2 class="pin-title">Ingresa tu PIN</h2>
+                    <p class="pin-subtitle">Introduce el código de 6 dígitos</p>
+                    <div class="pin-input-container">
+                        <input type="text" maxlength="1" class="pin-digit" data-index="0" pattern="[0-9]" inputmode="numeric">
+                        <input type="text" maxlength="1" class="pin-digit" data-index="1" pattern="[0-9]" inputmode="numeric">
+                        <input type="text" maxlength="1" class="pin-digit" data-index="2" pattern="[0-9]" inputmode="numeric">
+                        <input type="text" maxlength="1" class="pin-digit" data-index="3" pattern="[0-9]" inputmode="numeric">
+                        <input type="text" maxlength="1" class="pin-digit" data-index="4" pattern="[0-9]" inputmode="numeric">
+                        <input type="text" maxlength="1" class="pin-digit" data-index="5" pattern="[0-9]" inputmode="numeric">
+                    </div>
+                    <div class="pin-actions">
+                        <button class="btn ghost" id="_m_cancel">Cancelar</button>
+                        <button class="btn primary pin-verify-btn" id="_m_ok">Verificar</button>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Modo normal
+            modalContent = `<h3>${label}</h3><div class="row"><input id="_m_input" type="text" value="${defaultValue}"></div><div class="actions"><button class="btn ghost" id="_m_cancel">Cancelar</button><button class="btn primary" id="_m_ok">Aceptar</button></div>`;
+        }
+        
+        const m = createModal(modalContent);
+        
+        if(options.isPin){
+            // Lógica para PIN de 6 dígitos
+            const inputs = m.backdrop.querySelectorAll('.pin-digit');
+            
+            inputs.forEach((input, index) => {
+                // Auto-focus al siguiente campo
+                input.addEventListener('input', (e) => {
+                    const value = e.target.value;
+                    
+                    // Solo permitir números
+                    if(!/^[0-9]$/.test(value) && value !== ''){
+                        e.target.value = '';
+                        return;
+                    }
+                    
+                    // Si ingresó un dígito, pasar al siguiente
+                    if(value && index < inputs.length - 1){
+                        inputs[index + 1].focus();
+                    }
+                });
+                
+                // Manejar backspace
+                input.addEventListener('keydown', (e) => {
+                    if(e.key === 'Backspace' && !e.target.value && index > 0){
+                        inputs[index - 1].focus();
+                        inputs[index - 1].value = '';
+                    }
+                });
+                
+                // Evitar entrada no numérica
+                input.addEventListener('keypress', (e) => {
+                    if(!/[0-9]/.test(e.key)){
+                        e.preventDefault();
+                    }
+                });
+            });
+            
+            // Botón cancelar
+            const cancelBtn = m.backdrop.querySelector('#_m_cancel');
+            if(cancelBtn) {
+                cancelBtn.onclick = () => {
+                    m.close();
+                    resolve(null);
+                };
+            }
+            
+            // Botón verificar
+            m.backdrop.querySelector('#_m_ok').onclick = () => {
+                const pin = Array.from(inputs).map(input => input.value).join('');
+                if(pin.length === 6){
+                    m.close();
+                    resolve(pin);
+                } else {
+                    // Resaltar campos vacíos
+                    inputs.forEach(input => {
+                        if(!input.value){
+                            input.style.borderColor = '#f44336';
+                            setTimeout(() => {
+                                input.style.borderColor = '';
+                            }, 1000);
+                        }
+                    });
+                }
+            };
+            
+            // Permitir cancelar con ESC
+            const escHandler = (e) => {
+                if(e.key === 'Escape'){
+                    m.close();
+                    resolve(null);
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+            
+            // Focus en el primer campo
+            setTimeout(() => inputs[0].focus(), 100);
+        } else {
+            // Modo normal
+            const cancelBtn = m.backdrop.querySelector('#_m_cancel');
+            if(cancelBtn) cancelBtn.onclick = ()=>{ m.close(); resolve(null); };
+            m.backdrop.querySelector('#_m_ok').onclick = ()=>{ const v = m.backdrop.querySelector('#_m_input').value; m.close(); resolve(v); };
+            setTimeout(()=> {
+                const input = m.backdrop.querySelector('#_m_input');
+                if(input) input.focus();
+            }, 50);
+        }
     });
 }
 
@@ -550,7 +973,23 @@ function modalConfirm(message){
 
 function modalForm(title, innerHtml){
     return new Promise(resolve=>{
-        const m = createModal(`<h3>${title}</h3>${innerHtml}<div class="actions"><button class="btn ghost" id="_m_cancel">Cancelar</button><button class="btn primary" id="_m_save">Guardar</button></div>`);
+        const m = createModal(`
+            <div class="modern-modal-header">
+                <h3 class="modal-title">${title}</h3>
+            </div>
+            <div class="modern-modal-body">
+                ${innerHtml}
+            </div>
+            <div class="modern-modal-footer">
+                <button class="modern-btn cancel-btn" id="_m_cancel">
+                    <span>Cancelar</span>
+                </button>
+                <button class="modern-btn save-btn" id="_m_save">
+                    <span>💾</span>
+                    <span>Guardar</span>
+                </button>
+            </div>
+        `);
         m.backdrop.querySelector('#_m_cancel').onclick = ()=>{ m.close(); resolve(null); };
         m.backdrop.querySelector('#_m_save').onclick = ()=>{
             const inputs = m.backdrop.querySelectorAll('input, textarea, select');
@@ -662,8 +1101,8 @@ async function blobToWavBlob(blob){
 
 // Delete recording for a patient (asks for psychologist PIN via modalPrompt)
 async function deleteRecording(patientId, sessionIndex){
-    const pin = await modalPrompt('Ingrese PIN del psicólogo para eliminar la grabación');
-    if(!pin) return alert('Operación cancelada');
+    const pin = await modalPrompt('Ingrese PIN del psicólogo para eliminar la grabación', '', {isPin: true});
+    if(!pin) return;
     try{
         const resp = await fetch(API_BASE + '/api/delete-recording', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ patientId, pin }) });
         let j = null;
@@ -691,7 +1130,7 @@ async function deleteRecording(patientId, sessionIndex){
                                 } else if(activePatientId === patientId) {
                                     showPatient(patientId);
                                 }
-                                return alert('✅ Grabación eliminada (archivo encontrado por nombre alternativo).');
+                                return console.log('✅ Grabación eliminada (archivo encontrado por nombre alternativo).');
                             }
                         }
                     }catch(e){ /* ignore parsing errors */ }
@@ -705,16 +1144,16 @@ async function deleteRecording(patientId, sessionIndex){
                 } else if(activePatientId === patientId) {
                     showPatient(patientId);
                 }
-                return alert('Grabación no encontrada en el servidor. Referencia local eliminada.');
+                return console.log('Grabación no encontrada en el servidor. Referencia local eliminada.');
             }
             let body = null;
             try{ body = await resp.text(); }catch(e){}
-            return alert('Error al eliminar: ' + (body || resp.status));
+            return console.log('Error al eliminar: ' + (body || resp.status));
         }
         // Remove local reference if present
         const ps = mockSesiones.find(s=>s.pacienteId===patientId);
         if(ps && ps.grabacion){ ps.grabacion = []; await saveData(); }
-        alert('✅ Grabación eliminada');
+        console.log('✅ Grabación eliminada');
         // Refresh view if open: if in session detail view, refresh completely; otherwise navigate to patient view
         if(sessionIndex !== undefined){
             // Refresh the entire session view to clear all warnings
@@ -722,7 +1161,7 @@ async function deleteRecording(patientId, sessionIndex){
         } else if(activePatientId === patientId) {
             showPatient(patientId);
         }
-    }catch(e){ console.error('Delete recording error', e); alert('Error al eliminar: ' + e.message); }
+    }catch(e){ console.error('Delete recording error', e); console.log('Error al eliminar: ' + e.message); }
 }
 
 // Validate psychologist PIN via server
@@ -997,26 +1436,18 @@ function removeWarningTooltipForElement(el){
 // SOAP form: open modal to edit SOAP for a session
 async function openSoapForm(sessionIndex){
     const s = mockSesiones[sessionIndex];
-    if(!s) return alert('Sesión no encontrada');
-    const html = `
-        <div class="row"><label>Subjetivo</label><textarea name="s">${s.soap?.s || ''}</textarea></div>
-        <div class="row"><label>Objetivo</label><textarea name="o">${s.soap?.o || ''}</textarea></div>
-        <div class="row"><label>Análisis</label><textarea name="a">${s.soap?.a || ''}</textarea></div>
-        <div class="row"><label>Plan</label><textarea name="p">${s.soap?.p || ''}</textarea></div>
-    `;
-    const data = await modalForm('Formulario SOAP', html);
-    if(!data) return;
-    s.soap = { s: data.s || '', o: data.o || '', a: data.a || '', p: data.p || '' };
-    await saveData();
-    alert('SOAP guardado (mock)');
-    loadModule('sesiones');
+    if(!s) return console.log('Sesión no encontrada');
+    
+    // En lugar de abrir un modal, abrimos la vista de sesión detallada
+    const patientId = s.pacienteId;
+    openSessionDetail(sessionIndex, patientId);
 }
 
 // Open transcription modal for a session's recording
 async function openTranscriptionModal(sessionIndex, patientId){
     const s = mockSesiones[sessionIndex];
-    if(!s) return alert('Sesión no encontrada');
-    if(!s.grabacion || s.grabacion.length === 0) return alert('No hay grabación para transcribir');
+    if(!s) return console.log('Sesión no encontrada');
+    if(!s.grabacion || s.grabacion.length === 0) return console.log('No hay grabación para transcribir');
     
     // Get or initialize transcription
     let transcription = s.grabacion[0].transcripcion || '';
@@ -1098,59 +1529,583 @@ async function openTranscriptionModal(sessionIndex, patientId){
 
 
 
+// Psychologist profile data
+let psychologistProfile = {
+    nombre: 'Dr. Psicólogo',
+    especialidad: 'Psicología Clínica',
+    cedula: '12345678',
+    email: 'psicologo@example.com',
+    telefono: '+57 300 123 4567',
+    voiceSampleRecorded: false,
+    pin: '123456' // Default PIN
+};
+
+function renderPsychologistProfile() {
+    // Load from localStorage if exists
+    const saved = localStorage.getItem('psychologist_profile');
+    if(saved) {
+        try {
+            psychologistProfile = JSON.parse(saved);
+        } catch(e) { console.warn('Error loading psychologist profile', e); }
+    }
+
+    mainContent.innerHTML = `
+        <div class="patient-detail-header">
+            <div class="patient-detail-title">
+                <div class="patient-avatar-large">
+                    <span class="avatar-icon-large">👨‍⚕️</span>
+                </div>
+                <div>
+                    <h1 class="patient-detail-name">${psychologistProfile.nombre}</h1>
+                    <p class="patient-detail-subtitle">${psychologistProfile.especialidad}</p>
+                </div>
+            </div>
+            <button onclick="editPsychologistProfile()" class="create-session-btn">
+                <span>✏️</span>
+                <span>Editar Perfil</span>
+            </button>
+        </div>
+
+        <div class="patient-detail-grid">
+            <div class="card patient-info-card">
+                <div class="card-header-modern">
+                    <h3>📋 Información Profesional</h3>
+                </div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-icon">🎓</span>
+                        <div class="info-content">
+                            <span class="info-label">Especialidad</span>
+                            <span class="info-value">${psychologistProfile.especialidad}</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-icon">🎫</span>
+                        <div class="info-content">
+                            <span class="info-label">Cédula Profesional</span>
+                            <span class="info-value">${psychologistProfile.cedula}</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-icon">📧</span>
+                        <div class="info-content">
+                            <span class="info-label">Email</span>
+                            <span class="info-value">${psychologistProfile.email}</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-icon">📞</span>
+                        <div class="info-content">
+                            <span class="info-label">Teléfono</span>
+                            <span class="info-value">${psychologistProfile.telefono}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card patient-history-card">
+                <div class="card-header-modern">
+                    <h3>🎭 Reconocimiento de Voz</h3>
+                </div>
+                <div class="voice-training-section">
+                    <div class="voice-status ${psychologistProfile.voiceSampleRecorded ? 'voice-recorded' : 'voice-not-recorded'}">
+                        <div class="voice-status-icon">
+                            ${psychologistProfile.voiceSampleRecorded ? '✅' : '⚠️'}
+                        </div>
+                        <div class="voice-status-text">
+                            <h4>${psychologistProfile.voiceSampleRecorded ? 'Voz registrada' : 'Voz no registrada'}</h4>
+                            <p>${psychologistProfile.voiceSampleRecorded ? 
+                                'Tu muestra de voz está registrada. Esto ayuda a identificarte en las transcripciones.' : 
+                                'Registra tu voz para mejorar la identificación en las transcripciones de sesiones.'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="voice-training-controls">
+                        <h4 class="voice-section-title">🎤 Entrenamiento de Voz</h4>
+                        <p class="voice-instructions">
+                            Lee el siguiente texto en voz alta para registrar tu patrón de voz:
+                        </p>
+                        <div class="voice-sample-text">
+                            "Hola, soy el psicólogo de esta sesión. Este sistema me permite analizar y transcribir las conversaciones con mis pacientes de manera confidencial y profesional."
+                        </div>
+
+                        <div class="voice-record-container">
+                            <button class="voice-record-btn" id="voiceRecordBtn" onclick="toggleVoiceRecording()">
+                                <span class="record-icon" id="recordIcon">🎤</span>
+                                <span id="recordText">Iniciar Grabación de Voz</span>
+                            </button>
+                            <div class="voice-timer" id="voiceTimer" style="display: none;">00:00</div>
+                        </div>
+
+                        <div class="voice-playback" id="voicePlayback" style="display: none;">
+                            <h4>Vista previa de tu muestra de voz:</h4>
+                            <audio id="voiceAudioPreview" controls style="width: 100%;"></audio>
+                            <div class="voice-actions">
+                                <button class="voice-action-btn retry-btn" onclick="retryVoiceRecording()">
+                                    <span>🔄</span>
+                                    <span>Volver a grabar</span>
+                                </button>
+                                <button class="voice-action-btn save-btn" onclick="saveVoiceSample()">
+                                    <span>💾</span>
+                                    <span>Guardar muestra</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header-modern">
+                <h3>🔒 Seguridad</h3>
+            </div>
+            <div class="security-section">
+                <div class="security-item">
+                    <div class="security-icon">🔑</div>
+                    <div class="security-content">
+                        <h4>PIN de Seguridad</h4>
+                        <p>PIN actual configurado. Usado para autorizar acciones sensibles.</p>
+                    </div>
+                    <button class="security-btn" onclick="changePsychologistPIN()">
+                        <span>🔄</span>
+                        <span>Cambiar PIN</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Voice recording variables
+let voiceMediaRecorder = null;
+let voiceAudioChunks = [];
+let voiceRecordingTimer = null;
+let voiceRecordingSeconds = 0;
+
+async function toggleVoiceRecording() {
+    const btn = document.getElementById('voiceRecordBtn');
+    const icon = document.getElementById('recordIcon');
+    const text = document.getElementById('recordText');
+    const timer = document.getElementById('voiceTimer');
+    
+    if(!voiceMediaRecorder || voiceMediaRecorder.state === 'inactive') {
+        // Start recording
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            voiceMediaRecorder = new MediaRecorder(stream);
+            voiceAudioChunks = [];
+            voiceRecordingSeconds = 0;
+            
+            voiceMediaRecorder.ondataavailable = (event) => {
+                voiceAudioChunks.push(event.data);
+            };
+            
+            voiceMediaRecorder.onstop = () => {
+                const audioBlob = new Blob(voiceAudioChunks, { type: 'audio/webm' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const preview = document.getElementById('voiceAudioPreview');
+                if(preview) {
+                    preview.src = audioUrl;
+                }
+                document.getElementById('voicePlayback').style.display = 'block';
+                
+                // Stop all tracks
+                stream.getTracks().forEach(track => track.stop());
+            };
+            
+            voiceMediaRecorder.start();
+            btn.classList.add('recording');
+            icon.textContent = '⏹️';
+            text.textContent = 'Detener Grabación';
+            timer.style.display = 'block';
+            
+            // Start timer
+            voiceRecordingTimer = setInterval(() => {
+                voiceRecordingSeconds++;
+                const mins = Math.floor(voiceRecordingSeconds / 60);
+                const secs = voiceRecordingSeconds % 60;
+                timer.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            }, 1000);
+            
+        } catch(error) {
+            console.error('Error accessing microphone:', error);
+            alert('No se pudo acceder al micrófono. Por favor verifica los permisos.');
+        }
+    } else {
+        // Stop recording
+        voiceMediaRecorder.stop();
+        btn.classList.remove('recording');
+        icon.textContent = '🎤';
+        text.textContent = 'Iniciar Grabación de Voz';
+        clearInterval(voiceRecordingTimer);
+    }
+}
+
+function retryVoiceRecording() {
+    document.getElementById('voicePlayback').style.display = 'none';
+    document.getElementById('voiceTimer').textContent = '00:00';
+    voiceAudioChunks = [];
+}
+
+async function saveVoiceSample() {
+    const pin = await modalPrompt('Ingrese su PIN para guardar la muestra de voz', '', {isPin: true});
+    if(!pin) return;
+    
+    const okPin = await validatePsyPin(pin);
+    if(!okPin) {
+        console.log('PIN incorrecto');
+        return;
+    }
+    
+    psychologistProfile.voiceSampleRecorded = true;
+    localStorage.setItem('psychologist_profile', JSON.stringify(psychologistProfile));
+    console.log('✅ Muestra de voz guardada correctamente');
+    renderPsychologistProfile();
+}
+
+async function editPsychologistProfile() {
+    const form = `
+        <div class="modern-form-group">
+            <label class="modern-label">
+                <span class="label-icon">👤</span>
+                <span>Nombre completo</span>
+            </label>
+            <input name="nombre" value="${psychologistProfile.nombre}" class="modern-input" required>
+        </div>
+        <div class="modern-form-group">
+            <label class="modern-label">
+                <span class="label-icon">🎓</span>
+                <span>Especialidad</span>
+            </label>
+            <input name="especialidad" value="${psychologistProfile.especialidad}" class="modern-input" required>
+        </div>
+        <div class="modern-form-row">
+            <div class="modern-form-group">
+                <label class="modern-label">
+                    <span class="label-icon">🎫</span>
+                    <span>Cédula Profesional</span>
+                </label>
+                <input name="cedula" value="${psychologistProfile.cedula}" class="modern-input" required>
+            </div>
+            <div class="modern-form-group">
+                <label class="modern-label">
+                    <span class="label-icon">📞</span>
+                    <span>Teléfono</span>
+                </label>
+                <input name="telefono" value="${psychologistProfile.telefono}" class="modern-input" required>
+            </div>
+        </div>
+        <div class="modern-form-group">
+            <label class="modern-label">
+                <span class="label-icon">📧</span>
+                <span>Email</span>
+            </label>
+            <input name="email" type="email" value="${psychologistProfile.email}" class="modern-input" required>
+        </div>
+    `;
+    
+    const data = await modalForm('Editar Perfil Profesional', form);
+    if(!data) return;
+    
+    const pin = await modalPrompt('Ingrese su PIN para confirmar los cambios', '', {isPin: true});
+    if(!pin) return;
+    
+    const okPin = await validatePsyPin(pin);
+    if(!okPin) {
+        console.log('PIN incorrecto');
+        return;
+    }
+    
+    psychologistProfile.nombre = data.nombre;
+    psychologistProfile.especialidad = data.especialidad;
+    psychologistProfile.cedula = data.cedula;
+    psychologistProfile.telefono = data.telefono;
+    psychologistProfile.email = data.email;
+    
+    localStorage.setItem('psychologist_profile', JSON.stringify(psychologistProfile));
+    console.log('✅ Perfil actualizado correctamente');
+    renderPsychologistProfile();
+}
+
+async function changePsychologistPIN() {
+    const currentPin = await modalPrompt('Ingrese su PIN actual', '', {isPin: true});
+    if(!currentPin) return;
+    
+    const okPin = await validatePsyPin(currentPin);
+    if(!okPin) {
+        console.log('PIN incorrecto');
+        return;
+    }
+    
+    const newPin = await modalPrompt('Ingrese su nuevo PIN (6 dígitos)', '', {isPin: true});
+    if(!newPin || newPin.length !== 6) {
+        console.log('PIN inválido');
+        return;
+    }
+    
+    const confirmPin = await modalPrompt('Confirme su nuevo PIN', '', {isPin: true});
+    if(newPin !== confirmPin) {
+        console.log('Los PINs no coinciden');
+        return;
+    }
+    
+    psychologistProfile.pin = newPin;
+    localStorage.setItem('psychologist_profile', JSON.stringify(psychologistProfile));
+    console.log('✅ PIN actualizado correctamente');
+}
+
+async function editPatientInfo(patientId) {
+    const p = getPatientById(patientId);
+    if(!p) return;
+    
+    const form = `
+        <div class="modern-form-group">
+            <label class="modern-label">
+                <span class="label-icon">👤</span>
+                <span>Nombre completo</span>
+            </label>
+            <input name="nombre" value="${p.nombre}" class="modern-input" required>
+        </div>
+        <div class="modern-form-row">
+            <div class="modern-form-group">
+                <label class="modern-label">
+                    <span class="label-icon">🎂</span>
+                    <span>Edad</span>
+                </label>
+                <input name="edad" type="number" value="${p.edad}" class="modern-input" required>
+            </div>
+            <div class="modern-form-group">
+                <label class="modern-label">
+                    <span class="label-icon">📞</span>
+                    <span>Contacto</span>
+                </label>
+                <input name="contacto" value="${p.contacto}" class="modern-input" required>
+            </div>
+        </div>
+        <div class="modern-form-group">
+            <label class="modern-label">
+                <span class="label-icon">📍</span>
+                <span>Dirección</span>
+            </label>
+            <input name="direccion" value="${p.direccion}" class="modern-input" required>
+        </div>
+        <div class="modern-form-group">
+            <label class="modern-label">
+                <span class="label-icon">📝</span>
+                <span>Motivo de consulta</span>
+            </label>
+            <input name="motivo" value="${p.motivo}" class="modern-input" required>
+        </div>
+        <div class="modern-form-group">
+            <label class="modern-label">
+                <span class="label-icon">📚</span>
+                <span>Antecedentes</span>
+            </label>
+            <textarea name="antecedentes" class="modern-input" rows="4" required>${p.antecedentes}</textarea>
+        </div>
+        <div class="form-hint">
+            <span class="hint-icon">💡</span>
+            <span>Los cambios requerirán validación con PIN del psicólogo</span>
+        </div>
+    `;
+    
+    const data = await modalForm('Editar ficha del paciente', form);
+    if(!data) return;
+    
+    // Require PIN for editing patient info
+    const pin = await modalPrompt('Ingrese PIN del psicólogo para autorizar los cambios', '', {isPin: true});
+    if(!pin) return;
+    
+    const okPin = await validatePsyPin(pin);
+    if(!okPin) {
+        console.log('PIN incorrecto');
+        return;
+    }
+    
+    // Update patient info
+    p.nombre = data.nombre;
+    p.edad = parseInt(data.edad);
+    p.contacto = data.contacto;
+    p.direccion = data.direccion;
+    p.motivo = data.motivo;
+    p.antecedentes = data.antecedentes;
+    
+    await saveData();
+    console.log('✅ Información del paciente actualizada');
+    
+    // Refresh patient view
+    showPatient(patientId);
+}
+
+async function deleteSession(sessionIndex, patientId) {
+    const session = mockSesiones[sessionIndex];
+    if(!session) return;
+    
+    const confirm = await modalConfirm(`¿Estás seguro de que deseas eliminar la sesión del ${session.fecha}?`);
+    if(!confirm) return;
+    
+    // Require PIN for deleting sessions
+    const pin = await modalPrompt('Ingrese PIN del psicólogo para autorizar la eliminación', '', {isPin: true});
+    if(!pin) return;
+    
+    const okPin = await validatePsyPin(pin);
+    if(!okPin) {
+        console.log('PIN incorrecto');
+        return;
+    }
+    
+    // Delete session
+    mockSesiones.splice(sessionIndex, 1);
+    await saveData();
+    console.log('✅ Sesión eliminada correctamente');
+    
+    // Refresh patient view
+    showPatient(patientId);
+}
+
 function showPatient(id) {
     const p = getPatientById(id);
     activePatientId = id;
     if(!p) return;
 
     mainContent.innerHTML = `
-        <h1>${p.nombre}</h1>
-        <div class="detail-row">
-            <div class="card patient-meta">
-                <h3>Ficha del paciente</h3>
-                <div><strong>Edad:</strong> ${p.edad}</div>
-                <div><strong>Motivo:</strong> ${p.motivo}</div>
-                <div><strong>Contacto:</strong> ${p.contacto}</div>
-                <div><strong>Dirección:</strong> ${p.direccion}</div>
-                <div style="margin-top:8px;">
-                    <button onclick="createNewSessionForPatient(${p.id})" class="btn primary">Crear nueva sesión</button>
+        <div class="patient-detail-header">
+            <div class="patient-detail-title">
+                <div class="patient-avatar-large">
+                    <span class="avatar-icon-large">👤</span>
+                </div>
+                <div>
+                    <h1 class="patient-detail-name">${p.nombre}</h1>
+                    <p class="patient-detail-subtitle">ID: ${p.id} • Paciente activo</p>
+                </div>
+            </div>
+            <button onclick="createNewSessionForPatient(${p.id})" class="create-session-btn">
+                <span>➕</span>
+                <span>Crear nueva sesión</span>
+            </button>
+        </div>
+
+        <div class="patient-detail-grid">
+            <div class="card patient-info-card">
+                <div class="card-header-modern">
+                    <h3>📋 Ficha del paciente</h3>
+                    <button class="edit-patient-btn" onclick="editPatientInfo(${p.id})">
+                        <span>✏️</span>
+                        <span>Editar</span>
+                    </button>
+                </div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-icon">🎂</span>
+                        <div class="info-content">
+                            <span class="info-label">Edad</span>
+                            <span class="info-value">${p.edad} años</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-icon">📝</span>
+                        <div class="info-content">
+                            <span class="info-label">Motivo</span>
+                            <span class="info-value">${p.motivo}</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-icon">📞</span>
+                        <div class="info-content">
+                            <span class="info-label">Contacto</span>
+                            <span class="info-value">${p.contacto}</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-icon">📍</span>
+                        <div class="info-content">
+                            <span class="info-label">Dirección</span>
+                            <span class="info-value">${p.direccion}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="card" style="flex:1;">
-                <h3>Historial</h3>
-                <div><strong>Antecedentes:</strong><br>${p.antecedentes}</div>
-                <h4 style="margin-top:12px;">Consentimiento</h4>
-                <div id="consentList">
-                    ${p.consents.length ? p.consents.map((c, idx)=>{
-                        const hasFile = c.file ? true : false;
-                        const authorized = c.grabacionAutorizada || false;
-                        return `
-                            <div class="consent-item" style="display:flex; align-items:center; justify-content:space-between; padding:10px; background:${hasFile ? '#e0f7fa' : '#f9f9f9'}; border-radius:8px; margin-bottom:8px; border-left:4px solid ${hasFile ? '#00bcd4' : '#ddd'};">
-                                <div>
-                                    📄 ${c.tipo} ${c.file?`(<a href="${c.file}" target="_blank" style="color:#00838f;">ver archivo</a>)`:''}
-                                </div>
-                                ${hasFile && authorized ? `
-                                    <span style="font-size:12px; color:#00838f; font-weight:600; background:#b2ebf2; padding:6px 12px; border-radius:20px;">
-                                        ✅ Autorizado para grabación
-                                    </span>
-                                ` : ''}
-                            </div>
-                        `;
-                    }).join('') : '<div>No hay consentimiento cargado.</div>'}
+            <div class="card patient-history-card">
+                <div class="card-header-modern">
+                    <h3>📚 Historial</h3>
                 </div>
-                <div style="margin-top:8px;">
-                    ${p.consents.length === 0 ? `<button id="addConsentBtn">Agregar consentimiento</button>` : `<button id="editConsentBtn" style="background:#0097a7;">Editar consentimiento</button>`}
+                <div class="history-section">
+                    <div class="history-item">
+                        <h4 class="history-subtitle">Antecedentes</h4>
+                        <p class="history-text">${p.antecedentes}</p>
+                    </div>
+                    
+                    <div class="history-item">
+                        <h4 class="history-subtitle">Consentimiento</h4>
+                        <div id="consentList" class="consent-list">
+                            ${p.consents.length ? p.consents.map((c, idx)=>{
+                                const hasFile = c.file ? true : false;
+                                const authorized = c.grabacionAutorizada || false;
+                                return `
+                                    <div class="modern-consent-item ${hasFile ? 'has-file' : ''}">
+                                        <div class="consent-content">
+                                            <span class="consent-icon">📄</span>
+                                            <span class="consent-type">${c.tipo}</span>
+                                            ${c.file ? `<a href="${c.file}" target="_blank" class="consent-link">ver archivo</a>` : ''}
+                                        </div>
+                                        ${hasFile && authorized ? `
+                                            <span class="consent-badge authorized">
+                                                ✅ Autorizado para grabación
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                `;
+                            }).join('') : '<div class="empty-consent">No hay consentimiento cargado.</div>'}
+                        </div>
+                        <div class="consent-actions">
+                            ${p.consents.length === 0 ? 
+                                `<button id="addConsentBtn" class="consent-btn add-btn">
+                                    <span>➕</span>
+                                    <span>Agregar consentimiento</span>
+                                </button>` : 
+                                `<button id="editConsentBtn" class="consent-btn edit-btn">
+                                    <span>✏️</span>
+                                    <span>Editar consentimiento</span>
+                                </button>`
+                            }
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="card">
-            <h3>Sesiones del paciente</h3>
-            ${mockSesiones.filter(s=>s.pacienteId===p.id).map((s)=>{
-                const idx = mockSesiones.indexOf(s);
-                return `<div class="patient-item" onclick="openSessionDetail(${idx}, ${p.id})" style="cursor:pointer;"><strong>${s.fecha}</strong><br>${s.notas}</div>`;
-            }).join('')}
+        <div class="card sessions-card">
+            <div class="card-header-modern">
+                <h3>💼 Sesiones del paciente</h3>
+                <span class="sessions-count">${mockSesiones.filter(s=>s.pacienteId===p.id).length} sesiones</span>
+            </div>
+            <div class="sessions-list">
+                ${mockSesiones.filter(s=>s.pacienteId===p.id).length ? 
+                    mockSesiones.map((s, idx)=>s.pacienteId===p.id ? {session: s, index: idx} : null)
+                        .filter(item => item !== null)
+                        .map((item)=>{
+                            return `
+                                <div class="session-list-item">
+                                    <div class="session-item-content" onclick="event.stopPropagation(); openSessionDetail(${item.index}, ${p.id}); return false;">
+                                        <div class="session-date-badge">
+                                            <span class="date-icon">📅</span>
+                                            <span class="date-text">${item.session.fecha}</span>
+                                        </div>
+                                        <div class="session-notes">${item.session.notas}</div>
+                                        <span class="session-arrow">→</span>
+                                    </div>
+                                    <button class="delete-session-btn" onclick="event.stopPropagation(); deleteSession(${item.index}, ${p.id}); return false;" title="Eliminar sesión">
+                                        <span>🗑️</span>
+                                    </button>
+                                </div>
+                            `;
+                        }).join('') :
+                    '<div class="empty-sessions">No hay sesiones registradas</div>'
+                }
+            </div>
         </div>
     `;
 
@@ -1208,10 +2163,10 @@ function showPatient(id) {
         modal.backdrop.querySelector('#_c_cancel').onclick = ()=> modal.close();
         modal.backdrop.querySelector('#_c_save').onclick = async ()=>{
             // Require psychologist PIN to add/edit consent
-            const pinAuth = await modalPrompt('Ingrese PIN del psicólogo para autorizar este consentimiento');
-            if(!pinAuth) return alert('Operación cancelada');
+            const pinAuth = await modalPrompt('Ingrese PIN del psicólogo para autorizar este consentimiento', '', {isPin: true});
+            if(!pinAuth) return;
             const okPin = await validatePsyPin(pinAuth);
-            if(!okPin){ alert('PIN inválido. No se puede guardar el consentimiento.'); return; }
+            if(!okPin) return;
 
             const tipo = modal.backdrop.querySelector('#_consent_type')?.value || 'Consentimiento';
             let fileUrl = existingConsent ? existingConsent.file : null;
@@ -1253,32 +2208,54 @@ async function quickRegisterSession(){
     const pid = await modalPrompt('Ingresa ID del paciente para registrar sesión (ej: 1)');
     if(!pid) return;
     const paciente = getPatientById(parseInt(pid));
-    if(!paciente){ alert('Paciente no encontrado'); return; }
+    if(!paciente){ console.log('Paciente no encontrado'); return; }
     const notas = await modalPrompt('Notas breves de la sesión');
     mockSesiones.push({ pacienteId: paciente.id, fecha: new Date().toISOString().slice(0,10), notas: notas || 'Registro rápido', soap: null, attachments: [] });
     await saveData();
-    alert('Sesión registrada (mock)');
+    console.log('Sesión registrada (mock)');
     loadModule('dashboard');
 }
 
 async function quickCreateCita(){
     const patientOptions = mockPacientes.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
     const form = `
-        <div class="row">
-            <select name="pid" style="width:100%; padding:8px; border:2px solid #b2ebf2; border-radius:4px; font-size:14px;">
+        <div class="modern-form-group">
+            <label class="modern-label">
+                <span class="label-icon">👤</span>
+                <span>Seleccionar paciente</span>
+            </label>
+            <select name="pid" class="modern-select">
                 <option value="">Seleccionar paciente...</option>
                 ${patientOptions}
             </select>
         </div>
-        <div class="row"><input name="fecha" type="date"></div>
-        <div class="row"><input name="hora" type="time"></div>
+        <div class="modern-form-row">
+            <div class="modern-form-group">
+                <label class="modern-label">
+                    <span class="label-icon">📅</span>
+                    <span>Fecha</span>
+                </label>
+                <input name="fecha" type="date" class="modern-input" required>
+            </div>
+            <div class="modern-form-group">
+                <label class="modern-label">
+                    <span class="label-icon">🕐</span>
+                    <span>Hora</span>
+                </label>
+                <input name="hora" type="time" class="modern-input" required>
+            </div>
+        </div>
+        <div class="form-hint">
+            <span class="hint-icon">💡</span>
+            <span>La cita se creará con estado "Pendiente"</span>
+        </div>
     `;
     const formData = await modalForm('Crear cita', form);
     if(!formData) return;
-    if(!formData.pid || !formData.fecha || !formData.hora) return alert('Datos incompletos');
+    if(!formData.pid || !formData.fecha || !formData.hora) return console.log('Datos incompletos');
     mockAgenda.push({ fecha: formData.fecha, hora: formData.hora, pacienteId: parseInt(formData.pid), estado: 'Pendiente' });
     await saveData();
-    alert('✅ Cita creada correctamente');
+    console.log('✅ Cita creada correctamente');
     loadModule('agenda');
 }
 
@@ -1287,18 +2264,16 @@ async function promptStartSession(patientId){
     const p = getPatientById(patientId);
     if(!p) return;
     const want = await modalConfirm('¿Desea grabar la sesión? (Si acepta necesitará ingresar PIN)');
-    if(!want){ alert('Sesión iniciada sin grabación (demo)'); return; }
+    if(!want){ console.log('Sesión iniciada sin grabación (demo)'); return; }
     const pin = await modalPrompt('Ingrese PIN del psicólogo para autorizar grabación');
-    if(!pin) return alert('Operación cancelada');
+    if(!pin) return console.log('Operación cancelada');
     const ok = await validatePsyPin(pin);
     if(ok){
-        alert('PIN correcto. Grabación habilitada (demo).');
+        console.log('✅ Grabación habilitada');
         const newSess = { pacienteId: p.id, fecha: new Date().toISOString().slice(0,10), notas: 'Sesión con grabación (mock)', soap: null, attachments: [] };
         mockSesiones.push(newSess);
         await saveData();
         showPatient(p.id);
-    } else {
-        alert('PIN incorrecto. No se habilita grabación.');
     }
 }
 
@@ -1310,7 +2285,7 @@ function startSessionPrompt(){
 
 async function createNewSessionForPatient(patientId){
     const p = getPatientById(patientId);
-    if(!p) return alert('Paciente no encontrado');
+    if(!p) return console.log('Paciente no encontrado');
     
     // Verificar si hay consentimiento con grabación autorizada
     const hasAuthorizedRecording = p.consents.some(c => c.file && c.grabacionAutorizada);
@@ -1369,7 +2344,7 @@ async function createNewSessionForPatient(patientId){
         
         // Solo permitir grabación si hay consentimiento autorizado
         if(grabar && !hasAuthorizedRecording){
-            alert('❌ No se puede grabar la sesión. Debe subir un consentimiento firmado con autorización de grabación primero.');
+            console.log('❌ No se puede grabar la sesión. Debe subir un consentimiento firmado con autorización de grabación primero.');
             return;
         }
         
@@ -1386,9 +2361,9 @@ async function createNewSessionForPatient(patientId){
         await saveData();
         
         if(grabar){
-            alert('✅ Sesión creada con grabación habilitada');
+            console.log('✅ Sesión creada con grabación habilitada');
         } else {
-            alert('✅ Sesión creada exitosamente');
+            console.log('✅ Sesión creada exitosamente');
         }
         
         modal.close();
@@ -1399,7 +2374,7 @@ async function createNewSessionForPatient(patientId){
 async function openSessionDetail(sessionIndex, patientId){
     const s = mockSesiones[sessionIndex];
     const p = getPatientById(patientId);
-    if(!s || !p) return alert('Sesión o paciente no encontrado');
+    if(!s || !p) return console.log('Sesión o paciente no encontrado');
     
     // Ocultar el contenedor principal y sidebar
     document.querySelector('.sidebar').style.display = 'none';
@@ -1533,7 +2508,7 @@ async function openSessionDetail(sessionIndex, patientId){
         // Simular análisis (aquí podrías integrar IA real)
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        alert('✨ Análisis completado. Ahora puedes editarlo desde el botón "Editar".');
+        console.log('✨ Análisis completado. Ahora puedes editarlo desde el botón "Editar".');
         
         btn.disabled = false;
         btn.innerHTML = '🔬 Realizar análisis';
@@ -1617,7 +2592,7 @@ async function openSessionDetail(sessionIndex, patientId){
             s.planificacion = planificacion;
             
             await saveData();
-            alert('✅ Sesión actualizada correctamente');
+            console.log('✅ Sesión actualizada correctamente');
             editModal.close();
             
             // Recargar la vista de sesión
@@ -1793,10 +2768,10 @@ async function openSessionDetail(sessionIndex, patientId){
                     }
                 }
                 // Require psychologist PIN to start recording
-                const pinAuth = await modalPrompt('Ingrese PIN del psicólogo para iniciar la grabación');
-                if(!pinAuth) return alert('Operación cancelada');
+                const pinAuth = await modalPrompt('Ingrese PIN del psicólogo para iniciar la grabación', '', {isPin: true});
+                if(!pinAuth) return;
                 const okStart = await validatePsyPin(pinAuth);
-                if(!okStart){ alert('PIN incorrecto. No se inicia la grabación.'); return; }
+                if(!okStart) return;
 
                 // Iniciar grabación
                 try {
@@ -1829,7 +2804,7 @@ async function openSessionDetail(sessionIndex, patientId){
 
                                                 // If server reports an existing recording, inform user and abort
                                                 if(resp.status === 409){
-                                                    alert('❌ Ya existe una grabación en el servidor para este paciente. Elimine la grabación antes de grabar una nueva.');
+                                                    console.log('❌ Ya existe una grabación en el servidor para este paciente. Elimine la grabación antes de grabar una nueva.');
                                                     // Refresh UI from server state
                                                     try{ const chk = await fetch(API_BASE + '/api/recording/' + p.id); if(chk.ok){ const info = await chk.json(); if(info.exists){ s.grabacion = [{ fecha: new Date().toISOString(), audio: info.path, duracion: s.grabacion?.[0]?.duracion || 0, remote:true }]; await saveData(); } } }catch(e){}
                                                     refreshGrabacionesUI(s, p, sessionIndex);
@@ -1841,7 +2816,7 @@ async function openSessionDetail(sessionIndex, patientId){
                                                     let body = null;
                                                     try{ body = await resp.text(); }catch(e){ body = null; }
                                                     console.error('Upload failed', resp.status, body);
-                                                    alert('❌ No se pudo subir la grabación al servidor (' + resp.status + '). Se guardará localmente como respaldo.');
+                                                    console.log('❌ No se pudo subir la grabación al servidor (' + resp.status + '). Se guardará localmente como respaldo.');
 
                                                     // Fallback: store base64 locally
                                                     const reader = new FileReader();
@@ -1860,7 +2835,7 @@ async function openSessionDetail(sessionIndex, patientId){
                                                 try{ j = await resp.json(); }catch(e){ j = null; }
                                                 if(!j || !j.ok){
                                                     console.error('Upload returned unexpected body', j);
-                                                    alert('❌ Subida completada con respuesta inesperada. Se guardará localmente como respaldo.');
+                                                    console.log('❌ Subida completada con respuesta inesperada. Se guardará localmente como respaldo.');
 
                                                     const reader = new FileReader();
                                                     reader.onloadend = () => {
@@ -1877,7 +2852,7 @@ async function openSessionDetail(sessionIndex, patientId){
                                                 s.grabacion = [{ fecha: new Date().toISOString(), audio: j.path, duracion: Math.floor((Date.now() - startTime) / 1000), remote: true }];
                                                 await saveData();
                                                 console.log('[debug] upload recording: stored remote path=', j.path);
-                                                alert('✅ Grabación subida y guardada correctamente');
+                                                console.log('✅ Grabación subida y guardada correctamente');
                                                 refreshGrabacionesUI(s, p, sessionIndex);
                                                 // disable the recording button now that a recording exists
                                                 try{
@@ -1916,7 +2891,7 @@ async function openSessionDetail(sessionIndex, patientId){
 
                         }catch(err){
                             console.error('Error processing recording on stop', err);
-                            alert('❌ Error al procesar la grabación: ' + (err && err.message ? err.message : err));
+                            console.log('❌ Error al procesar la grabación: ' + (err && err.message ? err.message : err));
                         } finally {
                             // Detener el stream
                             try{ stream.getTracks().forEach(track => track.stop()); }catch(e){}
@@ -1932,7 +2907,7 @@ async function openSessionDetail(sessionIndex, patientId){
                     
                 } catch (error) {
                     console.error('Error al acceder al micrófono:', error);
-                    alert('❌ No se pudo acceder al micrófono. Por favor, permite el acceso al micrófono en tu navegador.');
+                    console.log('❌ No se pudo acceder al micrófono. Por favor, permite el acceso al micrófono en tu navegador.');
                 }
             } else {
                 // Detener grabación
@@ -1992,7 +2967,7 @@ async function openSessionDetail(sessionIndex, patientId){
 
 async function viewGenograma(patientId){
     const p = getPatientById(patientId);
-    if(!p) return alert('Paciente no encontrado');
+    if(!p) return console.log('Paciente no encontrado');
     
     const genogramaHtml = `
         <div style="padding:20px;">
@@ -2022,13 +2997,13 @@ async function viewGenograma(patientId){
 
 async function uploadAttachment(sessionIndex){
     const s = mockSesiones[sessionIndex];
-    if(!s) return alert('Sesión no encontrada');
+    if(!s) return console.log('Sesión no encontrada');
     const modal = createModal(`<h3>Subir adjunto</h3><div class="row">Archivo: <input id="_att_file" type="file"></div><div class="actions"><button class="btn ghost" id="_a_cancel">Cancelar</button><button class="btn primary" id="_a_save">Subir</button></div>`);
     modal.backdrop.querySelector('#_a_cancel').onclick = ()=> modal.close();
     modal.backdrop.querySelector('#_a_save').onclick = async ()=>{
         const fileInput = modal.backdrop.querySelector('#_att_file');
         if(!(fileInput && fileInput.files && fileInput.files[0])){
-            return alert('Seleccione un archivo para subir');
+            return console.log('Seleccione un archivo para subir');
         }
         try{
             const res = await uploadFile(fileInput.files[0]);
@@ -2037,16 +3012,16 @@ async function uploadAttachment(sessionIndex){
                 s.attachments.push({ filename: res.filename || ('adjunto_' + Date.now()), url: res.url });
                 await saveData();
                 modal.close();
-                alert('✅ Archivo adjuntado correctamente');
+                console.log('✅ Archivo adjuntado correctamente');
                 // If the session detail is open, refresh the UI where appropriate
                 try{ refreshGrabacionesUI(s, getPatientById(s.pacienteId), sessionIndex); }catch(e){}
                 return;
             } else {
-                alert('❌ No se pudo subir el archivo');
+                console.log('❌ No se pudo subir el archivo');
             }
         }catch(e){
             console.error('uploadAttachment error', e);
-            alert('Error subiendo archivo: ' + (e && e.message ? e.message : e));
+            console.log('Error subiendo archivo: ' + (e && e.message ? e.message : e));
         }
     };
 }

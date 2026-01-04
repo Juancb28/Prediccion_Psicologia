@@ -66,13 +66,13 @@ def process_audio_complete(audio_path, model_size="small", language="es",
         print("\n" + "="*60)
         print("PASO 3/3: IDENTIFICACIÓN (OMITIDO)")
         print("="*60)
-        print(f"\n⚠ No se encontraron audios de referencia en '{refs_dir}'")
+        print(f"\nNo se encontraron audios de referencia en '{refs_dir}'")
         print("  Para identificar hablantes, coloca archivos WAV en esa carpeta con nombres descriptivos")
         print("  Ejemplo: refs/psicologo.wav, refs/paciente.wav")
     
     # Resumen final
     print("\n" + "="*60)
-    print("✓ PROCESO COMPLETADO")
+    print("PROCESO COMPLETADO")
     print("="*60)
     print(f"\nArchivos generados en '{output_dir}/':")
     for file in sorted(Path(output_dir).glob(f"{audio_name}*")):

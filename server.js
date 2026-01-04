@@ -86,6 +86,10 @@ if(!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 const recordingsDir = path.join(__dirname, 'recordings');
 if(!fs.existsSync(recordingsDir)) fs.mkdirSync(recordingsDir);
 
+// Ensure refs dir for psychologist voice samples
+const refsDir = path.join(__dirname, 'refs');
+if(!fs.existsSync(refsDir)) fs.mkdirSync(refsDir);
+
 const storage = multer.diskStorage({
     destination: function (req, file, cb) { cb(null, uploadsDir); },
     filename: function (req, file, cb) { const safe = Date.now() + '-' + file.originalname.replace(/\s+/g,'_'); cb(null, safe); }
@@ -97,6 +101,45 @@ app.post('/upload', upload.single('file'), (req, res) => {
     if(!req.file) return res.status(400).json({ error: 'No file' });
     const url = `/uploads/${req.file.filename}`;
     res.json({ filename: req.file.filename, url });
+});
+
+// Save psychologist voice sample to refs directory
+const voiceSampleStorage = multer.diskStorage({
+    destination: function (req, file, cb) { cb(null, refsDir); },
+    filename: function (req, file, cb) {
+        // Always use the same filename to replace previous voice samples
+        cb(null, 'psychologist_voice_sample.wav');
+    }
+});
+const uploadVoiceSample = multer({ storage: voiceSampleStorage });
+
+app.post('/api/save-voice-sample', uploadVoiceSample.single('voiceSample'), (req, res) => {
+    const { pin } = req.body || {};
+    
+    // If PSY_PIN is configured, require and validate the provided pin
+    if(PSY_PIN){
+        if(!pin) {
+            // Clean up uploaded file if PIN validation fails
+            if(req.file && req.file.path && fs.existsSync(req.file.path)) {
+                try { fs.unlinkSync(req.file.path); } catch(e) {}
+            }
+            return res.status(400).json({ error: 'PIN required' });
+        }
+        if(String(pin) !== String(PSY_PIN)) {
+            // Clean up uploaded file if PIN is invalid
+            if(req.file && req.file.path && fs.existsSync(req.file.path)) {
+                try { fs.unlinkSync(req.file.path); } catch(e) {}
+            }
+            return res.status(403).json({ error: 'Invalid PIN' });
+        }
+    }
+    
+    if(!req.file) return res.status(400).json({ error: 'No voice sample uploaded' });
+    
+    const filePath = `/refs/${req.file.filename}`;
+    console.log('[info] Psychologist voice sample saved:', filePath);
+    
+    res.json({ ok: true, filePath, message: 'Voice sample saved successfully' });
 });
 
 // Upload recording for a patient: write to a temporary uploads dir first,
@@ -396,5 +439,8 @@ app.post('/api/data', (req, res) => {
 
 // Serve uploads
 app.use('/uploads', express.static(uploadsDir));
+
+// Serve refs (voice samples)
+app.use('/refs', express.static(refsDir));
 
 app.listen(PORT, ()=> console.log(`Dev server running at http://localhost:${PORT}`));

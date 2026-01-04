@@ -1444,6 +1444,39 @@ async function openSoapForm(sessionIndex){
     openSessionDetail(sessionIndex, patientId);
 }
 
+// Clean transcription text: remove header and footer, keep only the dialogue
+function cleanTranscriptionText(rawText) {
+    if (!rawText || !rawText.trim()) return '';
+    
+    const lines = rawText.split('\n');
+    const cleanedLines = [];
+    let insideDialogue = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Skip the header lines
+        if (line.includes('TRANSCRIPCIÓN CON HABLANTES IDENTIFICADOS') || 
+            line.match(/^=+$/)) {
+            insideDialogue = true;
+            continue;
+        }
+        
+        // Stop when we reach the footer statistics
+        if (line.includes('HABLANTES IDENTIFICADOS:')) {
+            break;
+        }
+        
+        // Only include lines after the header
+        if (insideDialogue) {
+            cleanedLines.push(line);
+        }
+    }
+    
+    // Join and trim extra whitespace at start/end
+    return cleanedLines.join('\n').trim();
+}
+
 // Open transcription modal for a session's recording
 async function openTranscriptionModal(sessionIndex, patientId){
     const s = mockSesiones[sessionIndex];
@@ -1473,6 +1506,9 @@ async function openTranscriptionModal(sessionIndex, patientId){
             }
         }
     }catch(e){ console.warn('openTranscriptionModal: error checking /api/processed/', e); }
+    
+    // Clean the transcription to show only the dialogue
+    transcription = cleanTranscriptionText(transcription);
     
     // Build a modal that shows the formatted transcription read-only (preserves speakers/timestamps)
     // The transcription is presented in a single <pre> and is NOT editable by design.
@@ -1760,10 +1796,47 @@ async function saveVoiceSample() {
         return;
     }
     
-    psychologistProfile.voiceSampleRecorded = true;
-    localStorage.setItem('psychologist_profile', JSON.stringify(psychologistProfile));
-    console.log('✅ Muestra de voz guardada correctamente');
-    renderPsychologistProfile();
+    try {
+        // Create blob from recorded chunks
+        if(!voiceAudioChunks || voiceAudioChunks.length === 0) {
+            console.log('No hay audio grabado');
+            return;
+        }
+        
+        const audioBlob = new Blob(voiceAudioChunks, { type: 'audio/webm' });
+        
+        // Convert to WAV for better compatibility
+        const wavBlob = await blobToWavBlob(audioBlob);
+        
+        // Send to server
+        const formData = new FormData();
+        formData.append('voiceSample', wavBlob, 'psychologist_voice_sample.wav');
+        formData.append('pin', pin);
+        
+        const resp = await fetch(API_BASE + '/api/save-voice-sample', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if(!resp.ok) {
+            const errorText = await resp.text();
+            console.log('Error al guardar muestra de voz: ' + errorText);
+            return;
+        }
+        
+        const result = await resp.json();
+        
+        psychologistProfile.voiceSampleRecorded = true;
+        psychologistProfile.voiceSamplePath = result.filePath || '/refs/psychologist_voice.wav';
+        localStorage.setItem('psychologist_profile', JSON.stringify(psychologistProfile));
+        
+        console.log('✅ Muestra de voz guardada correctamente en ' + psychologistProfile.voiceSamplePath);
+        renderPsychologistProfile();
+        
+    } catch(error) {
+        console.error('Error al guardar muestra de voz:', error);
+        console.log('Error al guardar la muestra de voz');
+    }
 }
 
 async function editPsychologistProfile() {

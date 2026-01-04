@@ -147,29 +147,28 @@ def identify_speakers(labeled_json_path, audio_path, refs_dir="refs", threshold=
             break
 
     if psych_key is None:
-        # Si no hay un archivo claramente etiquetado, tomar el primero pero avisar
+        # Si no hay un archivo claramente etiquetado, tomar el primero
         psych_key = next(iter(reference_embeddings.keys()))
-        print(f"No se encontró referencia con 'psicolog' en el nombre. Usando '{psych_key}' como psicólogo.\n" +
-              "(Para evitar ambigüedad, añade un archivo de referencia cuyo nombre contenga 'psicologo' o 'psicóloga')")
+        print(f"ℹ Usando '{psych_key}' como referencia del psicólogo")
+        print(f"  (Tip: Nombra el archivo como 'psicologo.wav' o 'psicologa.wav' para mejor identificación)\n")
 
     psych_emb = reference_embeddings[psych_key]
 
     # Comparar solo contra la referencia del psicólogo. Si supera el umbral,
-    # etiquetamos como el nombre del psicólogo; en caso contrario, etiquetamos
-    # como 'OTRO'. Esto garantiza que solo se reconozca la voz del psicólogo.
-    print("\n--- Identificando SOLO la voz del psicólogo ---")
+    # etiquetamos como "Psicólog@"; en caso contrario, etiquetamos como "Paciente".
+    print("\n--- Identificando hablantes ---")
     speaker_mapping = {}
 
     for speaker, spk_emb in speaker_embeddings.items():
         similarity = np.dot(spk_emb, psych_emb) / (np.linalg.norm(spk_emb) * np.linalg.norm(psych_emb))
-        print(f"{speaker} vs {psych_key}: {similarity:.3f}")
+        print(f"{speaker} vs referencia: similitud = {similarity:.3f}")
 
         if similarity >= threshold:
-            speaker_mapping[speaker] = psych_key
-            print(f"  ✓ {speaker} identificado como {psych_key} (similitud: {similarity:.3f})")
+            speaker_mapping[speaker] = 'Psicólog@'
+            print(f"  ✓ {speaker} → Psicólog@ (similitud: {similarity:.3f} >= {threshold})")
         else:
-            speaker_mapping[speaker] = 'OTRO'
-            print(f"  {speaker} marcado como OTRO (similitud: {similarity:.3f} < {threshold})")
+            speaker_mapping[speaker] = 'Paciente'
+            print(f"  ✓ {speaker} → Paciente (similitud: {similarity:.3f} < {threshold})")
     
     # Aplicar mapeo y guardar
     print("\n--- Generando transcripción identificada ---")
@@ -182,17 +181,14 @@ def identify_speakers(labeled_json_path, audio_path, refs_dir="refs", threshold=
         new_seg['speaker'] = speaker_mapping.get(seg['speaker'], seg['speaker'])
         identified_segments.append(new_seg)
     
-    # Guardar JSON identificado
-    output_json = os.path.join(output_dir, f"{audio_name}_identified.json")
+    # Guardar JSON identificado (sobrescribe el archivo labeled)
+    output_json = os.path.join(output_dir, f"{audio_name}_labeled.json")
     with open(output_json, 'w', encoding='utf-8') as f:
-        json.dump({
-            'segments': identified_segments,
-            'speaker_mapping': speaker_mapping
-        }, f, ensure_ascii=False, indent=2)
+        json.dump(identified_segments, f, ensure_ascii=False, indent=2)
     print(f"✓ JSON identificado guardado: {output_json}")
     
-    # Guardar TXT identificado
-    output_txt = os.path.join(output_dir, f"{audio_name}_identified.txt")
+    # Guardar TXT identificado (sobrescribe el archivo labeled)
+    output_txt = os.path.join(output_dir, f"{audio_name}_labeled.txt")
     with open(output_txt, 'w', encoding='utf-8') as f:
         f.write("TRANSCRIPCIÓN CON HABLANTES IDENTIFICADOS\n")
         f.write("="*50 + "\n\n")

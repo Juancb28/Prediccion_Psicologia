@@ -1019,6 +1019,7 @@ async function saveData(){
     const payload = { pacientes: mockPacientes, agenda: mockAgenda, sesiones: mockSesiones, reportes: mockReportes, genograma: mockGenograma };
     try{
         localStorage.setItem('pp_data', JSON.stringify(payload));
+        console.log('[saveData] Datos guardados - Sesiones totales:', mockSesiones.length);
     }catch(e){ console.warn('No se pudo guardar en localStorage:', e); }
 }
 
@@ -1941,7 +1942,10 @@ async function editPatientInfo(patientId) {
 
 async function deleteSession(sessionIndex, patientId) {
     const session = mockSesiones[sessionIndex];
-    if(!session) return;
+    if(!session) {
+        console.log('Sesión no encontrada en índice:', sessionIndex);
+        return;
+    }
     
     const confirm = await modalConfirm(`¿Estás seguro de que deseas eliminar la sesión del ${session.fecha}?`);
     if(!confirm) return;
@@ -1952,12 +1956,15 @@ async function deleteSession(sessionIndex, patientId) {
     
     const okPin = await validatePsyPin(pin);
     if(!okPin) {
-        console.log('PIN incorrecto');
+        console.log('❌ PIN incorrecto');
         return;
     }
     
-    // Delete session
+    // Delete session by index
+    console.log('Eliminando sesión en índice:', sessionIndex, 'Total sesiones antes:', mockSesiones.length);
     mockSesiones.splice(sessionIndex, 1);
+    console.log('Total sesiones después:', mockSesiones.length);
+    
     await saveData();
     console.log('✅ Sesión eliminada correctamente');
     
@@ -2376,13 +2383,10 @@ async function openSessionDetail(sessionIndex, patientId){
     const p = getPatientById(patientId);
     if(!s || !p) return console.log('Sesión o paciente no encontrado');
     
-    // Ocultar el contenedor principal y sidebar
-    document.querySelector('.sidebar').style.display = 'none';
-    document.querySelector('.content').style.padding = '0';
-    
     // Inicializar datos de sesión si no existen
     if(!s.enfoque) s.enfoque = '';
     if(!s.analisis) s.analisis = '';
+    if(!s.resumen) s.resumen = '';
     if(!s.planificacion) s.planificacion = '';
     
     const enfoques = [
@@ -2396,108 +2400,135 @@ async function openSessionDetail(sessionIndex, patientId){
         'Enfoque Evolucionista / Psicología Evolutiva'
     ];
     
-    mainContent.innerHTML = `
-        <div style="min-height:100vh; background:linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%); padding:20px;">
-            <div style="max-width:1200px; margin:0 auto; background:white; border-radius:16px; padding:30px; box-shadow:0 8px 32px rgba(0,188,212,0.2);">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:20px; border-bottom:2px solid #b2ebf2;">
-                    <div>
-                        <h1 style="color:#00838f; margin:0;">Sesión: ${s.fecha}</h1>
-                        <p style="color:#666; margin:4px 0 0 0;"><strong>Paciente:</strong> ${p.nombre}</p>
-                    </div>
-                    <button id="_start_recording_btn" class="btn" style="background:linear-gradient(135deg, #f44336 0%, #d32f2f 100%); color:white; display:flex; align-items:center; gap:12px; padding:12px 20px; border-radius:12px;">
-                        <div style="width:24px; height:24px; border-radius:50%; background:white; border:3px solid #f44336; display:flex; align-items:center; justify-content:center;"></div>
-                        <span style="font-weight:600;">Iniciar grabación</span>
-                    </button>
-                </div>
+    const sessionModalHtml = `
+        <div style="background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); padding:24px; margin:-32px -32px 24px -32px; border-radius:12px 12px 0 0; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <h2 style="color:white; margin:0; font-size:24px; font-weight:700;">Sesión: ${s.fecha}</h2>
+                <p style="color:rgba(255,255,255,0.9); margin:8px 0 0 0; font-size:14px;"><strong>Paciente:</strong> ${p.nombre}</p>
+            </div>
+            <button id="_start_recording_btn" class="btn" style="background:linear-gradient(135deg, #f44336 0%, #d32f2f 100%); color:white; padding:12px 24px; border-radius:8px; display:flex; align-items:center; gap:10px; font-size:14px; box-shadow:0 4px 12px rgba(244,67,54,0.4); border:none; cursor:pointer;">
+                <span style="font-size:20px;">⏺️</span>
+                <span style="font-weight:600;">Iniciar grabación</span>
+            </button>
+        </div>
 
-                <div style="background:#e0f7fa; padding:12px; border-radius:8px; border-left:4px solid #00bcd4; margin-bottom:30px;">
-                    <strong>Notas:</strong> ${s.notas}
-                </div>
+        <div style="max-height:calc(92vh - 200px); overflow-y:auto; padding:0 4px;">
+            <div style="background:linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 50%); padding:12px 16px; border-radius:8px; border-left:4px solid #00bcd4; margin-bottom:24px;">
+                <strong style="color:#00838f;">Notas:</strong> <span style="color:#374151;">${s.notas}</span>
+            </div>
 
-                <!-- SOAP -->
-                <div style="margin-bottom:30px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <h3 style="color:#00838f; display:flex; align-items:center; gap:8px; margin:0;">
-                            <span style="font-size:24px;">📋</span> SOAP
-                        </h3>
-                        <div style="display:flex; gap:8px;">
-                            <button id="_edit_soap_btn" class="btn" style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white;">✏️ Editar</button>
-                            <button id="_generate_summary_btn" class="btn" style="background:linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%); color:white;">✨ Generar resumen de sesión</button>
-                        </div>
-                    </div>
-                    <div style="display:grid; gap:12px;">
-                        <div style="padding:16px; background:white; border-radius:8px; border:2px solid #b2ebf2;">
-                            <h4 style="color:#00838f; margin:0 0 8px 0; font-size:14px;">Subjetivo</h4>
-                            <p style="margin:0; color:#666; line-height:1.6;">${s.soap?.s || '<em style="color:#999;">(Sin datos)</em>'}</p>
-                        </div>
-                        <div style="padding:16px; background:white; border-radius:8px; border:2px solid #b2ebf2;">
-                            <h4 style="color:#00838f; margin:0 0 8px 0; font-size:14px;">Objetivo</h4>
-                            <p style="margin:0; color:#666; line-height:1.6;">${s.soap?.o || '<em style="color:#999;">(Sin datos)</em>'}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ENFOQUE -->
-                <div style="margin-bottom:30px;">
-                    <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
-                        <span style="font-size:24px;">🎯</span> Enfoque Psicológico
+            <!-- SOAP -->
+            <div style="margin-bottom:24px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <h3 style="color:#00838f; display:flex; align-items:center; gap:8px; margin:0; font-size:18px;">
+                        <span style="font-size:20px;">📋</span> SOAP
                     </h3>
-                    <div style="padding:12px; background:white; border:2px solid #b2ebf2; border-radius:8px;">
-                        <p style="margin:0; color:#666;">${s.enfoque || '<em style="color:#999;">(No seleccionado)</em>'}</p>
+                    <div style="display:flex; gap:8px;">
+                        <button id="_edit_soap_btn" class="btn" style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white; padding:8px 16px; font-size:14px; border-radius:8px;">✏️ Editar</button>
+                        <button id="_generate_summary_btn" class="btn" style="background:linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%); color:white; padding:8px 16px; font-size:14px; border-radius:8px;">✨ Generar resumen</button>
                     </div>
                 </div>
-
-                <!-- ANÁLISIS -->
-                <div style="margin-bottom:30px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                        <h3 style="color:#00838f; display:flex; align-items:center; gap:8px; margin:0;">
-                            <span style="font-size:24px;">🔍</span> Análisis
-                        </h3>
-                        <button id="_realizar_analisis_btn" class="btn" style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white;">🔬 Realizar análisis</button>
+                <div style="display:grid; gap:12px;">
+                    <div style="padding:12px; background:#f9fafb; border-radius:8px; border:2px solid #e5e7eb;">
+                        <h4 style="color:#00838f; margin:0 0 8px 0; font-size:13px; font-weight:600;">Subjetivo</h4>
+                        ${(() => {
+                            const subj = s.soap?.s;
+                            if (!subj) return '<p style="margin:0; color:#9ca3af; font-style:italic;">(Sin datos)</p>';
+                            if (typeof subj === 'string') return `<p style="margin:0; color:#4b5563; line-height:1.5; font-size:14px;">${subj}</p>`;
+                            
+                            // Display structured data
+                            return `
+                                <div style="font-size:13px; line-height:1.6;">
+                                    ${subj.apariencia ? `<div style="margin-bottom:6px;"><strong style="color:#374151;">Apariencia y conducta:</strong> <span style="color:#6b7280;">${subj.apariencia}</span></div>` : ''}
+                                    ${(subj.animo || subj.afecto) ? `<div style="margin-bottom:6px;"><strong style="color:#374151;">Ánimo y afecto:</strong> ${subj.animo ? `<span style="color:#6b7280;">Ánimo: ${subj.animo}</span>` : ''} ${subj.afecto ? `<span style="color:#6b7280;"> | Afecto: ${subj.afecto}</span>` : ''}</div>` : ''}
+                                    ${(subj.pensamiento_estructura || subj.pensamiento_velocidad || subj.pensamiento_contenido) ? `<div style="margin-bottom:6px;"><strong style="color:#374151;">Pensamiento:</strong> ${subj.pensamiento_estructura ? `<span style="color:#6b7280;">Estructura: ${subj.pensamiento_estructura}</span>` : ''} ${subj.pensamiento_velocidad ? `<span style="color:#6b7280;"> | Velocidad: ${subj.pensamiento_velocidad}</span>` : ''} ${subj.pensamiento_contenido ? `<span style="color:#6b7280;"> | Contenido: ${subj.pensamiento_contenido}</span>` : ''}</div>` : ''}
+                                    ${subj.motricidad ? `<div style="margin-bottom:6px;"><strong style="color:#374151;">Motricidad:</strong> <span style="color:#6b7280;">${subj.motricidad}</span></div>` : ''}
+                                    ${subj.insight ? `<div style="margin-bottom:6px;"><strong style="color:#374151;">Insight:</strong> <span style="color:#6b7280;">${subj.insight}</span></div>` : ''}
+                                    ${(subj.juicio || subj.sentido) ? `<div style="margin-bottom:6px;"><strong style="color:#374151;">Juicio y sentido de realidad:</strong> ${subj.juicio ? `<span style="color:#6b7280;">Juicio: ${subj.juicio}</span>` : ''} ${subj.sentido ? `<span style="color:#6b7280;"> | Sentido: ${subj.sentido}</span>` : ''}</div>` : ''}
+                                    ${(subj.consciencia_cuantitativa || subj.consciencia_cualitativa || subj.consciencia_sueno) ? `<div style="margin-bottom:6px;"><strong style="color:#374151;">Consciencia:</strong> ${subj.consciencia_cuantitativa ? `<span style="color:#6b7280;">Cuant.: ${subj.consciencia_cuantitativa}</span>` : ''} ${subj.consciencia_cualitativa ? `<span style="color:#6b7280;"> | Cual.: ${subj.consciencia_cualitativa}</span>` : ''} ${subj.consciencia_sueno ? `<span style="color:#6b7280;"> | Sueño/vigilia: ${subj.consciencia_sueno}</span>` : ''}</div>` : ''}
+                                    ${(subj.orientacion_autopsiquica || subj.orientacion_alopsiquica) ? `<div style="margin-bottom:6px;"><strong style="color:#374151;">Orientación:</strong> ${subj.orientacion_autopsiquica ? `<span style="color:#6b7280;">Autopsíquica: ${subj.orientacion_autopsiquica}</span>` : ''} ${subj.orientacion_alopsiquica ? `<span style="color:#6b7280;"> | Alopsíquica: ${subj.orientacion_alopsiquica}</span>` : ''}</div>` : ''}
+                                    ${subj.percepcion ? `<div style="margin-bottom:6px;"><strong style="color:#374151;">Percepción:</strong> <span style="color:#6b7280;">${subj.percepcion}</span></div>` : ''}
+                                    ${subj.cognicion ? `<div style="margin-bottom:6px;"><strong style="color:#374151;">Cognición:</strong> <span style="color:#6b7280;">${subj.cognicion}</span></div>` : ''}
+                                </div>
+                            `;
+                        })()}
                     </div>
-                    <div style="padding:12px; background:white; border:2px solid #b2ebf2; border-radius:8px; min-height:80px;">
-                        <p style="margin:0; color:#666; line-height:1.6;">${s.analisis || '<em style="color:#999;">(Sin análisis)</em>'}</p>
+                    <div style="padding:12px; background:#f9fafb; border-radius:8px; border:2px solid #e5e7eb;">
+                        <h4 style="color:#00838f; margin:0 0 6px 0; font-size:13px; font-weight:600;">Objetivo</h4>
+                        <p style="margin:0; color:#4b5563; line-height:1.5; font-size:14px;">${s.soap?.o || '<em style="color:#9ca3af;">(Sin datos)</em>'}</p>
                     </div>
                 </div>
+            </div>
 
-                <!-- PLANIFICACIÓN -->
-                <div style="margin-bottom:30px;">
-                    <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
-                        <span style="font-size:24px;">📝</span> Planificación
+            <!-- ENFOQUE -->
+            <div style="margin-bottom:24px;">
+                <h3 style="color:#00838f; display:flex; align-items:center; gap:8px; font-size:18px; margin:0 0 12px 0;">
+                    <span style="font-size:20px;">🎯</span> Enfoque Psicológico
+                </h3>
+                <div style="padding:12px; background:#f9fafb; border:2px solid #e5e7eb; border-radius:8px;">
+                    <p style="margin:0; color:#4b5563; font-size:14px;">${s.enfoque || '<em style="color:#9ca3af;">(No seleccionado)</em>'}</p>
+                </div>
+            </div>
+
+            <!-- ANÁLISIS -->
+            <div style="margin-bottom:24px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <h3 style="color:#00838f; display:flex; align-items:center; gap:8px; margin:0; font-size:18px;">
+                        <span style="font-size:20px;">🔍</span> Análisis
                     </h3>
-                    <div style="padding:12px; background:white; border:2px solid #b2ebf2; border-radius:8px; min-height:80px;">
-                        <p style="margin:0; color:#666; line-height:1.6;">${s.planificacion || '<em style="color:#999;">(Sin planificación)</em>'}</p>
-                    </div>
+                    <button id="_realizar_analisis_btn" class="btn" style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white; padding:8px 16px; font-size:14px; border-radius:8px;">🔬 Realizar análisis</button>
                 </div>
-
-                <!-- GRABACIONES -->
-                <div id="_grabaciones_container" style="margin-bottom:30px;">
-                    ${buildGrabacionesHTML(s, p, sessionIndex) }
+                <div style="padding:12px; background:#f9fafb; border:2px solid #e5e7eb; border-radius:8px; min-height:60px;">
+                    <p style="margin:0; color:#4b5563; line-height:1.5; font-size:14px;">${s.analisis || '<em style="color:#9ca3af;">(Sin análisis)</em>'}</p>
                 </div>
+            </div>
 
-                <!-- GENOGRAMA -->
-                <div style="margin-bottom:30px;">
-                    <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
-                        <span style="font-size:24px;">📊</span> Genograma
-                    </h3>
-                    <div style="margin-top:12px; padding:16px; border:2px solid #b2ebf2; border-radius:12px; background:linear-gradient(135deg, #e0f7fa 0%, #f9f9f9 100%);">
-                        <strong style="color:#00838f;">Familia:</strong> ${mockGenograma.familia}<br>
-                        <strong style="color:#00838f; margin-top:8px; display:inline-block;">Miembros:</strong>
-                        <ul style="margin-top:8px; padding-left:24px;">
-                            ${mockGenograma.miembros.map(m => `<li style="margin:4px 0;">${m}</li>`).join('')}
-                        </ul>
-                        <div style="margin-top:16px; padding:20px; background:white; border-radius:8px; border:1px dashed #00bcd4;">
-                            <p style="text-align:center; color:#666;"><em>📈 Diagrama visual del genograma</em></p>
-                        </div>
-                    </div>
+            <!-- RESUMEN -->
+            <div style="margin-bottom:24px;">
+                <h3 style="color:#00838f; display:flex; align-items:center; gap:8px; font-size:18px; margin:0 0 12px 0;">
+                    <span style="font-size:20px;">📄</span> Resumen
+                </h3>
+                <div style="padding:12px; background:#f9fafb; border:2px solid #e5e7eb; border-radius:8px; min-height:60px;">
+                    <p style="margin:0; color:#4b5563; line-height:1.5; font-size:14px;">${s.resumen || '<em style="color:#9ca3af;">(Sin resumen)</em>'}</p>
                 </div>
+            </div>
 
-                <div style="display:flex; gap:12px; padding-top:20px; border-top:2px solid #b2ebf2;">
-                    <button id="_session_close" class="btn primary">← Volver</button>
+            <!-- PLANIFICACIÓN -->
+            <div style="margin-bottom:24px;">
+                <h3 style="color:#00838f; display:flex; align-items:center; gap:8px; font-size:18px; margin:0 0 12px 0;">
+                    <span style="font-size:20px;">📝</span> Planificación
+                </h3>
+                <div style="padding:12px; background:#f9fafb; border:2px solid #e5e7eb; border-radius:8px; min-height:60px;">
+                    <p style="margin:0; color:#4b5563; line-height:1.5; font-size:14px;">${s.planificacion || '<em style="color:#9ca3af;">(Sin planificación)</em>'}</p>
+                </div>
+            </div>
+
+            <!-- GRABACIONES -->
+            <div id="_grabaciones_container" style="margin-bottom:24px;">
+                ${buildGrabacionesHTML(s, p, sessionIndex)}
+            </div>
+
+            <!-- GENOGRAMA -->
+            <div style="margin-bottom:20px;">
+                <h3 style="color:#00838f; display:flex; align-items:center; gap:8px; font-size:18px; margin:0 0 12px 0;">
+                    <span style="font-size:20px;">📊</span> Genograma
+                </h3>
+                <div style="padding:12px; border:2px solid #e5e7eb; border-radius:8px; background:#f9fafb;">
+                    <strong style="color:#00838f; font-size:14px;">Familia:</strong> <span style="color:#4b5563; font-size:14px;">${mockGenograma.familia}</span><br>
+                    <strong style="color:#00838f; margin-top:8px; display:inline-block; font-size:14px;">Miembros:</strong>
+                    <ul style="margin:8px 0 0 0; padding-left:20px;">
+                        ${mockGenograma.miembros.map(m => `<li style="margin:4px 0; color:#4b5563; font-size:14px;">${m}</li>`).join('')}
+                    </ul>
                 </div>
             </div>
         </div>
+
+        <div style="margin-top:24px; padding-top:20px; border-top:2px solid #e5e7eb; display:flex; gap:8px; justify-content:flex-end;">
+            <button id="_session_close" class="btn" style="background:linear-gradient(135deg, #6b7280 0%, #4b5563 100%); color:white; padding:10px 20px; border-radius:8px; font-size:14px;">Cerrar</button>
+        </div>
     `;
+    
+    const modal = createModal(sessionModalHtml);
     
     // Botón realizar análisis
     document.getElementById('_realizar_analisis_btn').onclick = async ()=>{
@@ -2516,6 +2547,20 @@ async function openSessionDetail(sessionIndex, patientId){
     
     // Botón editar SOAP - abre modal de edición
     document.getElementById('_edit_soap_btn').onclick = async ()=>{
+        // Parse existing subjective data if it's structured
+        let subjectiveData = {};
+        try {
+            if (s.soap?.s && typeof s.soap.s === 'string') {
+                if (s.soap.s.startsWith('{')) {
+                    subjectiveData = JSON.parse(s.soap.s);
+                }
+            } else if (s.soap?.s && typeof s.soap.s === 'object') {
+                subjectiveData = s.soap.s;
+            }
+        } catch(e) {
+            // If not structured, leave as is
+        }
+        
         const editModalHtml = `
             <div style="max-height:70vh; overflow-y:auto; padding:20px;">
                 <h3 style="color:#00838f; margin-top:0;">✏️ Editar Sesión</h3>
@@ -2525,10 +2570,117 @@ async function openSessionDetail(sessionIndex, patientId){
                     <h4 style="color:#00838f; display:flex; align-items:center; gap:8px;">
                         <span style="font-size:20px;">📋</span> SOAP
                     </h4>
-                    <div style="margin-bottom:12px;">
-                        <label style="display:block; color:#00838f; font-weight:600; margin-bottom:4px;">Subjetivo</label>
-                        <textarea id="_modal_soap_s" style="width:100%; min-height:80px; padding:8px; border:2px solid #b2ebf2; border-radius:4px; font-family:inherit; font-size:14px; resize:vertical;">${s.soap?.s || ''}</textarea>
+                    
+                    <!-- Subjetivo - Structured -->
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block; color:#00838f; font-weight:600; margin-bottom:8px; font-size:15px;">Subjetivo (Examen Mental)</label>
+                        
+                        <div style="background:#f9fafb; padding:16px; border-radius:8px; border:2px solid #e5e7eb;">
+                            <div style="margin-bottom:12px;">
+                                <label style="display:block; color:#374151; font-weight:600; margin-bottom:4px; font-size:13px;">* Apariencia y conducta:</label>
+                                <input type="text" id="_subj_apariencia" value="${subjectiveData.apariencia || ''}" style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                            </div>
+                            
+                            <div style="margin-bottom:12px;">
+                                <label style="display:block; color:#374151; font-weight:600; margin-bottom:6px; font-size:13px;">* Ánimo y afecto:</label>
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-left:16px;">
+                                    <div>
+                                        <label style="display:block; color:#6b7280; font-size:12px; margin-bottom:2px;">- Ánimo:</label>
+                                        <input type="text" id="_subj_animo" value="${subjectiveData.animo || ''}" style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block; color:#6b7280; font-size:12px; margin-bottom:2px;">- Afecto:</label>
+                                        <input type="text" id="_subj_afecto" value="${subjectiveData.afecto || ''}" style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom:12px;">
+                                <label style="display:block; color:#374151; font-weight:600; margin-bottom:6px; font-size:13px;">* Pensamiento:</label>
+                                <div style="margin-left:16px;">
+                                    <div style="margin-bottom:6px;">
+                                        <label style="display:block; color:#6b7280; font-size:12px; margin-bottom:2px;">- Estructura:</label>
+                                        <input type="text" id="_subj_pens_estructura" value="${subjectiveData.pensamiento_estructura || ''}" style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                                    </div>
+                                    <div style="margin-bottom:6px;">
+                                        <label style="display:block; color:#6b7280; font-size:12px; margin-bottom:2px;">- Velocidad:</label>
+                                        <input type="text" id="_subj_pens_velocidad" value="${subjectiveData.pensamiento_velocidad || ''}" style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block; color:#6b7280; font-size:12px; margin-bottom:2px;">- Contenido:</label>
+                                        <input type="text" id="_subj_pens_contenido" value="${subjectiveData.pensamiento_contenido || ''}" style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom:12px;">
+                                <label style="display:block; color:#374151; font-weight:600; margin-bottom:4px; font-size:13px;">* Motricidad:</label>
+                                <input type="text" id="_subj_motricidad" value="${subjectiveData.motricidad || ''}" style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                            </div>
+                            
+                            <div style="margin-bottom:12px;">
+                                <label style="display:block; color:#374151; font-weight:600; margin-bottom:4px; font-size:13px;">* Insight:</label>
+                                <input type="text" id="_subj_insight" value="${subjectiveData.insight || ''}" style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                            </div>
+                            
+                            <div style="margin-bottom:12px;">
+                                <label style="display:block; color:#374151; font-weight:600; margin-bottom:6px; font-size:13px;">* Juicio y sentido de realidad:</label>
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-left:16px;">
+                                    <div>
+                                        <label style="display:block; color:#6b7280; font-size:12px; margin-bottom:2px;">- Juicio:</label>
+                                        <input type="text" id="_subj_juicio" value="${subjectiveData.juicio || ''}" style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block; color:#6b7280; font-size:12px; margin-bottom:2px;">- Sentido:</label>
+                                        <input type="text" id="_subj_sentido" value="${subjectiveData.sentido || ''}" style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom:12px;">
+                                <label style="display:block; color:#374151; font-weight:600; margin-bottom:6px; font-size:13px;">* Consciencia:</label>
+                                <div style="margin-left:16px;">
+                                    <div style="margin-bottom:6px;">
+                                        <label style="display:block; color:#6b7280; font-size:12px; margin-bottom:2px;">- Cuantitativa:</label>
+                                        <input type="text" id="_subj_consc_cuantitativa" value="${subjectiveData.consciencia_cuantitativa || ''}" style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                                    </div>
+                                    <div style="margin-bottom:6px;">
+                                        <label style="display:block; color:#6b7280; font-size:12px; margin-bottom:2px;">- Cualitativa:</label>
+                                        <input type="text" id="_subj_consc_cualitativa" value="${subjectiveData.consciencia_cualitativa || ''}" style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block; color:#6b7280; font-size:12px; margin-bottom:2px;">- Sueño/vigilia:</label>
+                                        <input type="text" id="_subj_consc_sueno" value="${subjectiveData.consciencia_sueno || ''}" style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom:12px;">
+                                <label style="display:block; color:#374151; font-weight:600; margin-bottom:6px; font-size:13px;">* Orientación:</label>
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-left:16px;">
+                                    <div>
+                                        <label style="display:block; color:#6b7280; font-size:12px; margin-bottom:2px;">- Autopsíquica:</label>
+                                        <input type="text" id="_subj_orient_auto" value="${subjectiveData.orientacion_autopsiquica || ''}" style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block; color:#6b7280; font-size:12px; margin-bottom:2px;">- Alopsíquica:</label>
+                                        <input type="text" id="_subj_orient_alo" value="${subjectiveData.orientacion_alopsiquica || ''}" style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom:12px;">
+                                <label style="display:block; color:#374151; font-weight:600; margin-bottom:4px; font-size:13px;">* Percepción:</label>
+                                <input type="text" id="_subj_percepcion" value="${subjectiveData.percepcion || ''}" style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                            </div>
+                            
+                            <div>
+                                <label style="display:block; color:#374151; font-weight:600; margin-bottom:4px; font-size:13px;">* Cognición:</label>
+                                <input type="text" id="_subj_cognicion" value="${subjectiveData.cognicion || ''}" style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                            </div>
+                        </div>
                     </div>
+                    
                     <div>
                         <label style="display:block; color:#00838f; font-weight:600; margin-bottom:4px;">Objetivo</label>
                         <textarea id="_modal_soap_o" style="width:100%; min-height:80px; padding:8px; border:2px solid #b2ebf2; border-radius:4px; font-family:inherit; font-size:14px; resize:vertical;">${s.soap?.o || ''}</textarea>
@@ -2554,6 +2706,14 @@ async function openSessionDetail(sessionIndex, patientId){
                     <textarea id="_modal_analisis_text" style="width:100%; min-height:100px; padding:12px; border:2px solid #b2ebf2; border-radius:8px; font-family:inherit; font-size:14px; resize:vertical;" placeholder="Resultado del análisis...">${s.analisis || ''}</textarea>
                 </div>
                 
+                <!-- RESUMEN -->
+                <div style="margin-bottom:24px;">
+                    <h4 style="color:#00838f; display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:20px;">📄</span> Resumen
+                    </h4>
+                    <textarea id="_modal_resumen_text" style="width:100%; min-height:100px; padding:12px; border:2px solid #b2ebf2; border-radius:8px; font-family:inherit; font-size:14px; resize:vertical;" placeholder="Resumen de la sesión...">${s.resumen || ''}</textarea>
+                </div>
+                
                 <!-- PLANIFICACIÓN -->
                 <div style="margin-bottom:24px;">
                     <h4 style="color:#00838f; display:flex; align-items:center; gap:8px;">
@@ -2576,39 +2736,57 @@ async function openSessionDetail(sessionIndex, patientId){
         
         // Guardar
         editModal.backdrop.querySelector('#_modal_save').onclick = async ()=>{
-            const soapS = editModal.backdrop.querySelector('#_modal_soap_s').value;
+            // Collect structured subjective data
+            const subjectiveStructured = {
+                apariencia: editModal.backdrop.querySelector('#_subj_apariencia').value,
+                animo: editModal.backdrop.querySelector('#_subj_animo').value,
+                afecto: editModal.backdrop.querySelector('#_subj_afecto').value,
+                pensamiento_estructura: editModal.backdrop.querySelector('#_subj_pens_estructura').value,
+                pensamiento_velocidad: editModal.backdrop.querySelector('#_subj_pens_velocidad').value,
+                pensamiento_contenido: editModal.backdrop.querySelector('#_subj_pens_contenido').value,
+                motricidad: editModal.backdrop.querySelector('#_subj_motricidad').value,
+                insight: editModal.backdrop.querySelector('#_subj_insight').value,
+                juicio: editModal.backdrop.querySelector('#_subj_juicio').value,
+                sentido: editModal.backdrop.querySelector('#_subj_sentido').value,
+                consciencia_cuantitativa: editModal.backdrop.querySelector('#_subj_consc_cuantitativa').value,
+                consciencia_cualitativa: editModal.backdrop.querySelector('#_subj_consc_cualitativa').value,
+                consciencia_sueno: editModal.backdrop.querySelector('#_subj_consc_sueno').value,
+                orientacion_autopsiquica: editModal.backdrop.querySelector('#_subj_orient_auto').value,
+                orientacion_alopsiquica: editModal.backdrop.querySelector('#_subj_orient_alo').value,
+                percepcion: editModal.backdrop.querySelector('#_subj_percepcion').value,
+                cognicion: editModal.backdrop.querySelector('#_subj_cognicion').value
+            };
+            
             const soapO = editModal.backdrop.querySelector('#_modal_soap_o').value;
             const enfoque = editModal.backdrop.querySelector('#_modal_enfoque_select').value;
             const analisis = editModal.backdrop.querySelector('#_modal_analisis_text').value;
+            const resumen = editModal.backdrop.querySelector('#_modal_resumen_text').value;
             const planificacion = editModal.backdrop.querySelector('#_modal_planificacion_text').value;
             
             if (!s.soap) {
                 s.soap = {};
             }
-            s.soap.s = soapS;
+            s.soap.s = subjectiveStructured;
             s.soap.o = soapO;
             s.enfoque = enfoque;
             s.analisis = analisis;
+            s.resumen = resumen;
             s.planificacion = planificacion;
             
             await saveData();
             console.log('✅ Sesión actualizada correctamente');
             editModal.close();
             
-            // Recargar la vista de sesión
+            // Cerrar el modal de sesión y reabrir para refrescar
+            modal.close();
             openSessionDetail(sessionIndex, patientId);
         };
     };
     
-    // Save handler (eliminado - ahora todo se edita desde el modal)
-    
     document.getElementById('_session_close').onclick = ()=> {
-        // Restaurar sidebar y volver a vista de paciente
-        document.querySelector('.sidebar').style.display = 'flex';
-        document.querySelector('.content').style.padding = '30px';
         // Clear any active polling interval for this patient
         try{ if(_pp_active_intervals[p.id]){ clearInterval(_pp_active_intervals[p.id].timer); delete _pp_active_intervals[p.id]; } }catch(e){}
-        showPatient(p.id);
+        modal.close();
     };
     
     // Recording button handler

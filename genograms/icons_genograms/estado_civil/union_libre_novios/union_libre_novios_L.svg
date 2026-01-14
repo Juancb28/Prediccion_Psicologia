@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Una sola línea discontinua que forma una "L" normal -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" 
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  
+  <style>
+    .dashed-line {
+      fill: none;
+      stroke: #000;
+      stroke-width: 5;
+      stroke-dasharray: 20, 15;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  </style>
+
+  <!-- "L" Normal: Baja verticalmente y dobla a la derecha -->
+  <polyline class="dashed-line" points="400,150 400,600 850,600" />
+
+</svg>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+     width="868" height="846" viewBox="0 0 868 846" style="background:none">
+  <!-- Líneas al 50% del grosor anterior (36 → 18), fondo transparente -->
+  <g fill="none" stroke="#000000" stroke-width="18" vector-effect="non-scaling-stroke"
+     stroke-linecap="round" stroke-linejoin="round">
+    <!-- Círculo centrado -->
+    <circle cx="434" cy="423" r="350"/>
+    <!-- X -->
+    <line x1="200" y1="189" x2="668" y2="657"/>
+    <line x1="668" y1="189" x2="200" y2="657"/>
+  </g>
+</svg>

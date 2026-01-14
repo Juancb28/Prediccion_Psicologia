@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Dos "L" reflejadas: la exterior continua y la interior (arriba) discontinua -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" 
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  
+  <style>
+    .line-continuous {
+      fill: none;
+      stroke: #000000;
+      stroke-width: 5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .line-dashed {
+      fill: none;
+      stroke: #000000;
+      stroke-width: 5;
+      stroke-dasharray: 20, 15;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  </style>
+
+  <!-- L exterior continua (Vértice a la derecha) -->
+  <polyline class="line-continuous" points="752,150 752,600 302,600" />
+
+  <!-- L interior (arriba) discontinua (Separación de 30px) -->
+  <polyline class="line-dashed" points="722,150 722,570 302,570" />
+
+</svg>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fondo transparente; cuadrado con:
+     - Línea horizontal a la mitad.
+     - Parte inferior dividida verticalmente.
+     - Sección inferior izquierda rellena de negro. -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  <style>
+    .outline {
+      fill: none;
+      stroke: #000;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+  </style>
+
+  <!-- Cuadrado centrado de 600x600 (x=276 a 876, y=60 a 660) -->
+  
+  <!-- Relleno negro de la sección inferior izquierda -->
+  <!-- Desde el centro x=576 hacia la izquierda x=276, y desde la mitad y=360 hacia abajo y=660 -->
+  <rect x="276" y="360" width="300" height="300" fill="#000"/>
+
+  <!-- Contorno exterior del cuadrado -->
+  <rect class="outline" x="276" y="60" width="600" height="600"/>
+
+  <!-- Línea horizontal divisoria (mitad) -->
+  <line class="outline" x1="276" y1="360" x2="876" y2="360"/>
+
+  <!-- Línea vertical divisoria en la parte inferior (desde el centro hasta el borde inferior) -->
+  <line class="outline" x1="576" y1="360" x2="576" y2="660"/>
+</svg>

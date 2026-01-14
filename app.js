@@ -12,6 +12,7 @@ const mockPacientes = [
         direccion: "Calle Falsa 123",
         antecedentes: "No alergias. Antecedentes familiares de ansiedad.",
         consents: [],
+        genogramaHtml: null
         
     },
     {
@@ -23,6 +24,7 @@ const mockPacientes = [
         direccion: "Av. Siempreviva 742",
         antecedentes: "Tratamiento previo con ISRS.",
         consents: [],
+        genogramaHtml: null
         
     },
     {
@@ -34,6 +36,7 @@ const mockPacientes = [
         direccion: "Paseo del Prado 10",
         antecedentes: "Hipertensión controlada.",
         consents: [],
+        genogramaHtml: null
         
     }
 ];
@@ -183,13 +186,29 @@ function loadModule(module) {
 
         case 'genograma':
             mainContent.innerHTML = `
-                <h1>Genograma</h1>
+                <h1>📊 Genogramas de Pacientes</h1>
                 <div class="card">
-                    <h3>Familia: ${mockGenograma.familia}</h3>
-                    Miembros:<br>
-                    <ul>
-                        ${mockGenograma.miembros.map(m => `<li>${m}</li>`).join('')}
-                    </ul>
+                    <p style="margin-bottom:20px; color:#666;">
+                        Selecciona un paciente para ver o generar su genograma familiar basado en las transcripciones de sesiones.
+                    </p>
+                    <div style="display:grid; gap:16px;">
+                        ${mockPacientes.map(p => `
+                            <div class="patient-card" style="border:2px solid #e5e7eb; border-radius:12px; padding:16px; background:#f9fafb; cursor:pointer; transition:all 0.3s;" onclick="viewGenograma(${p.id})">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div>
+                                        <h3 style="margin:0 0 8px 0; color:#00838f;">${p.nombre}</h3>
+                                        <p style="margin:0; color:#666; font-size:14px;">${p.edad} años - ${p.motivo}</p>
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        ${p.genogramaHtml ? '<span style="color:#10b981; font-size:12px; font-weight:600;">✓ Generado</span>' : '<span style="color:#f59e0b; font-size:12px; font-weight:600;">⚠ Pendiente</span>'}
+                                        <button class="btn primary" style="padding:8px 16px;">
+                                            ${p.genogramaHtml ? 'Ver' : 'Generar'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
             `;
             break;
@@ -1100,68 +1119,49 @@ async function blobToWavBlob(blob){
     return new Blob([view], { type: 'audio/wav' });
 }
 
-// Delete recording for a patient (asks for psychologist PIN via modalPrompt)
+// Delete recording for a patient session (asks for psychologist PIN via modalPrompt)
 async function deleteRecording(patientId, sessionIndex){
+    const p = getPatientById(patientId);
     const pin = await modalPrompt('Ingrese PIN del psicólogo para eliminar la grabación', '', {isPin: true});
     if(!pin) return;
     try{
-        const resp = await fetch(API_BASE + '/api/delete-recording', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ patientId, pin }) });
+        const payload = { 
+            patientId, 
+            patientName: p ? p.nombre : `patient_${patientId}`,
+            sessionIndex: sessionIndex || 0,
+            pin 
+        };
+        const resp = await fetch(API_BASE + '/api/delete-recording', { 
+            method: 'POST', 
+            headers: { 'Content-Type':'application/json' }, 
+            body: JSON.stringify(payload) 
+        });
         let j = null;
         if(resp.ok){ try{ j = await resp.json(); }catch(e){ j = null; } }
         if(!resp.ok) {
-            // If server says recording not found, attempt to delete by filename parsed from local reference
+            // If server says recording not found, remove local reference
             if(resp.status === 404){
-                const ps = mockSesiones.find(s=>s.pacienteId===patientId);
-                // Try to extract alternate id from the stored audio path (e.g. '/recordings/patient_unknown.wav')
-                if(ps && ps.grabacion && ps.grabacion.length>0){
-                    const audioRef = ps.grabacion[0].audio || '';
-                    try{
-                        const fname = (typeof audioRef === 'string') ? audioRef.split('/').pop() : null;
-                        if(fname && fname.startsWith('patient_') && fname.endsWith('.wav')){
-                            const altId = fname.slice('patient_'.length, -'.wav'.length);
-                            // Attempt to delete using altId
-                            const altResp = await fetch(API_BASE + '/api/delete-recording', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ patientId: altId, pin }) });
-                            if(altResp.ok){
-                                // deleted the actual file
-                                ps.grabacion = [];
-                                await saveData();
-                                // If in session detail view, refresh completely; otherwise navigate to patient view
-                                if(sessionIndex !== undefined){
-                                    openSessionDetail(sessionIndex, patientId);
-                                } else if(activePatientId === patientId) {
-                                    showPatient(patientId);
-                                }
-                                return console.log('✅ Grabación eliminada (archivo encontrado por nombre alternativo).');
-                            }
-                        }
-                    }catch(e){ /* ignore parsing errors */ }
-
-                }
-                // fallback: remove local reference to keep UI consistent
+                // Find the correct session by sessionIndex (global index in mockSesiones)
+                const allPatientSessions = mockSesiones.map((s, idx) => s.pacienteId === patientId ? idx : -1).filter(idx => idx !== -1);
+                const globalIndex = allPatientSessions[sessionIndex] !== undefined ? allPatientSessions[sessionIndex] : sessionIndex;
+                const ps = mockSesiones[globalIndex];
                 if(ps && ps.grabacion){ ps.grabacion = []; await saveData(); }
-                // If in session detail view, refresh completely; otherwise navigate to patient view
-                if(sessionIndex !== undefined){
-                    openSessionDetail(sessionIndex, patientId);
-                } else if(activePatientId === patientId) {
-                    showPatient(patientId);
-                }
+                // Refresh the entire session view to clear all warnings
+                openSessionDetail(globalIndex, patientId);
                 return console.log('Grabación no encontrada en el servidor. Referencia local eliminada.');
             }
             let body = null;
             try{ body = await resp.text(); }catch(e){}
             return console.log('Error al eliminar: ' + (body || resp.status));
         }
-        // Remove local reference if present
-        const ps = mockSesiones.find(s=>s.pacienteId===patientId);
+        // Remove local reference if present - find correct session by index
+        const allPatientSessions = mockSesiones.map((s, idx) => s.pacienteId === patientId ? idx : -1).filter(idx => idx !== -1);
+        const globalIndex = allPatientSessions[sessionIndex] !== undefined ? allPatientSessions[sessionIndex] : sessionIndex;
+        const ps = mockSesiones[globalIndex];
         if(ps && ps.grabacion){ ps.grabacion = []; await saveData(); }
         console.log('✅ Grabación eliminada');
-        // Refresh view if open: if in session detail view, refresh completely; otherwise navigate to patient view
-        if(sessionIndex !== undefined){
-            // Refresh the entire session view to clear all warnings
-            openSessionDetail(sessionIndex, patientId);
-        } else if(activePatientId === patientId) {
-            showPatient(patientId);
-        }
+        // Refresh the entire session view to clear all warnings
+        openSessionDetail(globalIndex, patientId);
     }catch(e){ console.error('Delete recording error', e); console.log('Error al eliminar: ' + e.message); }
 }
 
@@ -1251,7 +1251,8 @@ function refreshGrabacionesUI(s, p, sessionIndex){
                             attempts++;
                             try{
                                 console.debug('[debug] safety polling attempt', attempts, 'for', p.id);
-                                const resp = await fetch(API_BASE + '/api/processed/' + p.id, { cache: 'no-store' });
+                                const processedUrl = `${API_BASE}/api/processed/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
+                                const resp = await fetch(processedUrl, { cache: 'no-store' });
                                 console.debug('[debug] safety polling status=', resp && resp.status);
                                 if(resp && resp.ok){
                                     const j = await resp.json();
@@ -1345,7 +1346,8 @@ function refreshGrabacionesUI(s, p, sessionIndex){
                             if(rec.remote && rec.processing){
                                 (async ()=>{
                                     try{
-                                        const resp = await fetch(API_BASE + '/api/processed/' + p.id, { cache: 'no-store' });
+                                        const processedUrl = `${API_BASE}/api/processed/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
+                                        const resp = await fetch(processedUrl, { cache: 'no-store' });
                                         if(resp && resp.ok){
                                                     const j = await resp.json();
                                                     // server returns labeled/text when ready
@@ -1489,7 +1491,9 @@ async function openTranscriptionModal(sessionIndex, patientId){
     // Prefer the server's labeled text file when available. Do NOT trigger processing here.
     // This ensures the modal only shows the `_labeled.txt` content (speaker-labelled blocks).
     try{
-        const resp = await fetch(API_BASE + '/api/processed/' + patientId, { cache: 'no-store' });
+        const p = getPatientById(patientId);
+        const processedUrl = `${API_BASE}/api/processed/${patientId}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
+        const resp = await fetch(processedUrl, { cache: 'no-store' });
         if(resp && resp.ok){
             const pj = await resp.json();
             const txt = extractProcessedText(pj) || (pj.transcription_text || pj.text || '');
@@ -1500,7 +1504,7 @@ async function openTranscriptionModal(sessionIndex, patientId){
                 s.grabacion[0].transcripcion = txt;
                 s.grabacion[0].processing = false;
                 try{ await saveData(); }catch(e){}
-                try{ refreshGrabacionesUI(s, getPatientById(patientId), sessionIndex); }catch(e){}
+                try{ refreshGrabacionesUI(s, p, sessionIndex); }catch(e){}
             } else {
                 // leave transcription empty — will show 'no transcription available' message
             }
@@ -2587,11 +2591,13 @@ async function openSessionDetail(sessionIndex, patientId){
                     <span style="font-size:20px;">📊</span> Genograma
                 </h3>
                 <div style="padding:12px; border:2px solid #e5e7eb; border-radius:8px; background:#f9fafb;">
-                    <strong style="color:#00838f; font-size:14px;">Familia:</strong> <span style="color:#4b5563; font-size:14px;">${mockGenograma.familia}</span><br>
-                    <strong style="color:#00838f; margin-top:8px; display:inline-block; font-size:14px;">Miembros:</strong>
-                    <ul style="margin:8px 0 0 0; padding-left:20px;">
-                        ${mockGenograma.miembros.map(m => `<li style="margin:4px 0; color:#4b5563; font-size:14px;">${m}</li>`).join('')}
-                    </ul>
+                    <p style="color:#4b5563; font-size:14px; margin-bottom:12px;">
+                        Visualiza el diagrama familiar del paciente basado en las transcripciones de sesiones.
+                    </p>
+                    <button onclick="viewGenograma(${p.id})" class="btn primary" style="width:100%; background:linear-gradient(135deg, #00838f 0%, #006064 100%); color:white; padding:12px; border-radius:8px; font-size:14px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                        <span>📊</span>
+                        <span>${p.genogramaHtml ? 'Ver genograma generado' : 'Generar genograma'}</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -2873,8 +2879,9 @@ async function openSessionDetail(sessionIndex, patientId){
     // won't remain stuck on "Procesando..." when the server has already finished.
     (async ()=>{
         try{
-            console.log('[debug] on openSessionDetail: checking existing recording for patient', p.id, 'GET', API_BASE + '/api/recording/' + p.id);
-            const chk = await fetch(API_BASE + '/api/recording/' + p.id);
+            const checkUrl = `${API_BASE}/api/recording/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
+            console.log('[debug] on openSessionDetail: checking existing recording', checkUrl);
+            const chk = await fetch(checkUrl);
             console.log('[debug] on openSessionDetail: check response ok=', chk && chk.ok, 'status=', chk && chk.status);
             if(chk && chk.ok){
                 const info = await chk.json();
@@ -2882,7 +2889,7 @@ async function openSessionDetail(sessionIndex, patientId){
                     if(recordingBtn){
                         recordingBtn.disabled = true;
                         try{ recordingBtn.querySelector('span').textContent = 'Grabación existente'; }catch(e){}
-                        showWarningTooltipForElement(recordingBtn, 'Ya existe una grabación para este paciente. Elimine la grabación antes de grabar una nueva.');
+                        showWarningTooltipForElement(recordingBtn, 'Ya existe una grabación para esta sesión. Elimine la grabación antes de grabar una nueva.');
                         recordingBtn.classList.add('disabled');
                     }
                     // sync local state
@@ -2896,7 +2903,8 @@ async function openSessionDetail(sessionIndex, patientId){
                     // populate local state and clear the processing flag so the UI updates.
                     try{
                         console.debug('[debug] openSessionDetail: one-time processed check (presp) for', p.id);
-                        const presp = await fetch(API_BASE + '/api/processed/' + p.id, { cache: 'no-store' });
+                        const processedUrl = `${API_BASE}/api/processed/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
+                        const presp = await fetch(processedUrl, { cache: 'no-store' });
                         console.debug('[debug] openSessionDetail: presp status=', presp && presp.status);
                         if(presp && presp.ok){
                             const pj = await presp.json();
@@ -2919,7 +2927,8 @@ async function openSessionDetail(sessionIndex, patientId){
             try{
                 if(s.grabacion && s.grabacion[0] && s.grabacion[0].remote && s.grabacion[0].processing){
                     console.debug('[debug] openSessionDetail: persisted-state processed check for', p.id);
-                    const resp2 = await fetch(API_BASE + '/api/processed/' + p.id, { cache: 'no-store' });
+                    const processedUrl = `${API_BASE}/api/processed/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
+                    const resp2 = await fetch(processedUrl, { cache: 'no-store' });
                     console.debug('[debug] openSessionDetail: resp2 status=', resp2 && resp2.status);
                     if(resp2 && resp2.ok){
                         const j2 = await resp2.json();
@@ -2956,7 +2965,8 @@ async function openSessionDetail(sessionIndex, patientId){
                     attempts++;
                     try{
                         console.debug('[debug] interval polling attempt', attempts, 'for', p.id);
-                        const resp = await fetch(API_BASE + '/api/processed/' + p.id, { cache: 'no-store' });
+                        const processedUrl = `${API_BASE}/api/processed/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
+                        const resp = await fetch(processedUrl, { cache: 'no-store' });
                         console.debug('[debug] interval polling status=', resp && resp.status);
                         if(resp && resp.ok){
                             const j = await resp.json();
@@ -2991,14 +3001,15 @@ async function openSessionDetail(sessionIndex, patientId){
                 // Prevent new recording if one already exists for this session/patient
                 // Before trusting local state, verify with server whether the recording file actually exists.
                 try{
-                    console.log('[debug] recordingBtn: checking existing recording for patient', p.id, 'GET', API_BASE + '/api/recording/' + p.id);
-                    const chk = await fetch(API_BASE + '/api/recording/' + p.id);
+                    const checkUrl = `${API_BASE}/api/recording/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
+                    console.log('[debug] recordingBtn: checking existing recording', checkUrl);
+                    const chk = await fetch(checkUrl);
                     console.log('[debug] recordingBtn: check response ok=', chk && chk.ok, 'status=', chk && chk.status);
                     if(chk && chk.ok){
                         const info = await chk.json();
                         if(info.exists){
                             // server has file -> enforce single-recording rule
-                            showWarningTooltipForElement(recordingBtn, 'Ya existe una grabación para este paciente. Elimine la grabación antes de grabar una nueva.');
+                            showWarningTooltipForElement(recordingBtn, 'Ya existe una grabación para esta sesión. Elimine la grabación antes de grabar una nueva.');
                             return;
                         } else {
                             // server does NOT have file -> cleanup local reference and allow recording
@@ -3043,21 +3054,34 @@ async function openSessionDetail(sessionIndex, patientId){
                             // Convert recorded blob (webm/ogg) to WAV (PCM16) in the browser
                             const wavBlob = await blobToWavBlob(audioBlob);
 
-                            // Upload to server as recordings/patient_<id>.wav
+                            // Upload to server with patient name and session index
                             const form = new FormData();
-                            form.append('file', new File([wavBlob], `recording_patient_${p.id}.wav`, { type: 'audio/wav' }));
+                            const sanitizedName = p.nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '_').toLowerCase();
+                            form.append('file', new File([wavBlob], `patient_${sanitizedName}_sesion${sessionIndex + 1}.wav`, { type: 'audio/wav' }));
                             form.append('patientId', String(p.id));
+                            form.append('patientName', p.nombre);
+                            form.append('sessionIndex', String(sessionIndex));
 
                                                 const uploadUrl = API_BASE + '/api/upload-recording';
-                                                console.log('[debug] upload recording: POST', uploadUrl, 'patientId=', p.id);
+                                                console.log('[debug] upload recording: POST', uploadUrl, 'patientId=', p.id, 'sessionIndex=', sessionIndex);
                                                 const resp = await fetch(uploadUrl, { method: 'POST', body: form });
                                                 console.log('[debug] upload recording: response ok=', resp && resp.ok, 'status=', resp && resp.status);
 
                                                 // If server reports an existing recording, inform user and abort
                                                 if(resp.status === 409){
-                                                    console.log('❌ Ya existe una grabación en el servidor para este paciente. Elimine la grabación antes de grabar una nueva.');
+                                                    console.log('❌ Ya existe una grabación en el servidor para esta sesión. Elimine la grabación antes de grabar una nueva.');
                                                     // Refresh UI from server state
-                                                    try{ const chk = await fetch(API_BASE + '/api/recording/' + p.id); if(chk.ok){ const info = await chk.json(); if(info.exists){ s.grabacion = [{ fecha: new Date().toISOString(), audio: info.path, duracion: s.grabacion?.[0]?.duracion || 0, remote:true }]; await saveData(); } } }catch(e){}
+                                                    try{ 
+                                                        const checkUrl = `${API_BASE}/api/recording/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
+                                                        const chk = await fetch(checkUrl); 
+                                                        if(chk.ok){ 
+                                                            const info = await chk.json(); 
+                                                            if(info.exists){ 
+                                                                s.grabacion = [{ fecha: new Date().toISOString(), audio: info.path, duracion: s.grabacion?.[0]?.duracion || 0, remote:true }]; 
+                                                                await saveData(); 
+                                                            } 
+                                                        } 
+                                                    }catch(e){}
                                                     refreshGrabacionesUI(s, p, sessionIndex);
                                                     return;
                                                 }
@@ -3121,7 +3145,11 @@ async function openSessionDetail(sessionIndex, patientId){
                                                         const tResp = await fetch(API_BASE + '/api/transcribe-recording', {
                                                             method: 'POST',
                                                             headers: { 'Content-Type': 'application/json' },
-                                                            body: JSON.stringify({ patientId: p.id })
+                                                            body: JSON.stringify({ 
+                                                                patientId: p.id,
+                                                                patientName: p.nombre,
+                                                                sessionIndex 
+                                                            })
                                                         });
                                                         if(tResp && tResp.ok){
                                                             try{
@@ -3220,30 +3248,139 @@ async function viewGenograma(patientId){
     const p = getPatientById(patientId);
     if(!p) return console.log('Paciente no encontrado');
     
-    const genogramaHtml = `
-        <div style="padding:20px;">
-            <h3>Genograma: ${mockGenograma.familia}</h3>
-            <div style="margin-top:16px;">
-                <strong>Miembros de la familia:</strong>
-                <ul style="margin-top:8px;">
-                    ${mockGenograma.miembros.map(m => `<li>${m}</li>`).join('')}
-                </ul>
-            </div>
-            <div style="margin-top:16px;">
-                <strong>Paciente:</strong> ${p.nombre}
-            </div>
-            <div style="margin-top:16px; padding:20px; border:2px solid #ddd; border-radius:8px; background:#f9f9f9;">
-                <p><em>Aquí se mostraría el diagrama visual del genograma.</em></p>
-                <p style="margin-top:8px;">Información familiar asociada al paciente ${p.nombre}.</p>
-            </div>
-        </div>
-        <div class="actions" style="margin-top:16px;">
-            <button class="btn primary" id="_gen_close">Cerrar</button>
-        </div>
-    `;
+    // Si ya tiene genograma generado, preguntar si desea ver el existente o regenerar
+    if(p.genogramaHtml){
+        const shouldRegenerate = await modalConfirm(
+            `El paciente ${p.nombre} ya tiene un genograma generado.\n\n¿Desea regenerarlo con las transcripciones actuales?\n\n(Seleccione "Cancelar" para ver el genograma existente)`
+        );
+        
+        if(shouldRegenerate === null) return; // Usuario canceló
+        
+        if(!shouldRegenerate){
+            // Ver el genograma existente
+            const modal = createModal(`
+                <div style="padding:0; width:95vw; height:90vh; overflow:hidden;">
+                    <div style="padding:10px; background:#f5f5f5; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="margin:0;">📊 Genograma: ${p.nombre}</h3>
+                        <button class="btn secondary" id="_gen_close" style="padding:8px 16px;">Cerrar</button>
+                    </div>
+                    <iframe id="genogram-iframe" style="width:100%; height:calc(100% - 60px); border:none;"></iframe>
+                </div>
+            `);
+            
+            const iframe = modal.backdrop.querySelector('#genogram-iframe');
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            iframeDoc.open();
+            iframeDoc.write(p.genogramaHtml);
+            iframeDoc.close();
+            
+            modal.backdrop.querySelector('#_gen_close').onclick = ()=> modal.close();
+            return;
+        }
+        
+        // Si eligió regenerar (shouldRegenerate === true), continuar con el proceso normal
+    }
     
-    const modal = createModal(genogramaHtml);
-    modal.backdrop.querySelector('#_gen_close').onclick = ()=> modal.close();
+    // Obtener todas las transcripciones del paciente
+    const patientSessions = mockSesiones.filter(s => s.pacienteId === patientId);
+    if(patientSessions.length === 0){
+        alert('No hay sesiones registradas para este paciente.');
+        return;
+    }
+    
+    // Concatenar todas las transcripciones desde los archivos
+    let allTranscriptions = '';
+    let transcriptionCount = 0;
+    
+    for(let i = 0; i < patientSessions.length; i++){
+        const session = patientSessions[i];
+        // Encontrar el índice real de esta sesión en mockSesiones (índice global)
+        const globalIndex = mockSesiones.indexOf(session);
+        // Contar cuántas sesiones del mismo paciente hay antes de esta
+        const sessionIndexForPatient = mockSesiones.slice(0, globalIndex).filter(s => s.pacienteId === patientId).length;
+        
+        try {
+            // Construir URL con parámetros de la nueva estructura
+            const processedUrl = `${API_BASE}/api/processed/${patientId}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndexForPatient}`;
+            console.log(`[genogram] Buscando transcripción sesión ${i} (sessionIndex=${sessionIndexForPatient}): ${processedUrl}`);
+            const response = await fetch(processedUrl);
+            
+            if(response.ok){
+                const data = await response.json();
+                console.log(`[genogram] Datos recibidos sesión ${i}:`, data);
+                if(data.ok && data.text){
+                    allTranscriptions += data.text + '\n\n=== FIN DE SESIÓN ===\n\n';
+                    transcriptionCount++;
+                    console.log(`[genogram] Transcripción ${i} agregada. Total: ${transcriptionCount}`);
+                }
+            } else {
+                console.warn(`[genogram] Sesión ${i} no encontrada, status: ${response.status}`);
+            }
+        } catch(e) {
+            console.warn(`[genogram] Error cargando transcripción de sesión ${i}:`, e);
+        }
+    }
+    
+    console.log(`[genogram] Total transcripciones encontradas: ${transcriptionCount}`);
+    if(transcriptionCount === 0){
+        alert('No hay transcripciones disponibles para generar el genograma.');
+        return;
+    }
+    
+    // Mostrar loading
+    const loadingModal = createModal(`
+        <div style="padding:40px; text-align:center;">
+            <div class="spinner" style="margin:0 auto 20px;"></div>
+            <h3>Generando genograma...</h3>
+            <p>Por favor espera mientras procesamos la información familiar.</p>
+        </div>
+    `);
+    
+    try {
+        // Llamar al endpoint para generar el genograma
+        const response = await fetch(`${API_BASE}/api/genograma/${patientId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transcription: allTranscriptions })
+        });
+        
+        const data = await response.json();
+        
+        loadingModal.close();
+        
+        if(!data.ok){
+            alert(`Error generando genograma: ${data.error}\n${data.detail || ''}`);
+            return;
+        }
+        
+        // Guardar el HTML del genograma en el paciente
+        p.genogramaHtml = data.genogramHtml;
+        await saveData();
+        
+        // Mostrar el genograma
+        const modal = createModal(`
+            <div style="padding:0; width:95vw; height:90vh; overflow:hidden;">
+                <div style="padding:10px; background:#f5f5f5; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;">
+                    <h3 style="margin:0;">📊 Genograma: ${p.nombre}</h3>
+                    <button class="btn secondary" id="_gen_close" style="padding:8px 16px;">Cerrar</button>
+                </div>
+                <iframe id="genogram-iframe" style="width:100%; height:calc(100% - 60px); border:none;"></iframe>
+            </div>
+        `);
+        
+        const iframe = modal.backdrop.querySelector('#genogram-iframe');
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+        iframeDoc.open();
+        iframeDoc.write(data.genogramHtml);
+        iframeDoc.close();
+        
+        modal.backdrop.querySelector('#_gen_close').onclick = ()=> modal.close();
+        
+    } catch(err){
+        loadingModal.close();
+        console.error('Error generando genograma:', err);
+        alert(`Error: ${err.message}`);
+    }
 }
 
 async function uploadAttachment(sessionIndex){

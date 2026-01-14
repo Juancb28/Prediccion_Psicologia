@@ -6,9 +6,21 @@ Genera un archivo TXT con el texto etiquetado por hablante
 import os
 import json
 import torch
+import warnings
 from dotenv import load_dotenv
 from pathlib import Path
 import pkg_resources
+
+# Silenciar warnings conocidos que no afectan la funcionalidad
+warnings.filterwarnings('ignore', message='.*speechbrain.pretrained.*deprecated.*')
+warnings.filterwarnings('ignore', message='.*Lightning automatically upgraded.*')
+warnings.filterwarnings('ignore', message='.*Model was trained with.*')
+warnings.filterwarnings('ignore', message='.*symlinks on Windows.*')
+warnings.filterwarnings('ignore', message='.*TensorFloat-32.*')
+warnings.filterwarnings('ignore', message='.*torchaudio._backend.set_audio_backend.*')
+warnings.filterwarnings('ignore', category=UserWarning, module='speechbrain')
+warnings.filterwarnings('ignore', category=UserWarning, module='pyannote')
+warnings.filterwarnings('ignore', category=UserWarning, module='pytorch_lightning')
 
 # Force torchaudio to use the soundfile backend to avoid torchcodec/FFmpeg
 # which requires additional native libraries. This prevents torchaudio from
@@ -173,9 +185,11 @@ def diarize_and_label(audio_path, transcription_path=None, output_dir="outputs")
     
     # 2. Realizar diarización
     print("\nRealizando diarización con pyannote...")
-    print(f"GPU disponible: {torch.cuda.is_available()}")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Dispositivo: {device}")
     if torch.cuda.is_available():
-        print(f"GPU: {torch.cuda.get_device_name(0)}")
+        print(f"GPU detectada: {torch.cuda.get_device_name(0)}")
+        print(f"Memoria GPU disponible: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
     
     # Crear pipeline de pyannote. Different pyannote/huggingface versions expect
     # different parameter names. Provide compatibility wrappers for hf_hub_download
@@ -224,13 +238,17 @@ def diarize_and_label(audio_path, transcription_path=None, output_dir="outputs")
             f"Detalle: {e}"
         )
 
-    # Mover pipeline a GPU si está disponible
+    # Mover pipeline a GPU (forzar si está disponible)
     if torch.cuda.is_available():
-        pipeline.to(torch.device("cuda"))
+        print("Moviendo pipeline pyannote a GPU...")
+        pipeline.to(device)
+        print("Pipeline ejecutándose en GPU")
+    else:
+        print("⚠ Advertencia: Ejecutando en CPU (será más lento)")
 
-    
-
+    print("\nIniciando diarización (esto puede tardar varios minutos)...")
     diarization = pipeline(audio_path)
+    print("✓ Diarización completada")
     
     # Guardar diarización
     diar_txt = os.path.join(output_dir, f"{audio_name}_diarization.txt")

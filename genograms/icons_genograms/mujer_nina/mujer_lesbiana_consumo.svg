@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fondo transparente; círculo con mitad inferior negra y triángulo rojo invertido inscrito (solo contorno) -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  <style>
+    .outline {
+      fill: none;
+      stroke: #000;
+      stroke-width: 4;          /* grosor moderado */
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+    .triangle {
+      fill: none;
+      stroke: #DE1A21;          /* rojo */
+      stroke-width: 6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+  </style>
+
+  <!-- Recorte circular -->
+  <defs>
+    <clipPath id="circleClip">
+      <circle cx="576" cy="360" r="300"/>
+    </clipPath>
+  </defs>
+
+  <!-- Mitad inferior negra (recortada al círculo) -->
+  <rect x="276" y="360" width="600" height="300" fill="#000" clip-path="url(#circleClip)"/>
+
+  <!-- Contorno del círculo y línea separadora horizontal -->
+  <circle class="outline" cx="576" cy="360" r="300"/>
+  <line class="outline" x1="276" y1="360" x2="876" y2="360"/>
+
+  <!-- Triángulo rojo invertido inscrito; vértices tocan el círculo -->
+  <!-- Vértices (centro 576,360; radio 300): 
+       - Inferior: (576,660) [ángulo 270°]
+       - Superior-izq: (316.193,210) [ángulo 210°]
+       - Superior-der: (835.807,210) [ángulo 330°] -->
+  <polygon class="triangle" points="316.193,210 835.807,210 576,660"/>
+</svg>

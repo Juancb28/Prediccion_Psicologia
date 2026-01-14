@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Una sola línea discontinua que forma una "L" reflejada (giro de 180º en eje Y) -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" 
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  
+  <style>
+    .dashed-line {
+      fill: none;
+      stroke: #000;
+      stroke-width: 5;
+      stroke-dasharray: 20, 15; /* Define los guiones y espacios */
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  </style>
+
+  <!-- "L" Mirrored: Una sola línea que baja y luego va hacia la izquierda -->
+  <!-- Comienza arriba a la derecha, baja al centro y va a la izquierda -->
+  <polyline class="dashed-line" points="752,150 752,600 302,600" />
+
+</svg>

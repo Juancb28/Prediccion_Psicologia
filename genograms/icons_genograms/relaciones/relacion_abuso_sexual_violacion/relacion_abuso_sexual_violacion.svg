@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Línea ondulada horizontal con terminación en flecha vacía y recta -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  
+  <style>
+    .shape {
+      fill: none;
+      stroke: #000;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+  </style>
+
+  <!-- Trayectoria ondulada que termina en un tramo recto horizontal -->
+  <path class="shape" d="
+    M 150,360 
+    C 175,310 200,310 225,360
+    C 250,410 275,410 300,360
+    C 325,310 350,310 375,360
+    C 400,410 425,410 450,360
+    C 475,310 500,310 525,360
+    C 550,410 575,410 600,360
+    C 625,310 650,310 675,360
+    C 700,410 725,410 750,360
+    C 775,310 800,310 825,360
+    C 850,410 875,410 900,360
+    L 980,360" /> <!-- Tramo recto final para asegurar horizontalidad -->
+
+  <!-- Cabeza de flecha vacía (triángulo sin relleno) -->
+  <polygon class="shape" points="960,335 995,360 960,385 960,335" />
+
+</svg>

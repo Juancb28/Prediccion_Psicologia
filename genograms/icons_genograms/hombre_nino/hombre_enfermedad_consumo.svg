@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fondo transparente; cuadrado dividido en 4 secciones. 
+     Superior izquierda, inferior izquierda e inferior derecha en negro.
+     Superior derecha transparente. -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  <style>
+    .outline {
+      fill: none;
+      stroke: #000;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+  </style>
+
+  <!-- Cuadrante superior izquierdo (Negro) -->
+  <rect x="276" y="60" width="300" height="300" fill="#000"/>
+  
+  <!-- Cuadrante inferior izquierdo (Negro) -->
+  <rect x="276" y="360" width="300" height="300" fill="#000"/>
+  
+  <!-- Cuadrante inferior derecho (Negro) -->
+  <rect x="576" y="360" width="300" height="300" fill="#000"/>
+
+  <!-- Cuadrante superior derecho queda vacío (transparente) -->
+
+  <!-- Contorno del cuadrado general (600x600) -->
+  <rect class="outline" x="276" y="60" width="600" height="600"/>
+  
+  <!-- Líneas divisorias internas -->
+  <line class="outline" x1="576" y1="60" x2="576" y2="660"/> <!-- Vertical -->
+  <line class="outline" x1="276" y1="360" x2="876" y2="360"/> <!-- Horizontal -->
+</svg>

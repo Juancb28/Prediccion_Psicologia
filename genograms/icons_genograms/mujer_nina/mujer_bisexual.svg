@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  <!-- Fondo transparente; solo contornos negros -->
+  <!-- Círculo centrado -->
+  <circle cx="576" cy="360" r="300" fill="none" stroke="#000000" stroke-width="6"/>
+
+  <!-- Triángulo invertido con líneas entrecortadas -->
+  <polygon points="376,180 776,180 576,580"
+           fill="none"
+           stroke="#000000"
+           stroke-width="6"
+           stroke-linecap="round"
+           stroke-linejoin="round"
+           stroke-dasharray="14 10"/>
+</svg>

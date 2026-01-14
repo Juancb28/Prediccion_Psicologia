@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fondo transparente; dos círculos concéntricos solo con contorno negro -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  <style>
+    .outline {
+      fill: none;
+      stroke: #000;
+      stroke-width: 4;          /* grosor moderado */
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+  </style>
+
+  <!-- Círculo exterior (centrado) -->
+  <circle class="outline" cx="576" cy="360" r="250"/>
+  <!-- Círculo interior (centrado) -->
+  <circle class="outline" cx="576" cy="360" r="125"/>
+</svg>

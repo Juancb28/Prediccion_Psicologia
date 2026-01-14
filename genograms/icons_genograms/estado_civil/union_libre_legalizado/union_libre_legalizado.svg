@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Dos líneas horizontales paralelas: la superior entrecortada y la inferior continua -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" 
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  
+  <style>
+    .line-base {
+      fill: none;
+      stroke: #000000;
+      stroke-width: 5;
+      stroke-linecap: round;
+    }
+    .dashed {
+      stroke-dasharray: 20, 15;
+    }
+  </style>
+
+  <!-- Línea Superior (Entrecortada) -->
+  <line class="line-base dashed" x1="200" y1="345" x2="952" y2="345" />
+
+  <!-- Línea Inferior (Continua) -->
+  <!-- Separación de 30px respecto a la de arriba -->
+  <line class="line-base" x1="200" y1="375" x2="952" y2="375" />
+
+</svg>

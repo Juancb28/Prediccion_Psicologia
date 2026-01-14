@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fondo transparente; cuadrado exterior con círculo interior (ambos solo contorno negro) -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  <style>
+    .outline {
+      fill: none;
+      stroke: #000;
+      stroke-width: 4;          /* grosor moderado */
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+  </style>
+
+  <!-- Cuadrado exterior (centrado de 600x600) -->
+  <rect class="outline" x="276" y="60" width="600" height="600"/>
+  <!-- Círculo interior inscripto en el cuadrado (radio 300) -->
+  <circle class="outline" cx="576" cy="360" r="300"/>
+</svg>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fondo transparente; un triángulo centrado -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  <style>
+    .outline {
+      fill: none;
+      stroke: #000;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+  </style>
+
+  <!-- Triángulo centrado -->
+  <!-- Vértice superior: (576, 110) -->
+  <!-- Vértice inferior izquierdo: (300, 610) -->
+  <!-- Vértice inferior derecho: (852, 610) -->
+  <polygon class="outline" points="576,110 300,610 852,610"/>
+</svg>

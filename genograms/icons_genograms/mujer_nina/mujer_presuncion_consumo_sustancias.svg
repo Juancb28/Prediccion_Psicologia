@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Círculo dividido horizontalmente con la parte inferior rellena de líneas diagonales continuas -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" 
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  
+  <defs>
+    <!-- Definición del patrón de líneas diagonales (/) -->
+    <!-- Se ajusta el path para que las líneas sean continuas al repetirse -->
+    <pattern id="diagonalHatch" patternUnits="userSpaceOnUse" width="20" height="20">
+      <path d="M-5,25 L25,-5" stroke="#000000" stroke-width="3" stroke-linecap="butt"/>
+    </pattern>
+
+    <!-- Recorte para el círculo -->
+    <clipPath id="circleClip">
+      <circle cx="576" cy="360" r="300"/>
+    </clipPath>
+
+    <!-- Recorte para la mitad inferior -->
+    <clipPath id="bottomHalfClip">
+      <rect x="276" y="360" width="600" height="300"/>
+    </clipPath>
+  </defs>
+
+  <!-- Parte inferior rellena con el patrón de líneas diagonales -->
+  <g clip-path="url(#circleClip)">
+    <rect x="276" y="360" width="600" height="300" fill="url(#diagonalHatch)" clip-path="url(#bottomHalfClip)"/>
+  </g>
+
+  <!-- Contorno del círculo -->
+  <circle cx="576" cy="360" r="300" fill="none" stroke="#000000" stroke-width="4"/>
+
+  <!-- Línea divisoria horizontal en el centro -->
+  <line x1="276" y1="360" x2="876" y2="360" stroke="#000000" stroke-width="4" stroke-linecap="round"/>
+
+</svg>

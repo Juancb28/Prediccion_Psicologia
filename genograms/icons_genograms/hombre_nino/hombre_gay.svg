@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  <!-- Contornos negros, sin relleno; un solo trazo para el cuadrado -->
+  <g stroke="#000000" fill="none" stroke-width="4" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Cuadrado contenedor (un único rect) -->
+    <rect x="312" y="24" width="633" height="633"/>
+    <!-- Triángulo invertido (V) dentro del cuadrado -->
+    <path d="M312 24 L628.5 657 L945 24"/>
+  </g>
+</svg>

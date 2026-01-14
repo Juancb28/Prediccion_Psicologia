@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Círculo dividido en 4 cuadrantes por una línea vertical y una horizontal.
+     El primer cuadrante (superior izquierdo) está pintado de negro.
+     Todo lo demás es transparente. -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  <style>
+    .outline {
+      fill: none;
+      stroke: #000;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+  </style>
+
+  <defs>
+    <!-- Recorte para limitar el relleno al borde del círculo -->
+    <clipPath id="circleClip">
+      <circle cx="576" cy="360" r="300"/>
+    </clipPath>
+  </defs>
+
+  <!-- Cuadrante superior izquierdo (Negro) recortado por el círculo -->
+  <!-- Área: desde x=276 hasta el centro x=576, y desde y=60 hasta el centro y=360 -->
+  <rect x="276" y="60" width="300" height="300" fill="#000" clip-path="url(#circleClip)"/>
+
+  <!-- Contorno del círculo -->
+  <circle class="outline" cx="576" cy="360" r="300"/>
+
+  <!-- Línea divisoria Vertical -->
+  <line class="outline" x1="576" y1="60" x2="576" y2="660"/>
+
+  <!-- Línea divisoria Horizontal -->
+  <line class="outline" x1="276" y1="360" x2="876" y2="360"/>
+</svg>

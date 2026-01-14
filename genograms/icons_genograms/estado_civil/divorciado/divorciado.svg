@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Dos líneas diagonales paralelas reflejadas con inclinación de 60º -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" 
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  
+  <style>
+    .diagonal {
+      stroke: #000000;
+      stroke-width: 5;
+      stroke-linecap: round;
+    }
+  </style>
+
+  <!-- Línea 1 -->
+  <line class="diagonal" x1="672" y1="100" x2="480" y2="620" />
+  
+  <!-- Línea 2 (Desplazada 25px) -->
+  <line class="diagonal" x1="697" y1="100" x2="505" y2="620" />
+
+</svg>

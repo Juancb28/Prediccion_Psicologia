@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Rombo (diamante) centrado con fondo transparente -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" 
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  
+  <style>
+    .rhombus {
+      fill: none;
+      stroke: #000000;
+      stroke-width: 5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  </style>
+
+  <!-- Puntos del rombo: Arriba, Derecha, Abajo, Izquierda -->
+  <!-- Centrado en el lienzo de 1152x720 -->
+  <polygon class="rhombus" points="576,160 826,360 576,560 326,360" />
+
+</svg>

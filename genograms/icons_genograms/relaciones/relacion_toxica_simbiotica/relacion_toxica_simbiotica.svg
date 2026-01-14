@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tres líneas horizontales paralelas con una línea ondulada (onda senoidal)
+     que oscila entre la línea superior y la inferior. -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  <style>
+    .line {
+      fill: none;
+      stroke: #000;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+    .wave {
+      fill: none;
+      stroke: #000;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+  </style>
+
+  <!-- Definición de coordenadas -->
+  <!-- Centro vertical: 360. Separación entre líneas: 50px -->
+  
+  <!-- Línea superior -->
+  <line class="line" x1="200" y1="310" x2="952" y2="310" />
+  
+  <!-- Línea media -->
+  <line class="line" x1="200" y1="360" x2="952" y2="360" />
+  
+  <!-- Línea inferior -->
+  <line class="line" x1="200" y1="410" x2="952" y2="410" />
+
+  <!-- Línea ondulada continua -->
+  <!-- Comienza en la línea media (360), sube a la superior (310) y baja a la inferior (410) -->
+  <path class="wave" d="
+    M 200,360 
+    C 225,310 250,310 275,360
+    C 300,410 325,410 350,360
+    C 375,310 400,310 425,360
+    C 450,410 475,410 500,360
+    C 525,310 550,310 575,360
+    C 600,410 625,410 650,360
+    C 675,310 700,310 725,360
+    C 750,410 775,410 800,360
+    C 825,310 850,310 875,360
+    C 900,410 925,410 950,360" />
+</svg>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fondo transparente; una línea horizontal continua -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  
+  <line x1="100" y1="360" x2="1052" y2="360" 
+        stroke="#000000" 
+        stroke-width="6" 
+        stroke-linecap="round"/>
+
+</svg>

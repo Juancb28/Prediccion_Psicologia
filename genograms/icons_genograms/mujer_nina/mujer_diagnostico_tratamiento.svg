@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fondo transparente; círculo con línea vertical al centro, línea horizontal en la mitad izquierda,
+     y el cuadrante superior izquierdo en negro -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  <style>
+    .outline {
+      fill: none;
+      stroke: #000;
+      stroke-width: 4;          /* grosor moderado */
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+  </style>
+
+  <!-- Parámetros del círculo -->
+  <!-- Centro (cx, cy) = (576, 360), radio r = 300 -->
+  <defs>
+    <clipPath id="circleClip">
+      <circle cx="576" cy="360" r="300"/>
+    </clipPath>
+  </defs>
+
+  <!-- Relleno negro del cuadrante superior izquierdo (intersección de rectángulo superior-izquierdo con el círculo) -->
+  <rect x="0" y="0" width="576" height="360" fill="#000" clip-path="url(#circleClip)"/>
+
+  <!-- Contorno del círculo -->
+  <circle class="outline" cx="576" cy="360" r="300"/>
+
+  <!-- Línea vertical que divide el círculo en mitades izquierda/derecha -->
+  <line class="outline" x1="576" y1="60" x2="576" y2="660"/>
+
+  <!-- Línea horizontal en la mitad izquierda (de borde izquierdo del círculo hasta el centro) -->
+  <line class="outline" x1="276" y1="360" x2="576" y2="360"/>
+</svg>

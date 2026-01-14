@@ -82,13 +82,45 @@ app.use(express.static(path.join(__dirname)));
 const uploadsDir = path.join(__dirname, 'uploads');
 if(!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 
-// Ensure recordings dir (one file per patient)
+// Ensure recordings dir (organized by patient and session)
 const recordingsDir = path.join(__dirname, 'recordings');
 if(!fs.existsSync(recordingsDir)) fs.mkdirSync(recordingsDir);
+
+// Ensure outputs dir (organized by patient and session)
+const outputsDir = path.join(__dirname, 'outputs');
+if(!fs.existsSync(outputsDir)) fs.mkdirSync(outputsDir);
 
 // Ensure refs dir for psychologist voice samples
 const refsDir = path.join(__dirname, 'refs');
 if(!fs.existsSync(refsDir)) fs.mkdirSync(refsDir);
+
+// Helper: Sanitize patient name for filesystem
+function sanitizePatientName(name) {
+    return String(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '_')
+        .toLowerCase();
+}
+
+// Helper: Get patient directory path
+function getPatientDir(baseDir, patientName) {
+    const sanitized = sanitizePatientName(patientName);
+    const patientDir = path.join(baseDir, `patient_${sanitized}`);
+    if(!fs.existsSync(patientDir)) {
+        fs.mkdirSync(patientDir, { recursive: true });
+    }
+    return patientDir;
+}
+
+// Helper: Get session directory path
+function getSessionDir(patientDir, sessionIndex) {
+    const sessionDir = path.join(patientDir, `sesion_${sessionIndex + 1}`);
+    if(!fs.existsSync(sessionDir)) {
+        fs.mkdirSync(sessionDir, { recursive: true });
+    }
+    return sessionDir;
+}
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) { cb(null, uploadsDir); },
@@ -161,29 +193,33 @@ const PSY_PIN = process.env.PSY_PIN;
 
 app.post('/api/upload-recording', uploadRecording.single('file'), (req, res) => {
     const pid = req.body.patientId || req.query.patientId;
+    const patientName = req.body.patientName || `patient_${pid}`;
+    const sessionIndex = parseInt(req.body.sessionIndex || '0', 10);
+    
     if(!pid) return res.status(400).json({ error: 'patientId required' });
     if(!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-    const filename = `patient_${String(pid).replace(/[^0-9a-zA-Z_-]/g,'_')}.wav`;
-    const targetPath = path.join(recordingsDir, filename);
+    // Create patient directory and session subdirectory
+    const patientDir = getPatientDir(recordingsDir, patientName);
+    const sessionDir = getSessionDir(patientDir, sessionIndex);
+    
+    const sanitizedName = sanitizePatientName(patientName);
+    const filename = `patient_${sanitizedName}_sesion${sessionIndex + 1}.wav`;
+    const targetPath = path.join(sessionDir, filename);
 
-    // If a recording already exists for this patient, remove the uploaded temp and refuse
+    // If a recording already exists for this session, remove the uploaded temp and refuse
     if(fs.existsSync(targetPath)){
         try{
             // remove temp upload
             if(req.file && req.file.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
         }catch(e){ console.warn('Could not remove temp upload', e); }
-        return res.status(409).json({ ok:false, error: 'Recording already exists for this patient' });
+        return res.status(409).json({ ok:false, error: 'Recording already exists for this session' });
     }
 
-    // Move temp upload into recordings directory
+    // Move temp upload into session directory
     try{
         fs.renameSync(req.file.path, targetPath);
-        const relUrl = `/recordings/${filename}`;
-        // After successfully storing the recording, DO NOT automatically launch
-        // the labeling/transcription pipeline. The UI should only show the
-        // `*_labeled.txt` when it exists. If automatic processing is desired
-        // it can be triggered explicitly via `/api/transcribe-recording`.
+        const relUrl = `/recordings/patient_${sanitizedName}/sesion_${sessionIndex + 1}/${filename}`;
         return res.json({ ok: true, path: relUrl });
     }catch(e){
         console.error('Failed to move uploaded recording', e);
@@ -193,20 +229,27 @@ app.post('/api/upload-recording', uploadRecording.single('file'), (req, res) => 
     }
 });
 
-// Check if a recording exists for a patient
+// Check if a recording exists for a patient session
 app.get('/api/recording/:patientId', (req, res) => {
     const pid = req.params.patientId;
-    const filename = `patient_${String(pid).replace(/[^0-9a-zA-Z_-]/g,'_')}.wav`;
-    const filePath = path.join(recordingsDir, filename);
+    const patientName = req.query.patientName || `patient_${pid}`;
+    const sessionIndex = parseInt(req.query.sessionIndex || '0', 10);
+    
+    const sanitizedName = sanitizePatientName(patientName);
+    const patientDirPath = path.join(recordingsDir, `patient_${sanitizedName}`);
+    const sessionDirPath = path.join(patientDirPath, `sesion_${sessionIndex + 1}`);
+    const filename = `patient_${sanitizedName}_sesion${sessionIndex + 1}.wav`;
+    const filePath = path.join(sessionDirPath, filename);
+    
     if(fs.existsSync(filePath)){
-        return res.json({ exists: true, path: `/recordings/${filename}` });
+        return res.json({ exists: true, path: `/recordings/patient_${sanitizedName}/sesion_${sessionIndex + 1}/${filename}` });
     }
     return res.json({ exists: false });
 });
 
-// Delete a recording — requires psychologist PIN in body: { patientId, pin }
+// Delete a recording — requires psychologist PIN in body: { patientId, patientName, sessionIndex, pin }
 app.post('/api/delete-recording', (req, res) => {
-    const { patientId, pin } = req.body || {};
+    const { patientId, patientName, sessionIndex, pin } = req.body || {};
     if(!patientId) return res.status(400).json({ error: 'patientId required' });
 
     // If PSY_PIN is configured, require and validate the provided pin.
@@ -215,8 +258,11 @@ app.post('/api/delete-recording', (req, res) => {
         if(String(pin) !== String(PSY_PIN)) return res.status(403).json({ error: 'Invalid PIN' });
     }
 
-    const filename = `patient_${String(patientId).replace(/[^0-9a-zA-Z_-]/g,'_')}.wav`;
-    const filePath = path.join(recordingsDir, filename);
+    const sanitizedName = sanitizePatientName(patientName || `patient_${patientId}`);
+    const sessionIdx = parseInt(sessionIndex || '0', 10);
+    const sessionDirPath = path.join(recordingsDir, `patient_${sanitizedName}`, `sesion_${sessionIdx + 1}`);
+    const filename = `patient_${sanitizedName}_sesion${sessionIdx + 1}.wav`;
+    const filePath = path.join(sessionDirPath, filename);
     if(fs.existsSync(filePath)){
         try{
             fs.unlinkSync(filePath);
@@ -276,9 +322,10 @@ app.use('/recordings', express.static(recordingsDir, {
 // Transcribe a recording for a patient by running the Python transcription CLI
 const { spawn } = require('child_process');
 // Helper to spawn process_all.py in background for a given filePath/stem
-function spawnProcessAll(filePath, stem){
+function spawnProcessAll(filePath, stem, sessionOutputDir){
     try{
-        const outDir = path.join(__dirname, 'outputs');
+        // Use provided sessionOutputDir or fallback to default outputs
+        const outDir = sessionOutputDir || path.join(__dirname, 'outputs');
         if(!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
         const logPath = path.join(outDir, `process_${stem}.log`);
         const logStream = fs.createWriteStream(logPath, { flags: 'a' });
@@ -315,14 +362,22 @@ function spawnProcessAll(filePath, stem){
         child.on('close', (code)=>{ try{ logStream.write('\n===== PROCESS_EXIT ' + code + ' ' + new Date().toISOString() + ' =====\n'); }catch(_){}; try{ logStream.end(); }catch(_){} });
         try{ child.unref(); }catch(e){}
         console.log('[info] Launched background process_all for', filePath, 'logs->', logPath);
-        return { ok:true, log: `/outputs/${path.basename(logPath)}` };
+        const relativeLogPath = path.relative(path.join(__dirname, 'outputs'), logPath).replace(/\\/g, '/');
+        return { ok:true, log: `/outputs/${relativeLogPath}` };
     }catch(err){ console.error('spawnProcessAll error', err); return { ok:false, error: String(err && err.message) }; }
 }
 app.post('/api/transcribe-recording', express.json(), (req, res) => {
     const patientId = req.body && req.body.patientId;
+    const patientName = req.body && req.body.patientName || `patient_${patientId}`;
+    const sessionIndex = parseInt(req.body && req.body.sessionIndex || '0', 10);
+    
     if(!patientId) return res.status(400).json({ ok:false, error: 'patientId required' });
-    const filename = `patient_${String(patientId).replace(/[^0-9a-zA-Z_-]/g,'_')}.wav`;
-    const filePath = path.join(recordingsDir, filename);
+    
+    const sanitizedName = sanitizePatientName(patientName);
+    const patientDirPath = path.join(recordingsDir, `patient_${sanitizedName}`);
+    const sessionDirPath = path.join(patientDirPath, `sesion_${sessionIndex + 1}`);
+    const filename = `patient_${sanitizedName}_sesion${sessionIndex + 1}.wav`;
+    const filePath = path.join(sessionDirPath, filename);
     if(!fs.existsSync(filePath)) return res.status(404).json({ ok:false, error: 'recording_not_found' });
 
     console.log('[debug] /api/transcribe-recording (process_all) request for patientId=', patientId, 'file=', filePath);
@@ -369,8 +424,13 @@ app.post('/api/transcribe-recording', express.json(), (req, res) => {
 
     const script = path.join(__dirname, 'transciption', 'process_all.py');
     try{
-        const stem = path.parse(filename).name; // patient_1
-        const result = spawnProcessAll(filePath, stem);
+        const stem = path.parse(filename).name; // patient_juan_perez_sesion1
+        
+        // Create session output directory
+        const sessionOutputDir = path.join(outputsDir, `patient_${sanitizedName}`, `sesion_${sessionIndex + 1}`);
+        if(!fs.existsSync(sessionOutputDir)) fs.mkdirSync(sessionOutputDir, { recursive: true });
+        
+        const result = spawnProcessAll(filePath, stem, sessionOutputDir);
         if(result && result.ok){
             return res.json({ ok:true, processing: true, message: 'processing_started', log: result.log });
         } else {
@@ -402,17 +462,33 @@ app.get('/api/data', (req, res) => {
 // Do NOT fall back to other transcription files; the UI must display only labeled outputs.
 app.get('/api/processed/:patientId', (req, res) => {
     const pid = req.params.patientId;
+    const patientName = req.query.patientName || `patient_${pid}`;
+    const sessionIndex = parseInt(req.query.sessionIndex || '0', 10);
+    
     if(!pid) return res.status(400).json({ ok:false, error: 'patientId required' });
     try{
-        const outDir = path.join(__dirname, 'outputs');
-        const stem = `patient_${String(pid).replace(/[^0-9a-zA-Z_-]/g,'_')}`;
-        const labeledTxt = path.join(outDir, `${stem}_labeled.txt`);
-        const labeledJson = path.join(outDir, `${stem}_labeled.json`);
+        const sanitizedName = sanitizePatientName(patientName);
+        
+        // Try new structure first (patient_name/sesion_X/)
+        const patientDirPath = path.join(outputsDir, `patient_${sanitizedName}`);
+        const sessionDirPath = path.join(patientDirPath, `sesion_${sessionIndex + 1}`);
+        const stem = `patient_${sanitizedName}_sesion${sessionIndex + 1}`;
+        
+        let labeledTxt = path.join(sessionDirPath, `${stem}_labeled.txt`);
+        let labeledJson = path.join(sessionDirPath, `${stem}_labeled.json`);
+        
+        // Fallback to old structure if new doesn't exist
+        if(!fs.existsSync(labeledTxt) && !fs.existsSync(labeledJson)){
+            const oldStem = `patient_${String(pid).replace(/[^0-9a-zA-Z_-]/g,'_')}`;
+            labeledTxt = path.join(outputsDir, `${oldStem}_labeled.txt`);
+            labeledJson = path.join(outputsDir, `${oldStem}_labeled.json`);
+        }
 
         if(fs.existsSync(labeledTxt)){
             try{
                 const raw = fs.readFileSync(labeledTxt, 'utf8');
-                return res.json({ ok:true, stage: 'labeled', text: raw, txt_path: `/outputs/${path.basename(labeledTxt)}` });
+                const relativePath = path.relative(outputsDir, labeledTxt).replace(/\\/g, '/');
+                return res.json({ ok:true, stage: 'labeled', text: raw, txt_path: `/outputs/${relativePath}` });
             }catch(e){ /* fallthrough to json */ }
         }
 
@@ -421,7 +497,8 @@ app.get('/api/processed/:patientId', (req, res) => {
                 const j = JSON.parse(fs.readFileSync(labeledJson, 'utf8'));
                 // prefer a labeled_text field if present
                 const text = j && (j.labeled_text || j.text || '');
-                return res.json({ ok:true, stage: 'labeled', text, json_path: `/outputs/${path.basename(labeledJson)}`, raw: j });
+                const relativePath = path.relative(outputsDir, labeledJson).replace(/\\/g, '/');
+                return res.json({ ok:true, stage: 'labeled', text, json_path: `/outputs/${relativePath}`, raw: j });
             }catch(e){ /* ignore */ }
         }
 
@@ -435,6 +512,101 @@ app.get('/api/processed/:patientId', (req, res) => {
 app.post('/api/data', (req, res) => {
     const body = req.body;
     try{ writeData(body); res.json({ ok:true }); }catch(e){ res.status(500).json({ error: e.message }); }
+});
+
+// Endpoint para generar genograma
+app.post('/api/genograma/:patientId', async (req, res) => {
+    try {
+        const { patientId } = req.params;
+        const { transcription } = req.body;
+        
+        if (!transcription) {
+            return res.status(400).json({ ok: false, error: 'No se proporcionó transcripción' });
+        }
+        
+        console.log(`Generando genograma para paciente ${patientId}...`);
+        
+        // Ejecutar script Python
+        const { spawn } = require('child_process');
+        const pythonPath = process.env.PYTHON_PATH || 'python';
+        const scriptPath = path.join(__dirname, 'genograms', 'generate_genogram.py');
+        
+        // Crear archivo temporal con la transcripción
+        const tempTranscriptionPath = path.join(__dirname, 'outputs', `temp_transcription_${patientId}.txt`);
+        fs.writeFileSync(tempTranscriptionPath, transcription, 'utf-8');
+        
+        // Ruta de salida para el HTML
+        const outputPath = path.join(__dirname, 'outputs', `genogram_${patientId}`);
+        
+        const pythonProcess = spawn(pythonPath, [
+            scriptPath,
+            tempTranscriptionPath,
+            outputPath
+        ]);
+        
+        let pythonOutput = '';
+        let pythonError = '';
+        
+        pythonProcess.stdout.on('data', (data) => {
+            pythonOutput += data.toString();
+            console.log(`Python stdout: ${data}`);
+        });
+        
+        pythonProcess.stderr.on('data', (data) => {
+            pythonError += data.toString();
+            console.error(`Python stderr: ${data}`);
+        });
+        
+        pythonProcess.on('close', (code) => {
+            // Limpiar archivo temporal
+            try { fs.unlinkSync(tempTranscriptionPath); } catch(e) {}
+            
+            console.log(`=== Python Process Finished ===`);
+            console.log(`Exit code: ${code}`);
+            console.log(`Stdout: ${pythonOutput}`);
+            console.log(`Stderr: ${pythonError}`);
+            
+            if (code !== 0) {
+                console.error(`Proceso Python terminó con código ${code}`);
+                return res.status(500).json({ 
+                    ok: false, 
+                    error: 'Error generando genograma', 
+                    detail: pythonError || pythonOutput || 'Error desconocido'
+                });
+            }
+            
+            // Leer el HTML generado
+            const htmlPath = `${outputPath}.html`;
+            console.log(`Buscando HTML en: ${htmlPath}`);
+            
+            if (!fs.existsSync(htmlPath)) {
+                console.error(`Archivo HTML no encontrado: ${htmlPath}`);
+                console.log(`Python output: ${pythonOutput}`);
+                return res.status(500).json({ 
+                    ok: false, 
+                    error: 'No se generó el archivo HTML',
+                    detail: `Archivo esperado: ${htmlPath}\nPython output: ${pythonOutput}`
+                });
+            }
+            
+            const genogramHtml = fs.readFileSync(htmlPath, 'utf-8');
+            console.log(`HTML generado exitosamente, tamaño: ${genogramHtml.length} bytes`);
+            
+            res.json({ 
+                ok: true, 
+                genogramHtml,
+                outputPath: htmlPath
+            });
+        });
+        
+    } catch (err) {
+        console.error('Error en /api/genograma:', err);
+        res.status(500).json({ 
+            ok: false, 
+            error: 'Error del servidor', 
+            detail: err.message 
+        });
+    }
 });
 
 // Serve uploads

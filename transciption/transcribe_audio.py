@@ -1,17 +1,31 @@
 import os
 import json
 import whisper
+import torch
+import warnings
 from pathlib import Path
+
+# Silenciar warnings de Whisper
+warnings.filterwarnings('ignore', message='.*FP16 is not supported on CPU.*')
+warnings.filterwarnings('ignore', message='.*Torch was not compiled with flash attention.*')
+warnings.filterwarnings('ignore', message='.*Failed to launch Triton kernels.*')
 
 def transcribe_audio(audio_path, model_size='small', language='es', output_dir='outputs'):
     """
     Transcribe an audio file using Whisper and save JSON/TXT outputs.
     Returns the transcription dict.
     """
+    # Configurar dispositivo (forzar GPU si está disponible)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Dispositivo: {device}")
+    if device == "cuda":
+        print(f"GPU detectada: {torch.cuda.get_device_name(0)}")
+    
     print("Cargando modelo Whisper...")
-    model = whisper.load_model(model_size)
+    model = whisper.load_model(model_size, device=device)
+    print(f"Modelo cargado en {device.upper()}")
     print("Transcribiendo audio...")
-    transcription = model.transcribe(audio_path, language=language, word_timestamps=True)
+    transcription = model.transcribe(audio_path, language=language, word_timestamps=True, fp16=(device=="cuda"))
 
     audio_name = Path(audio_path).stem
     Path(output_dir).mkdir(parents=True, exist_ok=True)

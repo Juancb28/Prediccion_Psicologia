@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Dos líneas horizontales paralelas con poca separación y fondo transparente -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  
+  <style>
+    .line {
+      fill: none;
+      stroke: #000;
+      stroke-width: 5;
+      stroke-linecap: round;
+    }
+  </style>
+
+  <!-- Línea superior (desplazada 15px arriba del centro) -->
+  <line class="line" x1="100" y1="345" x2="1052" y2="345" />
+  
+  <!-- Línea inferior (desplazada 15px abajo del centro) -->
+  <line class="line" x1="100" y1="375" x2="1052" y2="375" />
+
+</svg>

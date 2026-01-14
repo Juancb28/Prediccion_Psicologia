@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fondo transparente; cuadrado con un rombo inscrito que toca los puntos medios de sus lados -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  <style>
+    .outline {
+      fill: none;
+      stroke: #000;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+  </style>
+
+  <!-- Cuadrado centrado de 600x600 -->
+  <!-- x = (1152-600)/2 = 276; y = (720-600)/2 = 60 -->
+  <rect class="outline" x="276" y="60" width="600" height="600"/>
+
+  <!-- Rombo (Diamond) -->
+  <!-- Conecta los puntos medios: (576, 60), (876, 360), (576, 660), (276, 360) -->
+  <polygon class="outline" points="576,60 876,360 576,660 276,360"/>
+</svg>

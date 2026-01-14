@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Cuadrado dividido verticalmente con la mitad izquierda rellena de líneas diagonales continuas (/) -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" 
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  
+  <defs>
+    <!-- Definición del patrón de líneas diagonales (/) de izquierda a derecha -->
+    <pattern id="diagonalHatchLR" patternUnits="userSpaceOnUse" width="20" height="20">
+      <!-- Línea que va de abajo-izquierda a arriba-derecha para crear el efecto "/" -->
+      <path d="M-5,25 L25,-5" stroke="#000000" stroke-width="3" stroke-linecap="butt"/>
+    </pattern>
+  </defs>
+
+  <!-- Mitad izquierda del cuadrado rellena con el patrón de líneas diagonales -->
+  <!-- x=276 (inicio), y=60 (inicio), ancho=300 (mitad de 600), alto=600 -->
+  <rect x="276" y="60" width="300" height="600" fill="url(#diagonalHatchLR)" />
+
+  <!-- Contorno del cuadrado completo (600x600) -->
+  <rect x="276" y="60" width="600" height="600" fill="none" stroke="#000000" stroke-width="4" stroke-linejoin="round"/>
+
+  <!-- Línea divisoria vertical en el centro -->
+  <line x1="576" y1="60" x2="576" y2="660" stroke="#000000" stroke-width="4" stroke-linecap="round"/>
+
+</svg>

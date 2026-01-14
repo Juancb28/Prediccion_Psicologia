@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  <style>
+    .wave {
+      fill: none;
+      stroke: #000;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  </style>
+
+  <!-- Trayectoria horizontal ondulada -->
+  <path class="wave" d="
+    M 200,360 
+    C 225,310 250,310 275,360
+    C 300,410 325,410 350,360
+    C 375,310 400,310 425,360
+    C 450,410 475,410 500,360
+    C 525,310 550,310 575,360
+    C 600,410 625,410 650,360
+    C 675,310 700,310 725,360
+    C 750,410 775,410 800,360
+    C 825,310 850,310 875,360
+    C 900,410 925,410 950,360" />
+</svg>

@@ -75,8 +75,98 @@ app.use(express.urlencoded({ extended: true }));
 // Enable CORS for frontend running on different port (e.g. live-server:5500)
 app.use(cors());
 
-// Serve static files (the frontend)
-app.use(express.static(path.join(__dirname)));
+// Serve static files (CSS, JS, images)
+app.use(express.static(path.join(__dirname), {
+    index: false  // No servir index.html automáticamente
+}));
+
+// Mapeo de rutas limpias a archivos HTML
+const routeMap = {
+    '/': '/public/dashboard.html',
+    '/dashboard': '/public/dashboard.html',
+    '/pacientes': '/public/pacientes.html',
+    '/pacientes/:id': '/public/paciente-detalle.html',
+    '/agenda': '/public/agenda.html',
+    '/sesiones': '/public/sesiones.html',
+    '/sesiones/:id': '/public/sesion-detalle.html',
+    '/perfil': '/public/perfil-psicologo.html',
+    '/perfil-psicologo': '/public/perfil-psicologo.html'
+};
+
+// Implementar enrutamiento SPA - Servir index.html para todas las rutas de frontend
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/pacientes', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/pacientes/:slug', (req, res) => {
+    // Acepta tanto IDs numéricos como slugs de nombres
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/pacientes/:slug/editar', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/pacientes/:slug/sesiones/nueva', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/pacientes/:id/sesiones/nueva', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/agenda', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/agenda/:slug', (req, res) => {
+    // Acepta slugs de paciente_fecha
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/agenda/:slug/editar', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/agenda/nueva', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/sesiones', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/sesiones/:id', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/perfil', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/perfil-psicologo', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Mantener compatibilidad con rutas antiguas /public/*.html
+app.get('/public/:page', (req, res) => {
+    const page = req.params.page;
+    const filePath = path.join(__dirname, 'public', page);
+    
+    if (fs.existsSync(filePath) && page.endsWith('.html')) {
+        res.sendFile(filePath);
+    } else {
+        res.status(404).send('Página no encontrada');
+    }
+});
 
 // Ensure uploads dir
 const uploadsDir = path.join(__dirname, 'uploads');

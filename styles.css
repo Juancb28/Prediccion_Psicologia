@@ -855,6 +855,42 @@ textarea.modern-input {
     border-color: #cbd5e1;
 }
 
+.modern-btn.delete-btn {
+    background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.modern-btn.delete-btn:hover {
+    box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+/* Small Delete Button for List Items */
+.delete-btn-small {
+    background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+    z-index: 10;
+    position: relative;
+}
+
+.delete-btn-small:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+.delete-btn-small:active {
+    transform: scale(0.95);
+}
+
 /* Legacy Modal Styles (Fallback) */
 .modal h3 { 
     margin-top: 0;
@@ -1010,12 +1046,14 @@ textarea.modern-input {
     border-radius: 16px;
     padding: 20px;
     margin-bottom: 16px;
-    cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border-left: 5px solid var(--primary);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     position: relative;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 16px;
 }
 
 .appointment-item::before {

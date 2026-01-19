@@ -134,20 +134,217 @@ const menuItems = document.querySelectorAll(".menu-item");
 // Cambiar módulo al hacer clic
 menuItems.forEach(item => {
     item.addEventListener("click", () => {
-        document.querySelector(".active").classList.remove("active");
-        item.classList.add("active");
-
         const moduleName = item.getAttribute("data-module");
-        loadModule(moduleName);
+        navigateToModule(moduleName);
     });
+});
+
+// Función para navegar con cambio de URL
+function navigateToModule(moduleName, params = {}, addToHistory = true) {
+    console.log('🧭 navigateToModule called:', { moduleName, params, addToHistory });
+    
+    // Construir URL con parámetros
+    let url = `/${moduleName}`;
+    
+    // Convertir ID a slug si es paciente, pero NO para agenda (mantener índice numérico)
+    if (params.id !== undefined) {
+        let slug = params.id;
+        
+        if (moduleName === 'pacientes') {
+            const patient = getPatientById(params.id);
+            slug = patient ? nameToSlug(patient.nombre) : params.id;
+        }
+        // Para agenda, mantener el índice numérico sin convertir a slug
+        
+        url += `/${slug}`;
+    }
+    
+    if (params.action) {
+        url += `/${params.action}`;
+    }
+    
+    // Actualizar estado activo en el menú
+    document.querySelector(".active")?.classList.remove("active");
+    const baseModule = moduleName.split('/')[0];
+    const activeItem = document.querySelector(`[data-module="${baseModule}"]`);
+    if (activeItem) {
+        activeItem.classList.add("active");
+    }
+
+    // Cambiar URL sin recargar
+    if (addToHistory) {
+        // Guardar params, solo convertir pacientes a slug
+        const stateParams = {...params};
+        if (stateParams.id !== undefined && typeof stateParams.id === 'number') {
+            if (moduleName === 'pacientes') {
+                const patient = getPatientById(stateParams.id);
+                if (patient) {
+                    stateParams.id = nameToSlug(patient.nombre);
+                }
+            }
+            // Para agenda, mantener el índice numérico
+        }
+        console.log('💾 Pushing state:', { module: moduleName, params: stateParams, url });
+        window.history.pushState({ module: moduleName, params: stateParams }, '', url);
+    }
+
+    // Cargar el módulo
+    loadModule(moduleName, params);
+}
+
+// Manejar botones atrás/adelante del navegador
+window.addEventListener('popstate', (event) => {
+    console.log('⏮️ popstate event:', { hasState: !!(event.state && event.state.module), state: event.state, url: window.location.pathname });
+    
+    if (event.state && event.state.module) {
+        console.log('Using saved state:', event.state);
+        navigateToModule(event.state.module, event.state.params || {}, false);
+    } else {
+        console.log('Parsing URL:', window.location.pathname);
+        // Si no hay estado, determinar desde la URL
+        const path = window.location.pathname;
+        const pathParts = path.substring(1).split('/').filter(p => p);
+        const moduleName = pathParts[0] || 'dashboard';
+        const params = {};
+        
+        // Manejar diferentes patrones de URL
+        if (pathParts[1]) {
+            // Si el segundo segmento es 'nueva', es una acción sin ID
+            if (pathParts[1] === 'nueva') {
+                params.action = 'nueva';
+            } else {
+                // De lo contrario, es un slug - pasar directamente sin convertir
+                const slug = pathParts[1];
+                console.log('📍 URL slug detected:', slug);
+                
+                if (moduleName === 'pacientes') {
+                    const patient = getPatientBySlug(slug);
+                    params.id = patient ? patient.id : slug;
+                } else if (moduleName === 'agenda') {
+                    // Pasar el slug directamente, loadModule lo convertirá
+                    params.id = slug;
+                } else {
+                    params.id = slug;
+                }
+            }
+        }
+        if (pathParts[2]) params.action = pathParts[2];
+        
+        console.log('Parsed params:', params);
+        navigateToModule(moduleName, params, false);
+    }
+});
+
+// Inicializar con la URL actual
+document.addEventListener('DOMContentLoaded', () => {
+    const path = window.location.pathname;
+    const pathParts = path.substring(1).split('/').filter(p => p);
+    const moduleName = pathParts[0] || 'dashboard';
+    const params = {};
+    
+    // Manejar diferentes patrones de URL
+    if (pathParts[1]) {
+        // Si el segundo segmento es 'nueva', es una acción sin ID
+        if (pathParts[1] === 'nueva') {
+            params.action = 'nueva';
+        } else {
+            // De lo contrario, es un slug - pasar directamente sin convertir
+            const slug = pathParts[1];
+            console.log('🏁 Initial load, slug detected:', slug);
+            
+            if (moduleName === 'pacientes') {
+                const patient = getPatientBySlug(slug);
+                params.id = patient ? patient.id : slug;
+            } else if (moduleName === 'agenda') {
+                // Pasar el slug directamente, loadModule lo convertirá
+                params.id = slug;
+            } else {
+                params.id = slug;
+            }
+        }
+    }
+    if (pathParts[2]) params.action = pathParts[2];
+    
+    navigateToModule(moduleName, params, false);
 });
 
 // ---------------------
 // RENDERIZADO DE MÓDULOS
 // ---------------------
 
-function loadModule(module) {
+function loadModule(module, params = {}) {
     currentModule = module; // Track current module
+    
+    // Manejar rutas anidadas con ID (usar !== undefined para permitir id=0)
+    if (params.id !== undefined && params.id !== null) {
+        if (module === 'pacientes') {
+            // Primero mostrar el paciente (solo si no estamos viendo este paciente ya)
+            if (currentModule !== 'pacientes' || activePatientId !== parseInt(params.id)) {
+                showPatient(parseInt(params.id), false); // false = no push to history
+            }
+            
+            // Luego manejar la acción si existe
+            if (params.action === 'editar') {
+                // Esperar a que se renderice el paciente y luego abrir el formulario de edición
+                setTimeout(() => editPatientInfo(parseInt(params.id), false), 100);
+            } else if (params.action === 'nueva-sesion') {
+                // Abrir formulario de nueva sesión
+                setTimeout(() => createNewSessionForPatient(parseInt(params.id), false), 100);
+            }
+            return;
+        } else if (module === 'sesiones') {
+            showSessionDetail(parseInt(params.id));
+            return;
+        } else if (module === 'agenda') {
+            console.log('📋 Loading agenda module with params:', params);
+            
+            // Renderizar agenda si venimos de otro módulo
+            if (currentModule !== 'agenda') {
+                console.log('Rendering agenda (currentModule was:', currentModule + ')');
+                renderAgenda();
+            }
+            
+            // Para agenda, si hay ID, es editar una cita
+            if (params.action === 'editar') {
+                console.log('Action is editar, params.id:', params.id, 'type:', typeof params.id);
+                let appointmentIndex = -1;
+                
+                // Parsear ID: puede ser número o string numérico
+                if (typeof params.id === 'number') {
+                    appointmentIndex = params.id;
+                } else if (typeof params.id === 'string') {
+                    // Intentar convertir a número
+                    const parsed = parseInt(params.id);
+                    if (!isNaN(parsed)) {
+                        appointmentIndex = parsed;
+                    }
+                }
+                
+                console.log('Appointment index resolved to:', appointmentIndex);
+                
+                if (appointmentIndex >= 0 && mockAgenda[appointmentIndex]) {
+                    const apt = mockAgenda[appointmentIndex];
+                    const pat = mockPacientes.find(p => p.id === apt.pacienteId);
+                    console.log('✅ Opening editCita modal for:', { index: appointmentIndex, patient: pat?.nombre });
+                    // Llamar directamente sin setTimeout para abrir el modal inmediatamente
+                    editCita(appointmentIndex, false);
+                } else {
+                    console.error('❌ Invalid appointment index:', appointmentIndex);
+                }
+            }
+            return;
+        }
+    }
+    
+    // Manejar acciones sin ID
+    if (params.action) {
+        if (module === 'agenda' && params.action === 'nueva') {
+            renderAgenda();
+            setTimeout(() => quickCreateCita(), 100);
+            return;
+        }
+    }
+    
     switch (module) {
         case 'dashboard':
             renderDashboard();
@@ -297,15 +494,15 @@ function renderDashboard() {
                         <span class="action-icon">📝</span>
                         <span class="action-label">Registrar sesión</span>
                     </button>
-                    <button class="quick-action-btn" onclick="loadModule('pacientes')">
+                    <button class="quick-action-btn" onclick="navigateToModule('pacientes', {})">
                         <span class="action-icon">👥</span>
                         <span class="action-label">Ver pacientes</span>
                     </button>
-                    <button class="quick-action-btn" onclick="quickCreateCita()">
+                    <button class="quick-action-btn" onclick="navigateToModule('agenda', { action: 'nueva' })">
                         <span class="action-icon">📅</span>
                         <span class="action-label">Crear cita</span>
                     </button>
-                    <button class="quick-action-btn" onclick="loadModule('sesiones')">
+                    <button class="quick-action-btn" onclick="navigateToModule('sesiones', {})">
                         <span class="action-icon">📋</span>
                         <span class="action-label">Historial clínico</span>
                     </button>
@@ -401,7 +598,7 @@ function renderPacientes() {
     document.querySelectorAll('.patient-card').forEach(el=>{
         el.addEventListener('click', ()=>{
             const id = parseInt(el.getAttribute('data-id'));
-            showPatient(id);
+            navigateToModule('pacientes', { id });
         });
     });
 }
@@ -444,6 +641,7 @@ function goToToday() {
 }
 
 function renderAgenda() {
+    currentModule = 'agenda'; // Track current module
     const controls = `
         <div class="agenda-controls">
             <button class="view-btn ${agendaView === 'list' ? 'active-view' : ''}" onclick="setAgendaView('list')">
@@ -479,7 +677,7 @@ function renderAgenda() {
                                e.estado === 'Pendiente' ? 'pending' : 
                                e.estado === 'Finalizada' ? 'finished' : 'cancelled';
             return `
-                <div class="appointment-item ${statusClass}" onclick="editCita(${idx})">
+                <div class="appointment-item ${statusClass}" data-appointment-index="${idx}">
                     <div class="appointment-header">
                         <div class="appointment-datetime">
                             <span class="appointment-icon">🕐</span>
@@ -492,6 +690,9 @@ function renderAgenda() {
                         <span class="patient-icon">👤</span>
                         <span class="patient-name">${patient?.nombre || '—'}</span>
                     </div>
+                    <button class="delete-btn-small" data-delete-index="${idx}" title="Eliminar cita" onclick="event.stopPropagation();">
+                        🗑️
+                    </button>
                 </div>
             `;
         }).join('');
@@ -505,8 +706,9 @@ function renderAgenda() {
             const statusClass = e.estado === 'Confirmada' ? 'confirmed' : 
                                e.estado === 'Pendiente' ? 'pending' : 
                                e.estado === 'Finalizada' ? 'finished' : 'cancelled';
+            const appointmentIndex = mockAgenda.indexOf(e);
             return `
-                <div class="appointment-item ${statusClass}" onclick="editCita(${mockAgenda.indexOf(e)})">
+                <div class="appointment-item ${statusClass}" data-appointment-index="${appointmentIndex}">
                     <div class="appointment-header">
                         <div class="appointment-datetime">
                             <span class="appointment-icon">🕐</span>
@@ -519,6 +721,9 @@ function renderAgenda() {
                         <span class="patient-icon">👤</span>
                         <span class="patient-name">${patient?.nombre || '—'}</span>
                     </div>
+                    <button class="delete-btn-small" data-delete-index="${appointmentIndex}" title="Eliminar cita" onclick="event.stopPropagation();">
+                        🗑️
+                    </button>
                 </div>
             `;
         }).join('') : '<div class="empty-state">📭 No hay citas esta semana</div>';
@@ -530,8 +735,9 @@ function renderAgenda() {
             const statusClass = e.estado === 'Confirmada' ? 'confirmed' : 
                                e.estado === 'Pendiente' ? 'pending' : 
                                e.estado === 'Finalizada' ? 'finished' : 'cancelled';
+            const appointmentIndex = mockAgenda.indexOf(e);
             return `
-                <div class="appointment-item ${statusClass}" onclick="editCita(${mockAgenda.indexOf(e)})">
+                <div class="appointment-item ${statusClass}" data-appointment-index="${appointmentIndex}">
                     <div class="appointment-header">
                         <div class="appointment-datetime">
                             <span class="appointment-icon">🕐</span>
@@ -544,6 +750,9 @@ function renderAgenda() {
                         <span class="patient-icon">👤</span>
                         <span class="patient-name">${patient?.nombre || '—'}</span>
                     </div>
+                    <button class="delete-btn-small" data-delete-index="${appointmentIndex}" title="Eliminar cita" onclick="event.stopPropagation();">
+                        🗑️
+                    </button>
                 </div>
             `;
         }).join('') : '<div class="empty-state">📭 No hay citas este mes</div>';
@@ -556,6 +765,33 @@ function renderAgenda() {
             ${body}
         </div>
     `;
+    
+    // Agregar event listeners a las citas
+    document.querySelectorAll('.appointment-item[data-appointment-index]').forEach(item => {
+        item.addEventListener('click', (e) => {
+            // Evitar abrir modal si se hizo click en el botón de eliminar
+            if(e.target.closest('.delete-btn-small')) {
+                console.log('❌ Click en botón eliminar, no abrir modal');
+                return;
+            }
+            const index = parseInt(item.getAttribute('data-appointment-index'));
+            const appointment = mockAgenda[index];
+            const patient = mockPacientes.find(p => p.id === appointment?.pacienteId);
+            console.log('🖱️ Click en appointment:', { index, patient: patient?.nombre, appointment, mockAgenda });
+            console.log('🔄 Llamando navigateToModule con:', { module: 'agenda', id: index, action: 'editar' });
+            navigateToModule('agenda', { id: index, action: 'editar' });
+        });
+    });
+    
+    // Agregar event listeners a los botones de eliminar
+    document.querySelectorAll('.delete-btn-small[data-delete-index]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const index = parseInt(btn.getAttribute('data-delete-index'));
+            await deleteCita(index);
+        });
+    });
 }
 
 function renderCalendarView() {
@@ -610,7 +846,7 @@ function renderCalendarView() {
             appointmentsHtml = dayAppointments.map((apt, idx) => {
                 const patient = mockPacientes.find(p => p.id === apt.pacienteId);
                 const statusClass = apt.estado === 'Confirmada' ? 'confirmed' : apt.estado === 'Pendiente' ? 'pending' : apt.estado === 'Finalizada' ? 'finished' : 'cancelled';
-                return `<div class="appointment-badge ${statusClass}" onclick="editCita(${mockAgenda.indexOf(apt)})" title="${patient?.nombre || '—'} - ${apt.hora}">
+                return `<div class="appointment-badge ${statusClass}" onclick="navigateToModule('agenda', {id: ${mockAgenda.indexOf(apt)}, action: 'editar'})" title="${patient?.nombre || '—'} - ${apt.hora}">
                     ${apt.hora} ${patient?.nombre?.split(' ')[0] || '?'}
                 </div>`;
             }).join('');
@@ -688,58 +924,121 @@ async function quickCreateCitaForDate(dateStr) {
     renderAgenda();
 }
 
-async function editCita(index){
+async function editCita(index, pushHistory = true){
+    console.log('📝 editCita called with index:', index, 'mockAgenda:', mockAgenda);
     const e = mockAgenda[index];
-    if(!e) return console.log('Cita no encontrada');
+    if(!e) {
+        console.error('❌ Cita no encontrada en index:', index);
+        return;
+    }
+    
+    console.log('✅ Cita encontrada:', e);
+    
     const patient = mockPacientes.find(p => p.id === e.pacienteId);
-    const form = `
-        <div class="modern-form-group">
-            <label class="modern-label">
-                <span class="label-icon">👤</span>
-                <span>Paciente ID</span>
-            </label>
-            <input name="pid" value="${e.pacienteId}" class="modern-input" readonly>
-            <div class="input-helper">Paciente: ${patient?.nombre || 'Desconocido'}</div>
+    console.log('👤 Paciente encontrado:', patient);
+    
+    const html = `
+        <div class="modern-modal-header">
+            <h3 class="modal-title">Editar cita</h3>
         </div>
-        <div class="modern-form-row">
+        <div class="modern-modal-body">
             <div class="modern-form-group">
                 <label class="modern-label">
-                    <span class="label-icon">📅</span>
-                    <span>Fecha</span>
+                    <span class="label-icon">👤</span>
+                    <span>Paciente ID</span>
                 </label>
-                <input name="fecha" type="date" value="${e.fecha}" class="modern-input">
+                <input name="pid" value="${e.pacienteId}" class="modern-input" readonly style="background: #f5f5f5;">
+                <div class="input-helper">Paciente: ${patient?.nombre || 'Desconocido'}</div>
+            </div>
+            <div class="modern-form-row">
+                <div class="modern-form-group">
+                    <label class="modern-label">
+                        <span class="label-icon">📅</span>
+                        <span>Fecha</span>
+                    </label>
+                    <input name="fecha" type="date" value="${e.fecha}" class="modern-input">
+                </div>
+                <div class="modern-form-group">
+                    <label class="modern-label">
+                        <span class="label-icon">🕐</span>
+                        <span>Hora</span>
+                    </label>
+                    <input name="hora" type="time" value="${e.hora}" class="modern-input">
+                </div>
             </div>
             <div class="modern-form-group">
                 <label class="modern-label">
-                    <span class="label-icon">🕐</span>
-                    <span>Hora</span>
+                    <span class="label-icon">📊</span>
+                    <span>Estado</span>
                 </label>
-                <input name="hora" type="time" value="${e.hora}" class="modern-input">
+                <select name="estado" class="modern-select">
+                    <option ${e.estado==='Pendiente'?'selected':''}>Pendiente</option>
+                    <option ${e.estado==='Confirmada'?'selected':''}>Confirmada</option>
+                    <option ${e.estado==='Finalizada'?'selected':''}>Finalizada</option>
+                    <option ${e.estado==='Anulada'?'selected':''}>Anulada</option>
+                </select>
             </div>
         </div>
-        <div class="modern-form-group">
-            <label class="modern-label">
-                <span class="label-icon">📊</span>
-                <span>Estado</span>
-            </label>
-            <select name="estado" class="modern-select">
-                <option ${e.estado==='Pendiente'?'selected':''}>Pendiente</option>
-                <option ${e.estado==='Confirmada'?'selected':''}>Confirmada</option>
-                <option ${e.estado==='Finalizada'?'selected':''}>Finalizada</option>
-                <option ${e.estado==='Anulada'?'selected':''}>Anulada</option>
-            </select>
+        <div class="modern-modal-footer">
+            <button class="modern-btn delete-btn" id="_m_delete" style="margin-right: auto;">
+                <span>🗑️</span>
+                <span>Eliminar</span>
+            </button>
+            <button class="modern-btn cancel-btn" id="_m_cancel">
+                <span>Cancelar</span>
+            </button>
+            <button class="modern-btn save-btn" id="_m_save">
+                <span>💾</span>
+                <span>Guardar</span>
+            </button>
         </div>
     `;
-    const data = await modalForm('Editar cita', form);
-    if(!data) return;
-    e.pacienteId = parseInt(data.pid);
-    e.fecha = data.fecha;
-    e.hora = data.hora;
-    e.estado = data.estado;
-    await saveData();
-    console.log('Cita actualizada');
-    renderAgenda();
+
+    console.log('🎨 Creando modal...');
+    const m = createModal(html);
+    console.log('✅ Modal creado:', m);
+    
+    // Close / Cancel
+    m.backdrop.querySelector('#_m_cancel').onclick = () => m.close();
+    
+    // Delete
+    m.backdrop.querySelector('#_m_delete').onclick = async () => {
+        if(confirm('¿Eliminar esta cita?')){
+            mockAgenda.splice(index, 1);
+            await saveData();
+            m.close();
+            renderAgenda();
+            console.log('Cita eliminada');
+        }
+    };
+    
+    // Save
+    m.backdrop.querySelector('#_m_save').onclick = async () => {
+        const inputs = m.backdrop.querySelectorAll('input, select');
+        const data = {};
+        inputs.forEach(i => { if(i.name) data[i.name] = i.value; });
+        
+        e.pacienteId = parseInt(data.pid);
+        e.fecha = data.fecha;
+        e.hora = data.hora;
+        e.estado = data.estado;
+        
+        await saveData();
+        m.close();
+        renderAgenda();
+        console.log('Cita actualizada');
+    };
 }
+
+// Global delete function for agenda list
+window.deleteCita = async function(index) {
+    if(confirm('¿Seguro que deseas eliminar esta cita?')){
+        mockAgenda.splice(index, 1);
+        await saveData();
+        renderAgenda();
+        console.log('Cita eliminada desde lista');
+    }
+};
 
 function renderSesiones() {
     mainContent.innerHTML = `
@@ -793,6 +1092,88 @@ function renderSesiones() {
 
 // Utilities
 function getPatientById(id){ return mockPacientes.find(p=>p.id===id); }
+
+// Función para convertir nombre a slug URL-friendly
+function nameToSlug(name) {
+    if (!name) return '';
+    return name
+        .toLowerCase()
+        .normalize('NFD') // Normalizar caracteres con acentos
+        .replace(/[\u0300-\u036f]/g, '') // Eliminar diacríticos
+        .replace(/\s+/g, '_') // Espacios a guiones bajos
+        .replace(/[^a-z0-9_-]/g, '') // Eliminar caracteres especiales
+        .replace(/_+/g, '_') // Múltiples guiones bajos a uno solo
+        .replace(/^_+|_+$/g, ''); // Eliminar guiones al inicio/fin
+}
+
+// Función para encontrar paciente por slug de nombre
+function getPatientBySlug(slug) {
+    if (!slug) return null;
+    return mockPacientes.find(p => nameToSlug(p.nombre) === slug);
+}
+
+// Función para encontrar cita por slug de paciente
+function getAppointmentByPatientSlug(slug) {
+    const patient = getPatientBySlug(slug);
+    if (!patient) return null;
+    return mockAgenda.findIndex(a => a.pacienteId === patient.id);
+}
+
+// Función para obtener slug de cita (paciente + fecha)
+function getAppointmentSlug(appointment) {
+    const patient = getPatientById(appointment.pacienteId);
+    if (!patient) return null;
+    const dateSlug = appointment.fecha.replace(/-/g, '_');
+    return `${nameToSlug(patient.nombre)}_${dateSlug}`;
+}
+
+// Función para encontrar cita por slug
+function getAppointmentBySlug(slug) {
+    console.log('🔍 getAppointmentBySlug called with:', slug);
+    const parts = slug.split('_');
+    console.log('Parts after split:', parts);
+    
+    if (parts.length < 4) {
+        console.log('❌ Parts length < 4, returning -1');
+        return -1;
+    }
+    
+    // Extraer fecha (los últimos 3 segmentos)
+    const day = parts.pop();
+    const month = parts.pop();
+    const year = parts.pop();
+    const fecha = `${year}-${month}-${day}`;
+    console.log('📅 Fecha construida:', fecha);
+    
+    // El resto es el nombre
+    const nameSlug = parts.join('_');
+    console.log('👤 Name slug:', nameSlug);
+    
+    const patient = getPatientBySlug(nameSlug);
+    console.log('Patient found:', patient);
+    
+    if (!patient) {
+        console.log('❌ Patient not found, returning -1');
+        return -1;
+    }
+    
+    const index = mockAgenda.findIndex(a => 
+        a.pacienteId === patient.id && a.fecha === fecha
+    );
+    console.log('✅ Appointment index found:', index);
+    return index;
+}
+
+// Función para mostrar detalle de sesión desde ruta
+function showSessionDetail(sessionIndex) {
+    const session = mockSesiones[sessionIndex];
+    if (!session) {
+        console.error('Sesión no encontrada');
+        navigateToModule('sesiones', {});
+        return;
+    }
+    openSessionDetail(sessionIndex, session.pacienteId);
+}
 
 // Toggle recording authorization
 function toggleRecordingAuth(patientId, consentIndex){
@@ -857,6 +1238,19 @@ function createModal(html){
         close: ()=>{ 
             try{ root.removeChild(backdrop); }catch(e){}
             try{ document.body.style.overflow = prevBodyOverflow; }catch(e){}
+            
+            // Al cerrar modal, volver a la ruta del paciente si estamos en una acción
+            const currentPath = window.location.pathname;
+            const pathParts = currentPath.split('/').filter(p => p);
+            
+            // Si estamos en una ruta con acción (editar, nueva-sesion), volver al detalle
+            if (pathParts.length >= 3 && pathParts[0] === 'pacientes') {
+                const patientId = pathParts[1];
+                if (pathParts[2] === 'editar' || (pathParts[2] === 'sesiones' && pathParts[3] === 'nueva')) {
+                    // Volver a /pacientes/:id
+                    window.history.pushState({ module: 'pacientes', params: { id: patientId } }, '', `/pacientes/${patientId}`);
+                }
+            }
         }
     };
 }
@@ -1934,9 +2328,14 @@ async function changePsychologistPIN() {
     console.log('✅ PIN actualizado correctamente');
 }
 
-async function editPatientInfo(patientId) {
+async function editPatientInfo(patientId, pushHistory = true) {
     const p = getPatientById(patientId);
     if(!p) return;
+    
+    // Cambiar URL a /pacientes/:id/editar solo si pushHistory es true
+    if (pushHistory) {
+        window.history.pushState({ module: 'pacientes', params: { id: patientId, action: 'editar' } }, '', `/pacientes/${patientId}/editar`);
+    }
     
     const form = `
         <div class="modern-form-group">
@@ -2049,10 +2448,15 @@ async function deleteSession(sessionIndex, patientId) {
     showPatient(patientId);
 }
 
-function showPatient(id) {
+function showPatient(id, pushHistory = true) {
     const p = getPatientById(id);
     activePatientId = id;
     if(!p) return;
+    
+    // Cambiar URL a /pacientes/:id solo si pushHistory es true
+    if (pushHistory) {
+        window.history.pushState({ module: 'pacientes', params: { id } }, '', `/pacientes/${id}`);
+    }
 
     mainContent.innerHTML = `
         <div class="patient-detail-header">
@@ -2065,7 +2469,7 @@ function showPatient(id) {
                     <p class="patient-detail-subtitle">ID: ${p.id} • Paciente activo</p>
                 </div>
             </div>
-            <button onclick="createNewSessionForPatient(${p.id})" class="create-session-btn">
+            <button class="create-session-btn" data-patient-id="${p.id}" data-action="create-session">
                 <span>➕</span>
                 <span>Crear nueva sesión</span>
             </button>
@@ -2075,7 +2479,7 @@ function showPatient(id) {
             <div class="card patient-info-card">
                 <div class="card-header-modern">
                     <h3>📋 Ficha del paciente</h3>
-                    <button class="edit-patient-btn" onclick="editPatientInfo(${p.id})">
+                    <button class="edit-patient-btn" data-patient-id="${p.id}" data-action="edit-patient">
                         <span>✏️</span>
                         <span>Editar</span>
                     </button>
@@ -2173,7 +2577,7 @@ function showPatient(id) {
                         .map((item)=>{
                             return `
                                 <div class="session-list-item">
-                                    <div class="session-item-content" onclick="event.stopPropagation(); openSessionDetail(${item.index}, ${p.id}); return false;">
+                                    <div class="session-item-content" data-session-index="${item.index}">
                                         <div class="session-date-badge">
                                             <span class="date-icon">📅</span>
                                             <span class="date-text">${item.session.fecha}</span>
@@ -2181,7 +2585,7 @@ function showPatient(id) {
                                         <div class="session-notes">${item.session.notas}</div>
                                         <span class="session-arrow">→</span>
                                     </div>
-                                    <button class="delete-session-btn" onclick="event.stopPropagation(); deleteSession(${item.index}, ${p.id}); return false;" title="Eliminar sesión">
+                                    <button class="delete-session-btn" data-session-index="${item.index}" data-action="delete-session" title="Eliminar sesión">
                                         <span>🗑️</span>
                                     </button>
                                 </div>
@@ -2285,6 +2689,39 @@ function showPatient(id) {
     if(editBtn){
         editBtn.addEventListener('click', () => openConsentModal(true));
     }
+    
+    // Agregar event listeners para botones de paciente
+    const createSessionBtn = mainContent.querySelector('[data-action="create-session"]');
+    if (createSessionBtn) {
+        createSessionBtn.addEventListener('click', () => {
+            navigateToModule('pacientes', { id: p.id, action: 'nueva-sesion' });
+        });
+    }
+    
+    const editPatientBtn = mainContent.querySelector('[data-action="edit-patient"]');
+    if (editPatientBtn) {
+        editPatientBtn.addEventListener('click', () => {
+            navigateToModule('pacientes', { id: p.id, action: 'editar' });
+        });
+    }
+    
+    // Event listeners para items de sesión
+    mainContent.querySelectorAll('.session-item-content[data-session-index]').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const sessionIndex = parseInt(item.getAttribute('data-session-index'));
+            openSessionDetail(sessionIndex, p.id);
+        });
+    });
+    
+    // Event listeners para botones de eliminar sesión
+    mainContent.querySelectorAll('.delete-session-btn[data-action="delete-session"]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const sessionIndex = parseInt(btn.getAttribute('data-session-index'));
+            deleteSession(sessionIndex, p.id);
+        });
+    });
 }
 
 // Quick actions
@@ -2301,6 +2738,13 @@ async function quickRegisterSession(){
 }
 
 async function quickCreateCita(){
+    // Cambiar URL a /agenda/nueva
+    window.history.pushState(
+        { module: 'agenda', params: { action: 'nueva' } },
+        '',
+        `/agenda/nueva`
+    );
+    
     const patientOptions = mockPacientes.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
     const form = `
         <div class="modern-form-group">
@@ -2367,9 +2811,14 @@ function startSessionPrompt(){
     promptStartSession(pid);
 }
 
-async function createNewSessionForPatient(patientId){
+async function createNewSessionForPatient(patientId, pushHistory = true){
     const p = getPatientById(patientId);
     if(!p) return console.log('Paciente no encontrado');
+    
+    // Cambiar URL a /pacientes/:id/sesiones/nueva solo si pushHistory es true
+    if (pushHistory) {
+        window.history.pushState({ module: 'pacientes', params: { id: patientId, action: 'nueva-sesion' } }, '', `/pacientes/${patientId}/sesiones/nueva`);
+    }
     
     // Verificar si hay consentimiento con grabación autorizada
     const hasAuthorizedRecording = p.consents.some(c => c.file && c.grabacionAutorizada);
@@ -2459,6 +2908,9 @@ async function openSessionDetail(sessionIndex, patientId){
     const s = mockSesiones[sessionIndex];
     const p = getPatientById(patientId);
     if(!s || !p) return console.log('Sesión o paciente no encontrado');
+    
+    // Cambiar URL a /sesiones/:sessionIndex
+    window.history.pushState({ module: 'sesiones', params: { id: sessionIndex } }, '', `/sesiones/${sessionIndex}`);
     
     // Inicializar datos de sesión si no existen
     if(!s.enfoque) s.enfoque = '';

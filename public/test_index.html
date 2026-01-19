@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema Clínico Psicología</title>
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -12,7 +12,7 @@
 
 <body>
 
-<div class="container">
+<div class="container">    
 
     <!-- Sidebar -->
     <aside class="sidebar">
@@ -22,24 +22,24 @@
             <p class="logo-subtitle">Sistema Clínico</p>
         </div>
         <ul class="menu-list">
-            <li class="menu-item" data-module="dashboard">
+            <li class="menu-item" data-link data-href="/dashboard">
                 <span class="menu-icon">📊</span>
                 <span class="menu-text">Panel</span>
             </li>
-            <li class="menu-item active" data-module="pacientes">
+            <li class="menu-item" data-link data-href="/pacientes">
                 <span class="menu-icon">👥</span>
                 <span class="menu-text">Pacientes</span>
             </li>
-            <li class="menu-item" data-module="agenda">
+            <li class="menu-item" data-link data-href="/agenda">
                 <span class="menu-icon">📅</span>
                 <span class="menu-text">Agenda</span>
             </li>
-            <li class="menu-item" data-module="sesiones">
+            <li class="menu-item" data-link data-href="/sesiones">
                 <span class="menu-icon">💬</span>
                 <span class="menu-text">Sesiones</span>
             </li>
         </ul>
-        <div class="sidebar-footer" onclick="loadModule('psychologist-profile')" style="cursor: pointer;">
+        <div class="sidebar-footer" data-link data-href="/perfil-psicologo" style="cursor: pointer;">
             <div class="user-info">
                 <div class="user-avatar">👨‍⚕️</div>
                 <div class="user-details">
@@ -52,7 +52,7 @@
 
     <!-- Main Content -->
     <main class="content" id="mainContent">
-        <!-- AQUÍ SE CARGAN LOS MÓDULOS -->
+        <!-- AQUÍ SE CARGAN LAS VISTAS DINÁMICAMENTE -->
     </main>
 
 </div>
@@ -60,6 +60,32 @@
 <!-- Modals container -->
 <div id="modalRoot"></div>
 
-<script src="/app.js"></script>
+<!-- Backend Logic (Managers) -->
+<script src="src/backend/PatientManager.js"></script>
+<script src="src/backend/SessionManager.js"></script>
+<script src="src/backend/AgendaManager.js"></script>
+<script src="src/backend/RecordingManager.js"></script>
+
+<!-- Frontend Services -->
+<script src="src/frontend/services/ApiService.js"></script>
+
+<!-- Frontend Components -->
+<script src="src/frontend/components/UIComponents.js"></script>
+
+<!-- Router -->
+<script src="src/frontend/router/Router.js"></script>
+
+<!-- Views (Controllers) -->
+<script src="src/frontend/views/DashboardView.js"></script>
+<script src="src/frontend/views/PacientesView.js"></script>
+<script src="src/frontend/views/PatientDetailView.js"></script>
+<script src="src/frontend/views/AgendaView.js"></script>
+<script src="src/frontend/views/SessionsView.js"></script>
+<script src="src/frontend/views/SessionDetailView.js"></script>
+<script src="src/frontend/views/PsychologistProfileView.js"></script>
+
+<!-- Main App -->
+<script src="src/frontend/app-main.js"></script>
+
 </body>
 </html>

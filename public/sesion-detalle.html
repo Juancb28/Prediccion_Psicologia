@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalle de Sesión - MindCare</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo-container">
+            <div class="logo-icon">🧠</div>
+            <h2 class="logo">MindCare</h2>
+            <p class="logo-subtitle">Sistema Clínico</p>
+        </div>
+        <ul class="menu-list">
+            <li class="menu-item">
+                <a href="/dashboard" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">📊</span>
+                    <span class="menu-text">Panel</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="/pacientes" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">👥</span>
+                    <span class="menu-text">Pacientes</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="/agenda" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">📅</span>
+                    <span class="menu-text">Agenda</span>
+                </a>
+            </li>
+            <li class="menu-item active">
+                <a href="/sesiones" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">💬</span>
+                    <span class="menu-text">Sesiones</span>
+                </a>
+            </li>
+        </ul>
+        <div class="sidebar-footer" onclick="window.location.href='/perfil'" style="cursor: pointer;">
+            <div class="user-info">
+                <div class="user-avatar">👨‍⚕️</div>
+                <div class="user-details">
+                    <div class="user-name">Dr. Psicólogo</div>
+                    <div class="user-status">En línea</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="content" id="mainContent">
+        <button class="back-btn" onclick="goBack()">
+            <span>←</span>
+            <span>Volver</span>
+        </button>
+        <div id="sessionDetailContent">
+            <!-- El contenido se cargará aquí -->
+        </div>
+    </main>
+
+</div>
+
+<!-- Modal Container -->
+<div id="modalRoot"></div>
+
+<script>
+// Código específico del Detalle de Sesión
+(function() {
+    'use strict';
+
+    // Cargar datos
+    function loadPatients() {
+        return JSON.parse(localStorage.getItem('pp_patients') || '[]');
+    }
+
+    function loadSessions() {
+        return JSON.parse(localStorage.getItem('pp_sessions') || '[]');
+    }
+
+    function saveSessions(sessions) {
+        localStorage.setItem('pp_sessions', JSON.stringify(sessions));
+    }
+
+    // Renderizar detalle de sesión
+    function renderSessionDetail() {
+        const patientId = parseInt(sessionStorage.getItem('currentPatientId'));
+        const sessionIndex = parseInt(sessionStorage.getItem('currentSessionIndex'));
+        
+        if (!patientId || isNaN(sessionIndex)) {
+            alert('No se encontró la sesión');
+            window.location.href = '/sesiones';
+            return;
+        }
+
+        const patients = loadPatients();
+        const patient = patients.find(p => p.id === patientId);
+        const allSessions = loadSessions();
+        const patientSessions = allSessions.filter(s => s.pacienteId === patientId);
+        const session = patientSessions[sessionIndex];
+
+        if (!session) {
+            alert('Sesión no encontrada');
+            window.location.href = '/sesiones';
+            return;
+        }
+
+        const container = document.getElementById('sessionDetailContent');
+
+        container.innerHTML = `
+            <div class="session-detail-header">
+                <div class="session-detail-title">
+                    <h1>Sesión #${sessionIndex + 1}</h1>
+                    <p class="session-detail-subtitle">
+                        ${patient ? patient.nombre : '—'} • ${session.fecha}
+                    </p>
+                </div>
+                <button onclick="saveSession()" class="save-session-btn">
+                    <span>💾</span>
+                    <span>Guardar Cambios</span>
+                </button>
+            </div>
+
+            <div class="session-detail-grid">
+                <div class="card soap-card">
+                    <div class="card-header-modern">
+                        <h3>📋 Notas SOAP</h3>
+                    </div>
+                    <div class="soap-sections">
+                        <div class="soap-section">
+                            <label class="soap-label">
+                                <span class="soap-icon">S</span>
+                                <span>Subjetivo</span>
+                            </label>
+                            <textarea id="soapSubjetivo" class="soap-textarea" rows="4">${session.soap?.subjetivo || ''}</textarea>
+                        </div>
+                        <div class="soap-section">
+                            <label class="soap-label">
+                                <span class="soap-icon">O</span>
+                                <span>Objetivo</span>
+                            </label>
+                            <textarea id="soapObjetivo" class="soap-textarea" rows="4">${session.soap?.objetivo || ''}</textarea>
+                        </div>
+                        <div class="soap-section">
+                            <label class="soap-label">
+                                <span class="soap-icon">A</span>
+                                <span>Análisis</span>
+                            </label>
+                            <textarea id="soapAnalisis" class="soap-textarea" rows="4">${session.soap?.analisis || ''}</textarea>
+                        </div>
+                        <div class="soap-section">
+                            <label class="soap-label">
+                                <span class="soap-icon">P</span>
+                                <span>Plan</span>
+                            </label>
+                            <textarea id="soapPlan" class="soap-textarea" rows="4">${session.soap?.plan || ''}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header-modern">
+                        <h3>📝 Notas Generales</h3>
+                    </div>
+                    <textarea id="sessionNotas" class="notes-textarea" rows="6">${session.notas || ''}</textarea>
+                </div>
+
+                <div class="card">
+                    <div class="card-header-modern">
+                        <h3>🎯 Enfoque Terapéutico</h3>
+                    </div>
+                    <textarea id="sessionEnfoque" class="notes-textarea" rows="4">${session.enfoque || ''}</textarea>
+                </div>
+
+                <div class="card">
+                    <div class="card-header-modern">
+                        <h3>🎙️ Grabaciones</h3>
+                        <button onclick="alert('Grabar audio - Por implementar')" class="card-header-btn">
+                            <span>🎤</span>
+                            <span>Grabar</span>
+                        </button>
+                    </div>
+                    <div class="recordings-list">
+                        ${session.grabaciones && session.grabaciones.length > 0 ? 
+                            session.grabaciones.map((rec, i) => `
+                                <div class="recording-item">
+                                    <span class="recording-icon">🎵</span>
+                                    <span class="recording-name">Grabación ${i + 1}</span>
+                                </div>
+                            `).join('') : 
+                            '<div class="empty-state">No hay grabaciones</div>'
+                        }
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header-modern">
+                        <h3>📎 Archivos Adjuntos</h3>
+                        <button onclick="alert('Adjuntar archivo - Por implementar')" class="card-header-btn">
+                            <span>📎</span>
+                            <span>Adjuntar</span>
+                        </button>
+                    </div>
+                    <div class="attachments-list">
+                        ${session.attachments && session.attachments.length > 0 ? 
+                            session.attachments.map((att, i) => `
+                                <div class="attachment-item">
+                                    <span class="attachment-icon">📄</span>
+                                    <span class="attachment-name">${att.name || `Archivo ${i + 1}`}</span>
+                                </div>
+                            `).join('') : 
+                            '<div class="empty-state">No hay archivos adjuntos</div>'
+                        }
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Guardar sesión
+    window.saveSession = function() {
+        const patientId = parseInt(sessionStorage.getItem('currentPatientId'));
+        const sessionIndex = parseInt(sessionStorage.getItem('currentSessionIndex'));
+        
+        const allSessions = loadSessions();
+        const patientSessions = allSessions.filter(s => s.pacienteId === patientId);
+        const session = patientSessions[sessionIndex];
+        
+        if (session) {
+            session.soap = {
+                subjetivo: document.getElementById('soapSubjetivo').value,
+                objetivo: document.getElementById('soapObjetivo').value,
+                analisis: document.getElementById('soapAnalisis').value,
+                plan: document.getElementById('soapPlan').value
+            };
+            session.notas = document.getElementById('sessionNotas').value;
+            session.enfoque = document.getElementById('sessionEnfoque').value;
+            
+            saveSessions(allSessions);
+            alert('✅ Cambios guardados correctamente');
+        }
+    };
+
+    // Volver
+    window.goBack = function() {
+        const patientId = sessionStorage.getItem('currentPatientId');
+        if (patientId) {
+            window.location.href = '/pacientes/' + patientId;
+        } else {
+            window.location.href = '/sesiones';
+        }
+    };
+
+    // Inicializar
+    document.addEventListener('DOMContentLoaded', renderSessionDetail);
+})();
+</script>
+
+</body>
+</html>

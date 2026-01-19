@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalle de Paciente - MindCare</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo-container">
+            <div class="logo-icon">🧠</div>
+            <h2 class="logo">MindCare</h2>
+            <p class="logo-subtitle">Sistema Clínico</p>
+        </div>
+        <ul class="menu-list">
+            <li class="menu-item">
+                <a href="/dashboard" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">📊</span>
+                    <span class="menu-text">Panel</span>
+                </a>
+            </li>
+            <li class="menu-item active">
+                <a href="/pacientes" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">👥</span>
+                    <span class="menu-text">Pacientes</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="/agenda" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">📅</span>
+                    <span class="menu-text">Agenda</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="/sesiones" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">💬</span>
+                    <span class="menu-text">Sesiones</span>
+                </a>
+            </li>
+        </ul>
+        <div class="sidebar-footer" onclick="window.location.href='/perfil'" style="cursor: pointer;">
+            <div class="user-info">
+                <div class="user-avatar">👨‍⚕️</div>
+                <div class="user-details">
+                    <div class="user-name">Dr. Psicólogo</div>
+                    <div class="user-status">En línea</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="content" id="mainContent">
+        <button class="back-btn" onclick="window.location.href='/pacientes'">
+            <span>←</span>
+            <span>Volver</span>
+        </button>
+        <div id="patientDetailContent">
+            <!-- El contenido se cargará aquí -->
+        </div>
+    </main>
+
+</div>
+
+<!-- Modal Container -->
+<div id="modalRoot"></div>
+
+<script>
+// Código específico del Detalle de Paciente
+(function() {
+    'use strict';
+
+    // Cargar pacientes
+    function loadPatients() {
+        return JSON.parse(localStorage.getItem('pp_patients') || '[]');
+    }
+
+    // Guardar pacientes
+    function savePatients(patients) {
+        localStorage.setItem('pp_patients', JSON.stringify(patients));
+    }
+
+    // Cargar sesiones del paciente
+    function loadSessionsForPatient(patientId) {
+        const allSessions = JSON.parse(localStorage.getItem('pp_sessions') || '[]');
+        return allSessions.filter(s => s.pacienteId === patientId);
+    }
+
+    // Guardar sesiones
+    function saveSessions(sessions) {
+        localStorage.setItem('pp_sessions', JSON.stringify(sessions));
+    }
+
+    // Renderizar detalle del paciente
+    function renderPatientDetail() {
+        const patientId = parseInt(sessionStorage.getItem('currentPatientId'));
+        if (!patientId) {
+            alert('No se encontró el paciente');
+            window.location.href = '/pacientes';
+            return;
+        }
+
+        const patients = loadPatients();
+        const patient = patients.find(p => p.id === patientId);
+        
+        if (!patient) {
+            alert('Paciente no encontrado');
+            window.location.href = '/pacientes';
+            return;
+        }
+
+        const sessions = loadSessionsForPatient(patientId);
+        const container = document.getElementById('patientDetailContent');
+
+        container.innerHTML = `
+            <div class="patient-detail-header">
+                <div class="patient-detail-title">
+                    <div class="patient-avatar-large">
+                        <span class="avatar-icon-large">👤</span>
+                    </div>
+                    <div>
+                        <h1 class="patient-detail-name">${patient.nombre}</h1>
+                        <p class="patient-detail-subtitle">${patient.edad} años</p>
+                    </div>
+                </div>
+                <div class="patient-detail-actions">
+                    <button onclick="editPatient(${patient.id})" class="edit-patient-btn">
+                        <span>✏️</span>
+                        <span>Editar</span>
+                    </button>
+                    <button onclick="createNewSession(${patient.id})" class="create-session-btn">
+                        <span>➕</span>
+                        <span>Nueva Sesión</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="patient-detail-grid">
+                <div class="card patient-info-card">
+                    <div class="card-header-modern">
+                        <h3>📋 Información Personal</h3>
+                    </div>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-icon">🎂</span>
+                            <div class="info-content">
+                                <span class="info-label">Edad</span>
+                                <span class="info-value">${patient.edad} años</span>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-icon">📞</span>
+                            <div class="info-content">
+                                <span class="info-label">Contacto</span>
+                                <span class="info-value">${patient.contacto}</span>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-icon">📍</span>
+                            <div class="info-content">
+                                <span class="info-label">Dirección</span>
+                                <span class="info-value">${patient.direccion}</span>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-icon">📝</span>
+                            <div class="info-content">
+                                <span class="info-label">Motivo de consulta</span>
+                                <span class="info-value">${patient.motivo}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${patient.antecedentes ? `
+                        <div class="antecedentes-section">
+                            <h4>📚 Antecedentes</h4>
+                            <p class="antecedentes-text">${patient.antecedentes}</p>
+                        </div>
+                    ` : ''}
+                </div>
+
+                <div class="card sessions-card">
+                    <div class="card-header-modern">
+                        <h3>💬 Sesiones (${sessions.length})</h3>
+                        <button onclick="createNewSession(${patient.id})" class="card-header-btn">
+                            <span>➕</span>
+                            <span>Nueva</span>
+                        </button>
+                    </div>
+                    <div class="sessions-list">
+                        ${sessions.length > 0 ? sessions.map((session, index) => `
+                            <div class="session-card" onclick="viewSession(${patient.id}, ${index})">
+                                <div class="session-card-header">
+                                    <span class="session-number">Sesión #${index + 1}</span>
+                                    <span class="session-date">📅 ${session.fecha}</span>
+                                </div>
+                                <div class="session-card-body">
+                                    <p class="session-notes">${session.notas || 'Sin notas'}</p>
+                                </div>
+                                <div class="session-card-footer">
+                                    <button class="session-action-btn" onclick="event.stopPropagation(); viewSession(${patient.id}, ${index})">
+                                        Ver detalles →
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('') : `
+                            <div class="empty-state">
+                                <p>📭 No hay sesiones registradas</p>
+                                <button onclick="createNewSession(${patient.id})" class="empty-state-btn">
+                                    Crear primera sesión
+                                </button>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Ver sesión
+    window.viewSession = function(patientId, sessionIndex) {
+        sessionStorage.setItem('currentPatientId', patientId);
+        sessionStorage.setItem('currentSessionIndex', sessionIndex);
+        window.location.href = '/sesiones/' + patientId + '-' + sessionIndex;
+    };
+
+    // Crear nueva sesión
+    window.createNewSession = function(patientId) {
+        const allSessions = JSON.parse(localStorage.getItem('pp_sessions') || '[]');
+        
+        const newSession = {
+            pacienteId: patientId,
+            fecha: new Date().toISOString().slice(0, 10),
+            notas: '',
+            soap: { subjetivo: '', objetivo: '', analisis: '', plan: '' },
+            enfoque: '',
+            grabaciones: [],
+            attachments: []
+        };
+        
+        allSessions.push(newSession);
+        saveSessions(allSessions);
+        
+        alert('✅ Nueva sesión creada');
+        renderPatientDetail();
+    };
+
+    // Editar paciente
+    window.editPatient = function(patientId) {
+        alert('Funcionalidad de editar paciente - Por implementar');
+    };
+
+    // Inicializar
+    document.addEventListener('DOMContentLoaded', renderPatientDetail);
+})();
+</script>
+
+</body>
+</html>

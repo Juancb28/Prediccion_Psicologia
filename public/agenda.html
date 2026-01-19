@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda - MindCare</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo-container">
+            <div class="logo-icon">🧠</div>
+            <h2 class="logo">MindCare</h2>
+            <p class="logo-subtitle">Sistema Clínico</p>
+        </div>
+        <ul class="menu-list">
+            <li class="menu-item">
+                <a href="/dashboard" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">📊</span>
+                    <span class="menu-text">Panel</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="/pacientes" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">👥</span>
+                    <span class="menu-text">Pacientes</span>
+                </a>
+            </li>
+            <li class="menu-item active">
+                <a href="/agenda" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">📅</span>
+                    <span class="menu-text">Agenda</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="/sesiones" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">💬</span>
+                    <span class="menu-text">Sesiones</span>
+                </a>
+            </li>
+        </ul>
+        <div class="sidebar-footer" onclick="window.location.href='/perfil'" style="cursor: pointer;">
+            <div class="user-info">
+                <div class="user-avatar">👨‍⚕️</div>
+                <div class="user-details">
+                    <div class="user-name">Dr. Psicólogo</div>
+                    <div class="user-status">En línea</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="content" id="mainContent">
+        <h1>Agenda</h1>
+        <div class="agenda-controls">
+            <button class="view-btn" onclick="window.location.href='/agenda'">📋 Lista</button>
+            <button class="view-btn create-btn" onclick="showCreateCitaModal()">➕ Crear cita</button>
+        </div>
+        <div class="card">
+            <div id="appointmentsList">
+                <!-- Las citas se cargarán aquí -->
+            </div>
+        </div>
+    </main>
+
+</div>
+
+<!-- Modal Container -->
+<div id="modalRoot"></div>
+
+<script>
+// Código específico de Agenda
+(function() {
+    'use strict';
+
+    // Inicializar datos de prueba si no existen
+    async function initializeData() {
+        try {
+            // Si no hay datos en localStorage, cargar desde data.json
+            if (!localStorage.getItem('pp_patients') || !localStorage.getItem('pp_agenda')) {
+                const response = await fetch('/data.json');
+                const data = await response.json();
+                
+                if (data.pacientes && data.pacientes.length > 0) {
+                    localStorage.setItem('pp_patients', JSON.stringify(data.pacientes));
+                }
+                if (data.agenda && data.agenda.length > 0) {
+                    localStorage.setItem('pp_agenda', JSON.stringify(data.agenda));
+                }
+            }
+        } catch (error) {
+            console.error('Error al cargar datos:', error);
+        }
+    }
+
+    // Cargar datos
+    function loadAppointments() {
+        return JSON.parse(localStorage.getItem('pp_agenda') || '[]');
+    }
+
+    function loadPatients() {
+        return JSON.parse(localStorage.getItem('pp_patients') || '[]');
+    }
+
+    function saveAppointments(appointments) {
+        localStorage.setItem('pp_agenda', JSON.stringify(appointments));
+    }
+
+    // Renderizar lista de citas
+    function renderAppointments() {
+        const appointments = loadAppointments();
+        const patients = loadPatients();
+        const listContainer = document.getElementById('appointmentsList');
+
+        if (appointments.length === 0) {
+            listContainer.innerHTML = '<div class="empty-state">📭 No hay citas programadas</div>';
+            return;
+        }
+
+        listContainer.innerHTML = appointments.map((apt, index) => {
+            const patient = patients.find(p => p.id === apt.pacienteId);
+            const statusClass = apt.estado === 'Confirmada' ? 'confirmed' : 
+                               apt.estado === 'Pendiente' ? 'pending' : 
+                               apt.estado === 'Finalizada' ? 'finished' : 'cancelled';
+            
+            return `
+                <div class="appointment-item ${statusClass}">
+                    <div onclick="editAppointment(${index})" style="flex: 1; cursor: pointer;">
+                        <div class="appointment-header">
+                            <div class="appointment-datetime">
+                                <span class="appointment-icon">🕐</span>
+                                <span class="appointment-date">${apt.fecha}</span>
+                                <span class="appointment-time">${apt.hora}</span>
+                            </div>
+                            <span class="appointment-status status-${statusClass}">${apt.estado}</span>
+                        </div>
+                        <div class="appointment-patient">
+                            <span class="patient-icon">👤</span>
+                            <span class="patient-name">${patient ? patient.nombre : '—'}</span>
+                        </div>
+                    </div>
+                    <button class="delete-btn-small" onclick="event.stopPropagation(); deleteCita(${index})" title="Eliminar cita">
+                        🗑️
+                    </button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Mostrar modal de nueva cita
+    window.showCreateCitaModal = function() {
+        const patients = loadPatients();
+        
+        const modalHTML = `
+            <div class="modal-backdrop" onclick="event.target === this && closeModal()">
+                <div class="modal">
+                    <div class="modern-modal-header">
+                        <h3 class="modal-title">Nueva Cita</h3>
+                    </div>
+                    <div class="modern-modal-body">
+                        <form id="newCitaForm">
+                            <div class="modern-form-group">
+                                <label class="modern-label">
+                                    <span class="label-icon">👤</span>
+                                    <span>Paciente</span>
+                                </label>
+                                <select name="pacienteId" class="modern-select" required>
+                                    <option value="">Seleccionar paciente...</option>
+                                    ${patients.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="modern-form-group">
+                                <label class="modern-label">
+                                    <span class="label-icon">📅</span>
+                                    <span>Fecha</span>
+                                </label>
+                                <input name="fecha" type="date" class="modern-input" value="${new Date().toISOString().slice(0, 10)}" required>
+                            </div>
+                            <div class="modern-form-group">
+                                <label class="modern-label">
+                                    <span class="label-icon">🕐</span>
+                                    <span>Hora</span>
+                                </label>
+                                <input name="hora" type="time" class="modern-input" value="09:00" required>
+                            </div>
+                            <div class="modern-form-group">
+                                <label class="modern-label">
+                                    <span class="label-icon">📊</span>
+                                    <span>Estado</span>
+                                </label>
+                                <select name="estado" class="modern-select">
+                                    <option>Pendiente</option>
+                                    <option>Confirmada</option>
+                                    <option>Finalizada</option>
+                                    <option>Anulada</option>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modern-modal-footer">
+                        <button class="modern-btn cancel-btn" onclick="closeModal()">Cancelar</button>
+                        <button class="modern-btn save-btn" onclick="saveNewCita()">
+                            <span>💾</span>
+                            <span>Guardar</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('modalRoot').innerHTML = modalHTML;
+    };
+
+    // Guardar nueva cita
+    window.saveNewCita = function() {
+        const form = document.getElementById('newCitaForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+        
+        const formData = new FormData(form);
+        const appointments = loadAppointments();
+        appointments.push({
+            pacienteId: parseInt(formData.get('pacienteId')),
+            fecha: formData.get('fecha'),
+            hora: formData.get('hora'),
+            estado: formData.get('estado')
+        });
+        
+        saveAppointments(appointments);
+        closeModal();
+        renderAppointments();
+        alert('✅ Cita creada correctamente');
+    };
+
+    // Editar cita
+    window.editAppointment = function(index) {
+        const appointments = loadAppointments();
+        const patients = loadPatients();
+        const apt = appointments[index];
+        
+        if (!apt) {
+            alert('❌ No se encontró la cita');
+            return;
+        }
+
+        const patient = patients.find(p => p.id === apt.pacienteId);
+        
+        const modalHTML = `
+            <div class="modal-backdrop" onclick="event.target === this && closeModal()">
+                <div class="modal">
+                    <div class="modern-modal-header">
+                        <h3 class="modal-title">Editar cita</h3>
+                    </div>
+                    <div class="modern-modal-body">
+                        <form id="editCitaForm">
+                            <div class="modern-form-group">
+                                <label class="modern-label">
+                                    <span class="label-icon">👤</span>
+                                    <span>Paciente ID</span>
+                                </label>
+                                <input type="text" class="modern-input" value="${apt.pacienteId}" disabled style="background: #f5f5f5;">
+                                <small style="color: #666; margin-top: 4px; display: block;">Paciente: ${patient ? patient.nombre : 'Desconocido'}</small>
+                            </div>
+                            <div class="modern-form-group">
+                                <label class="modern-label">
+                                    <span class="label-icon">📅</span>
+                                    <span>Fecha</span>
+                                </label>
+                                <input name="fecha" type="date" class="modern-input" value="${apt.fecha}" required>
+                            </div>
+                            <div class="modern-form-group">
+                                <label class="modern-label">
+                                    <span class="label-icon">🕐</span>
+                                    <span>Hora</span>
+                                </label>
+                                <input name="hora" type="time" class="modern-input" value="${apt.hora}" required>
+                            </div>
+                            <div class="modern-form-group">
+                                <label class="modern-label">
+                                    <span class="label-icon">📊</span>
+                                    <span>Estado</span>
+                                </label>
+                                <select name="estado" class="modern-select">
+                                    <option ${apt.estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                                    <option ${apt.estado === 'Confirmada' ? 'selected' : ''}>Confirmada</option>
+                                    <option ${apt.estado === 'Finalizada' ? 'selected' : ''}>Finalizada</option>
+                                    <option ${apt.estado === 'Anulada' ? 'selected' : ''}>Anulada</option>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modern-modal-footer">
+                        <button class="modern-btn delete-btn" onclick="deleteCita(${index})" style="margin-right: auto;">
+                            <span>🗑️</span>
+                            <span>Eliminar</span>
+                        </button>
+                        <button class="modern-btn cancel-btn" onclick="closeModal()">Cancelar</button>
+                        <button class="modern-btn save-btn" onclick="saveEditedCita(${index})">
+                            <span>💾</span>
+                            <span>Guardar</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('modalRoot').innerHTML = modalHTML;
+    };
+
+    // Guardar cita editada
+    window.saveEditedCita = function(index) {
+        const form = document.getElementById('editCitaForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+        
+        const formData = new FormData(form);
+        const appointments = loadAppointments();
+        
+        if (appointments[index]) {
+            appointments[index].fecha = formData.get('fecha');
+            appointments[index].hora = formData.get('hora');
+            appointments[index].estado = formData.get('estado');
+            
+            saveAppointments(appointments);
+            closeModal();
+            renderAppointments();
+            alert('✅ Cita actualizada correctamente');
+        } else {
+            alert('❌ Error al actualizar la cita');
+        }
+    };
+
+    // Eliminar cita
+    window.deleteCita = function(index) {
+        const appointments = loadAppointments();
+        const patients = loadPatients();
+        const apt = appointments[index];
+        
+        if (!apt) {
+            alert('❌ No se encontró la cita');
+            return;
+        }
+        
+        const patient = patients.find(p => p.id === apt.pacienteId);
+        const patientName = patient ? patient.nombre : 'Desconocido';
+        
+        const confirmDelete = confirm(
+            `¿Estás seguro de eliminar la cita?\n\n` +
+            `Paciente: ${patientName}\n` +
+            `Fecha: ${apt.fecha}\n` +
+            `Hora: ${apt.hora}\n` +
+            `Estado: ${apt.estado}`
+        );
+        
+        if (confirmDelete) {
+            appointments.splice(index, 1);
+            saveAppointments(appointments);
+            closeModal();
+            renderAppointments();
+            alert('✅ Cita eliminada correctamente');
+        }
+    };
+
+    // Cerrar modal
+    window.closeModal = function() {
+        document.getElementById('modalRoot').innerHTML = '';
+    };
+
+    // Inicializar
+    document.addEventListener('DOMContentLoaded', async function() {
+        await initializeData();
+        renderAppointments();
+    });
+})();
+</script>
+
+</body>
+</html>

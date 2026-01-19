@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pacientes - MindCare</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo-container">
+            <div class="logo-icon">🧠</div>
+            <h2 class="logo">MindCare</h2>
+            <p class="logo-subtitle">Sistema Clínico</p>
+        </div>
+        <ul class="menu-list">
+            <li class="menu-item">
+                <a href="/dashboard" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">📊</span>
+                    <span class="menu-text">Panel</span>
+                </a>
+            </li>
+            <li class="menu-item active">
+                <a href="/pacientes" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">👥</span>
+                    <span class="menu-text">Pacientes</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="/agenda" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">📅</span>
+                    <span class="menu-text">Agenda</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="/sesiones" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">💬</span>
+                    <span class="menu-text">Sesiones</span>
+                </a>
+            </li>
+        </ul>
+        <div class="sidebar-footer" onclick="window.location.href='/perfil'" style="cursor: pointer;">
+            <div class="user-info">
+                <div class="user-avatar">👨‍⚕️</div>
+                <div class="user-details">
+                    <div class="user-name">Dr. Psicólogo</div>
+                    <div class="user-status">En línea</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="content" id="mainContent">
+        <div class="patients-header">
+            <h1>Gestión de Pacientes</h1>
+            <button class="add-patient-btn" onclick="showAddPatientModal()">
+                <span class="btn-icon">➕</span>
+                <span>Nuevo Paciente</span>
+            </button>
+        </div>
+        <div class="card">
+            <div class="patients-grid" id="patientsGrid">
+                <!-- Los pacientes se cargarán aquí -->
+            </div>
+        </div>
+    </main>
+
+</div>
+
+<!-- Modal Container -->
+<div id="modalRoot"></div>
+
+<script>
+// Código específico de Pacientes
+(function() {
+    'use strict';
+
+    // Cargar pacientes desde localStorage
+    function loadPatients() {
+        return JSON.parse(localStorage.getItem('pp_patients') || '[]');
+    }
+
+    // Guardar pacientes
+    function savePatients(patients) {
+        localStorage.setItem('pp_patients', JSON.stringify(patients));
+    }
+
+    // Renderizar lista de pacientes
+    function renderPatients() {
+        const patients = loadPatients();
+        const grid = document.getElementById('patientsGrid');
+
+        if (patients.length === 0) {
+            grid.innerHTML = '<div class="empty-state">No hay pacientes registrados. Haz clic en "Nuevo Paciente" para agregar uno.</div>';
+            return;
+        }
+
+        grid.innerHTML = patients.map(p => `
+            <div class="patient-card" onclick="viewPatientDetail(${p.id})">
+                <div class="patient-card-header">
+                    <div class="patient-avatar">
+                        <span class="avatar-icon">👤</span>
+                    </div>
+                    <div class="patient-info">
+                        <h3 class="patient-name">${p.nombre}</h3>
+                        <div class="patient-age">
+                            <span class="age-icon">🎂</span>
+                            <span>${p.edad} años</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="patient-card-body">
+                    <div class="patient-reason">
+                        <span class="reason-icon">📋</span>
+                        <span class="reason-label">Motivo:</span>
+                        <span class="reason-text">${p.motivo}</span>
+                    </div>
+                </div>
+                <div class="patient-card-footer">
+                    <button class="patient-action-btn view-btn" onclick="event.stopPropagation(); viewPatientDetail(${p.id})">
+                        <span>👁️</span>
+                        <span>Ver Detalles</span>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Ver detalle de paciente
+    window.viewPatientDetail = function(patientId) {
+        // Guardar ID en sessionStorage para la página de detalle
+        sessionStorage.setItem('currentPatientId', patientId);
+        window.location.href = '/pacientes/' + patientId;
+    };
+
+    // Mostrar modal de nuevo paciente
+    window.showAddPatientModal = function() {
+        const modalHTML = `
+            <div class="modal-backdrop">
+                <div class="modal">
+                    <div class="modern-modal-header">
+                        <h3 class="modal-title">Nuevo Paciente</h3>
+                    </div>
+                    <div class="modern-modal-body">
+                        <form id="newPatientForm">
+                            <div class="modern-form-group">
+                                <label class="modern-label">
+                                    <span class="label-icon">👤</span>
+                                    <span>Nombre completo</span>
+                                </label>
+                                <input name="nombre" class="modern-input" required>
+                            </div>
+                            <div class="modern-form-row">
+                                <div class="modern-form-group">
+                                    <label class="modern-label">
+                                        <span class="label-icon">🎂</span>
+                                        <span>Edad</span>
+                                    </label>
+                                    <input name="edad" type="number" class="modern-input" required>
+                                </div>
+                                <div class="modern-form-group">
+                                    <label class="modern-label">
+                                        <span class="label-icon">📞</span>
+                                        <span>Contacto</span>
+                                    </label>
+                                    <input name="contacto" class="modern-input" required>
+                                </div>
+                            </div>
+                            <div class="modern-form-group">
+                                <label class="modern-label">
+                                    <span class="label-icon">📍</span>
+                                    <span>Dirección</span>
+                                </label>
+                                <input name="direccion" class="modern-input" required>
+                            </div>
+                            <div class="modern-form-group">
+                                <label class="modern-label">
+                                    <span class="label-icon">📝</span>
+                                    <span>Motivo de consulta</span>
+                                </label>
+                                <input name="motivo" class="modern-input" required>
+                            </div>
+                            <div class="modern-form-group">
+                                <label class="modern-label">
+                                    <span class="label-icon">📚</span>
+                                    <span>Antecedentes</span>
+                                </label>
+                                <textarea name="antecedentes" class="modern-input" rows="4"></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modern-modal-footer">
+                        <button class="modern-btn cancel-btn" onclick="closeModal()">
+                            <span>Cancelar</span>
+                        </button>
+                        <button class="modern-btn save-btn" onclick="saveNewPatient()">
+                            <span>💾</span>
+                            <span>Guardar</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('modalRoot').innerHTML = modalHTML;
+    };
+
+    // Guardar nuevo paciente
+    window.saveNewPatient = function() {
+        const form = document.getElementById('newPatientForm');
+        const formData = new FormData(form);
+        
+        const patients = loadPatients();
+        const newId = patients.length > 0 ? Math.max(...patients.map(p => p.id)) + 1 : 1;
+        
+        const newPatient = {
+            id: newId,
+            nombre: formData.get('nombre'),
+            edad: parseInt(formData.get('edad')),
+            contacto: formData.get('contacto'),
+            direccion: formData.get('direccion'),
+            motivo: formData.get('motivo'),
+            antecedentes: formData.get('antecedentes') || '',
+            consents: [],
+            genogramaHtml: null
+        };
+        
+        patients.push(newPatient);
+        savePatients(patients);
+        
+        closeModal();
+        renderPatients();
+        alert('✅ Paciente creado correctamente');
+    };
+
+    // Cerrar modal
+    window.closeModal = function() {
+        document.getElementById('modalRoot').innerHTML = '';
+    };
+
+    // Inicializar
+    document.addEventListener('DOMContentLoaded', renderPatients);
+})();
+</script>
+
+</body>
+</html>

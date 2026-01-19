@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfil Profesional - MindCare</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo-container">
+            <div class="logo-icon">🧠</div>
+            <h2 class="logo">MindCare</h2>
+            <p class="logo-subtitle">Sistema Clínico</p>
+        </div>
+        <ul class="menu-list">
+            <li class="menu-item">
+                <a href="/dashboard" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">📊</span>
+                    <span class="menu-text">Panel</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="/pacientes" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">👥</span>
+                    <span class="menu-text">Pacientes</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="/agenda" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">📅</span>
+                    <span class="menu-text">Agenda</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="/sesiones" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <span class="menu-icon">💬</span>
+                    <span class="menu-text">Sesiones</span>
+                </a>
+            </li>
+        </ul>
+        <div class="sidebar-footer" onclick="window.location.href='/perfil'" style="cursor: pointer;">
+            <div class="user-info">
+                <div class="user-avatar">👨‍⚕️</div>
+                <div class="user-details">
+                    <div class="user-name">Dr. Psicólogo</div>
+                    <div class="user-status">En línea</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="content" id="mainContent">
+        <!-- El contenido se cargará aquí -->
+    </main>
+
+</div>
+
+<script>
+// Código específico del Perfil del Psicólogo
+(function() {
+    'use strict';
+
+    // Cargar perfil
+    function loadProfile() {
+        const saved = localStorage.getItem('psychologist_profile');
+        if (saved) {
+            try {
+                return JSON.parse(saved);
+            } catch (e) {
+                console.error('Error loading profile:', e);
+            }
+        }
+        return {
+            nombre: 'Dr. Psicólogo',
+            especialidad: 'Psicología Clínica',
+            cedula: '12345678',
+            email: 'psicologo@example.com',
+            telefono: '+57 300 123 4567',
+            voiceSampleRecorded: false,
+            pin: '123456'
+        };
+    }
+
+    // Renderizar perfil
+    function renderProfile() {
+        const profile = loadProfile();
+        const mainContent = document.getElementById('mainContent');
+
+        mainContent.innerHTML = `
+            <div class="patient-detail-header">
+                <div class="patient-detail-title">
+                    <div class="patient-avatar-large">
+                        <span class="avatar-icon-large">👨‍⚕️</span>
+                    </div>
+                    <div>
+                        <h1 class="patient-detail-name">${profile.nombre}</h1>
+                        <p class="patient-detail-subtitle">${profile.especialidad}</p>
+                    </div>
+                </div>
+                <button onclick="alert('Editar perfil - Por implementar')" class="create-session-btn">
+                    <span>✏️</span>
+                    <span>Editar Perfil</span>
+                </button>
+            </div>
+
+            <div class="patient-detail-grid">
+                <div class="card patient-info-card">
+                    <div class="card-header-modern">
+                        <h3>📋 Información Profesional</h3>
+                    </div>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-icon">🎓</span>
+                            <div class="info-content">
+                                <span class="info-label">Especialidad</span>
+                                <span class="info-value">${profile.especialidad}</span>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-icon">🎫</span>
+                            <div class="info-content">
+                                <span class="info-label">Cédula Profesional</span>
+                                <span class="info-value">${profile.cedula}</span>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-icon">📧</span>
+                            <div class="info-content">
+                                <span class="info-label">Email</span>
+                                <span class="info-value">${profile.email}</span>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-icon">📞</span>
+                            <div class="info-content">
+                                <span class="info-label">Teléfono</span>
+                                <span class="info-value">${profile.telefono}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header-modern">
+                        <h3>🔒 Seguridad</h3>
+                    </div>
+                    <div class="security-section">
+                        <div class="security-item">
+                            <div class="security-icon">🔑</div>
+                            <div class="security-content">
+                                <h4>PIN de Seguridad</h4>
+                                <p>PIN actual configurado. Usado para autorizar acciones sensibles.</p>
+                            </div>
+                            <button class="security-btn" onclick="alert('Cambiar PIN - Por implementar')">
+                                <span>🔄</span>
+                                <span>Cambiar PIN</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Inicializar
+    document.addEventListener('DOMContentLoaded', renderProfile);
+})();
+</script>
+
+</body>
+</html>

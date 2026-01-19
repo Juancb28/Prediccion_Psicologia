@@ -1,19 +1,61 @@
 # Prediccion_Psicologia
 App desarrollada para la predicción de problemas mentales, utilizado únicamente por los profesionales de salud.
 
+## 🚀 Inicio Rápido
 
-cd agentes
+### 1. Iniciar el Servidor
 
-# Compilar
-javac -cp "lib/*" *.java
-
-# Ejecutar
-java -cp "lib/*:." AnalizadorSesion ../transciption/sesion_001.txt
-
-# En Bash, ejecutar el servidor server.js
+```bash
+# En Bash o terminal
 node server.js
+```
 
-# Instalar dependencias/librerias
+El servidor iniciará en `http://localhost:3000`
+
+### 2. Abrir en Navegador
+
+```
+http://localhost:3000
+```
+
+Se abrirá automáticamente el dashboard. La URL cambiará según el módulo que estés navegando:
+- `/dashboard` - Panel principal
+- `/pacientes` - Lista de pacientes
+- `/agenda` - Gestión de citas
+- `/sesiones` - Lista de sesiones
+- `/perfil` - Perfil del psicólogo
+
+## 📋 Enrutamiento
+
+La aplicación ahora usa **URLs limpias y enrutamiento declarativo**:
+
+✅ `/dashboard` → Panel principal
+✅ `/pacientes` → Lista de pacientes
+✅ `/pacientes/:id` → Detalle de paciente
+✅ `/agenda` → Agenda de citas
+✅ `/sesiones` → Lista de sesiones
+✅ `/sesiones/:id` → Detalle de sesión
+✅ `/perfil` → Perfil del psicólogo
+
+Para más detalles, consulta [ENRUTAMIENTO.md](ENRUTAMIENTO.md)
+
+## 🧪 Probar Rutas
+
+### Windows (PowerShell)
+```powershell
+.\test-routes.ps1
+```
+
+### Linux/Mac (Bash)
+```bash
+bash test-routes.sh
+```
+
+---
+
+## 🔧 Desarrollo
+
+### Compilar Agentes Java
 "D:/Software/Projects/AI _Project/Prediccion_Psicologia/.venv/Scripts/python.exe" -m pip install --upgrade pip setuptools wheel
 "D:/Software/Projects/AI _Project/Prediccion_Psicologia/.venv/Scripts/python.exe" -m pip install --upgrade pip setuptools wheel
 "D:/Software/Projects/AI _Project/Prediccion_Psicologia/.venv/Scripts/python.exe" -m pip install -r requirements.txt
@@ -24,30 +66,20 @@ node server.js
 python transciption/process_all.py
 
 
-Pasos rápidos (Bash)
---------------------
+## 🔧 Desarrollo
 
-Sigue estos pasos en una terminal Bash (`bash.exe`) desde la raíz del proyecto `Prediccion_Psicologia`.
-
-1) Abrir la carpeta del proyecto (si aún no estás ahí):
+### Compilar Agentes Java
 
 ```bash
-cd "D:/Software/Projects/AI _Project/Prediccion_Psicologia"
+cd agentes
+javac -cp "lib/*" *.java
+java -cp "lib/*:." AnalizadorSesion ../transciption/sesion_001.txt
 ```
 
-2) Activar el entorno virtual `.venv`:
+### Instalar Dependencias Python
 
 ```bash
-source .venv/Scripts/activate
-# Verifica que el intérprete corresponde al .venv
-python -c "import sys; print(sys.executable)"
-```
-
-3) Actualizar herramientas de empaquetado e instalar dependencias:
-
-```bash
-python -m pip install --upgrade pip setuptools wheel
-python -m pip install -r requirements.txt
+# Instalar dependencias/librerias
 ```
 
 4) (Opcional, para usar la GPU NVIDIA) Instalar PyTorch y torchaudio con CUDA 12.1
@@ -104,36 +136,33 @@ cd "D:/Software/Projects/AI _Project/Prediccion_Psicologia"
 source .venv/Scripts/activate
 ```
 
-3) (Comprobación opcional) Verifica que estás usando el intérprete del venv y que torch puede usar la GPU:
+### Verificar Entorno (opcional)
 
 ```bash
 python -c "import sys,torch; print('python=', sys.executable); print('torch=', getattr(torch,'__version__',None), 'cuda=', getattr(torch.version,'cuda',None), 'cuda_available=', torch.cuda.is_available())"
 ```
 
-4) Ejecuta el pipeline (transcripción → diarización → etiquetado):
+---
+
+## 📖 Pasos Rápidos (Desarrollo Diario)
 
 ```bash
-python transciption/process_all.py
-```
-
-5) Revisa los resultados en `outputs/`:
-
-```bash
-ls outputs/
-head -n 40 outputs/*_transcription.txt
-```
-
-Eso es todo — estos pasos asumen que `pip install -r requirements.txt` ya se ejecutó antes y que `.venv` contiene las dependencias necesarias.
-
-
-# Ejecutar ambos servidores
-export PYTHON="./.venv/Scripts/python.exe"  
-node server.js
-
-# o 
+# 1. Activar entorno virtual
 source .venv/Scripts/activate
-export PYTHON="$(which python)"  
+
+# 2. Iniciar servidor
 node server.js
 
-what do dendritic spines do?
-What is meant "monism"?
+# 3. Abrir navegador
+# http://localhost:3000
+```
+
+---
+
+## 🌐 URLs del Sistema
+
+- **Dashboard**: `http://localhost:3000/dashboard`
+- **Pacientes**: `http://localhost:3000/pacientes`
+- **Agenda**: `http://localhost:3000/agenda`
+- **Sesiones**: `http://localhost:3000/sesiones`
+- **Perfil**: `http://localhost:3000/perfil`

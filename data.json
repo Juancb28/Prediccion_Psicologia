@@ -1,6 +1,50 @@
 {
-  "pacientes": [],
-  "agenda": [],
+  "pacientes": [
+    {
+      "id": 1,
+      "nombre": "Juan Perez",
+      "edad": 35,
+      "telefono": "555-0123",
+      "email": "juan.perez@email.com",
+      "direccion": "Calle Principal 123",
+      "fechaNacimiento": "1988-03-15",
+      "genero": "Masculino",
+      "ocupacion": "Ingeniero",
+      "motivoConsulta": "Ansiedad laboral"
+    },
+    {
+      "id": 2,
+      "nombre": "Maria Lopez",
+      "edad": 28,
+      "telefono": "555-0456",
+      "email": "maria.lopez@email.com",
+      "direccion": "Avenida Central 456",
+      "fechaNacimiento": "1995-07-22",
+      "genero": "Femenino",
+      "ocupacion": "Profesora",
+      "motivoConsulta": "Estrés y depresión"
+    }
+  ],
+  "agenda": [
+    {
+      "pacienteId": 1,
+      "fecha": "2025-11-19",
+      "hora": "10:00",
+      "estado": "Pendiente"
+    },
+    {
+      "pacienteId": 2,
+      "fecha": "2025-11-19",
+      "hora": "12:00",
+      "estado": "Confirmada"
+    },
+    {
+      "pacienteId": 1,
+      "fecha": "2025-11-25",
+      "hora": "14:30",
+      "estado": "Pendiente"
+    }
+  ],
   "sesiones": [],
   "reportes": [],
   "genograma": {}

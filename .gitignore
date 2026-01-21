@@ -10,6 +10,7 @@ __pycache__/
 # Entorno
 .env
 .venv
+.env.example
 
 # IDE
 .vscode/

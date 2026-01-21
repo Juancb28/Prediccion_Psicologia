@@ -70,6 +70,16 @@ loadDotenvAndLog();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Make startup failures visible (useful when the process exits immediately)
+process.on('uncaughtException', (err) => {
+    console.error('[fatal] uncaughtException:', err && err.stack ? err.stack : err);
+    process.exitCode = 1;
+});
+process.on('unhandledRejection', (reason) => {
+    console.error('[fatal] unhandledRejection:', reason);
+    process.exitCode = 1;
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // Enable CORS for frontend running on different port (e.g. live-server:5500)
@@ -532,6 +542,75 @@ app.post('/api/transcribe-recording', express.json(), (req, res) => {
     }
 });
 
+// RAG endpoint: query Qdrant (already populated) and generate answer
+app.post('/api/rag/ask', express.json({ limit: '1mb' }), (req, res) => {
+    try{
+        const { collection, query, k, top_n } = req.body || {};
+        if(!collection || !query){
+            return res.status(400).json({ ok:false, error: 'missing_collection_or_query' });
+        }
+
+        // Prefer project-local .venv python if it exists (Windows/Unix paths)
+        let pyExec = process.env.PYTHON_PATH || process.env.PYTHON || 'python';
+        try{
+            const venvWin = path.join(__dirname, '.venv', 'Scripts', 'python.exe');
+            const venvUnix = path.join(__dirname, '.venv', 'bin', 'python');
+            if(fs.existsSync(venvWin)) pyExec = venvWin;
+            else if(fs.existsSync(venvUnix)) pyExec = venvUnix;
+        }catch(e){ /* ignore */ }
+
+        const scriptPath = path.join(__dirname, 'tools', 'rag_query.py');
+        const childEnv = Object.assign({}, process.env);
+        try{ childEnv.PYTHONIOENCODING = childEnv.PYTHONIOENCODING || 'utf-8'; }catch(e){}
+        try{ childEnv.PYTHONUTF8 = childEnv.PYTHONUTF8 || '1'; }catch(e){}
+
+        const child = spawn(pyExec, [scriptPath], { env: childEnv, cwd: __dirname });
+
+        let out = '';
+        let err = '';
+        if(child.stdout) child.stdout.on('data', (d)=>{ out += d.toString(); });
+        if(child.stderr) child.stderr.on('data', (d)=>{ err += d.toString(); });
+        child.on('error', (e)=>{
+            return res.status(500).json({ ok:false, error: 'rag_spawn_error', detail: String(e && e.message) });
+        });
+        child.on('close', (code)=>{
+            // Always try to parse JSON (even on non-zero exit codes) so we can return
+            // structured errors from Python instead of opaque rag_failed messages.
+            let parsed = null;
+            try{ parsed = JSON.parse(out); }catch(e){ parsed = null; }
+
+            if(parsed && typeof parsed === 'object'){
+                // Choose status codes that help debugging and avoid generic 500s when it's a bad request.
+                const isOk = parsed.ok === true;
+                if(isOk) return res.json(parsed);
+
+                const errCode = String(parsed.error || 'rag_error');
+                const clientErrors = new Set([
+                    'missing_collection_or_query',
+                    'bad_json_in',
+                    'collection_not_found'
+                ]);
+                const status = clientErrors.has(errCode) ? 400 : 500;
+                return res.status(status).json(Object.assign({ ok:false, code }, parsed));
+            }
+
+            if(code !== 0){
+                return res.status(500).json({ ok:false, error: 'rag_failed', code, detail: err || out || `exit_${code}` });
+            }
+            try{
+                return res.json(JSON.parse(out));
+            }catch(e){
+                return res.status(500).json({ ok:false, error: 'bad_python_json', detail: String(e && e.message), raw: out });
+            }
+        });
+
+        child.stdin.write(JSON.stringify({ collection, query, k, top_n }));
+        child.stdin.end();
+    }catch(e){
+        return res.status(500).json({ ok:false, error: 'server_error', detail: String(e && e.message) });
+    }
+});
+
 // Data endpoints
 const dataFile = path.join(__dirname, 'data.json');
 
@@ -705,4 +784,13 @@ app.use('/uploads', express.static(uploadsDir));
 // Serve refs (voice samples)
 app.use('/refs', express.static(refsDir));
 
-app.listen(PORT, ()=> console.log(`Dev server running at http://localhost:${PORT}`));
+const server = app.listen(PORT, ()=> console.log(`Dev server running at http://localhost:${PORT}`));
+server.on('error', (err) => {
+    // Common cause: port already in use (php.exe, another node, etc)
+    console.error('[fatal] Server failed to start:', err && err.stack ? err.stack : err);
+    if(err && err.code === 'EADDRINUSE'){
+        console.error(`[hint] El puerto ${PORT} ya está ocupado. Ejecuta: netstat -ano | findstr :${PORT} y luego taskkill /PID <PID> /F`);
+        console.error('[hint] Alternativa rápida: set PORT=3001 (PowerShell: $env:PORT=3001) y vuelve a correr node server.js');
+    }
+    process.exitCode = 1;
+});

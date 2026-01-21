@@ -64,8 +64,89 @@ const mockGenograma = {
 let activePatientId = null;
 // Map to keep active polling intervals per patient while session view is open
 const _pp_active_intervals = {};
-// API base (backend server). Change `window.API_BASE_URL` to override in dev if needed.
-const API_BASE = (window.API_BASE_URL || 'http://localhost:3000');
+// API base (backend server).
+// - If the app is served by our Node server (e.g. http://localhost:3000 or :3001), use same-origin.
+// - If the app is served by Live Server (typically :55xx), default to http://localhost:3000.
+// - You can always override with `window.API_BASE_URL = 'http://localhost:3001'` BEFORE app.js loads.
+const API_BASE = (() => {
+    try{
+        if(window.API_BASE_URL) return String(window.API_BASE_URL);
+        const loc = window.location;
+        const origin = (loc && loc.origin) ? String(loc.origin) : '';
+        const port = (loc && loc.port) ? String(loc.port) : '';
+        const protocol = (loc && loc.protocol) ? String(loc.protocol) : '';
+
+        // If opened via file:// or some non-http origin, fall back to default backend port.
+        if(!origin || origin === 'null' || !protocol.startsWith('http')) return 'http://localhost:3000';
+
+        // Live Server commonly runs on 5500/5501/etc (55xx). In that case, backend is separate.
+        if(port && /^55\d\d$/.test(port)) return 'http://localhost:3000';
+
+        // Otherwise assume same-origin backend.
+        return origin;
+    }catch(e){
+        return 'http://localhost:3000';
+    }
+})();
+
+function enfoqueLabelToCollection(enfoqueLabel){
+    const s = String(enfoqueLabel || '').toLowerCase();
+    if(s.startsWith('rag_')) return String(enfoqueLabel);
+    if(s.includes('psicoanal')) return 'rag_psicoanalitico';
+    if(s.includes('conduct')) return 'rag_conductista';
+    if(s.includes('cognit')) return 'rag_cognitivo';
+    if(s.includes('human')) return 'rag_humanista';
+    if(s.includes('gestalt')) return 'rag_gestalt';
+    // Colección real en Qdrant: rag_biopsicologico
+    // (antes se usó 'rag_biopicologico', pero la disponible es con 's')
+    if(s.includes('biopsicol') || s.includes('neurocien') || s.includes('biopicolog')) return 'rag_biopsicologico';
+    if(s.includes('sociocult') || s.includes('cultural')) return 'rag_sociocultural';
+    if(s.includes('evolucion')) return 'rag_evolucionista';
+    return '';
+}
+
+// Pick the closest existing collection name based on a small available list.
+// This helps when the UI mapping differs slightly from the actual Qdrant collection.
+function pickClosestCollection(requested, available){
+    const req = String(requested || '').trim();
+    if(!req || !Array.isArray(available) || available.length === 0) return '';
+    if(available.includes(req)) return req;
+
+    const lowerMap = new Map();
+    available.forEach(a => lowerMap.set(String(a).toLowerCase(), String(a)));
+    const exactLower = lowerMap.get(req.toLowerCase());
+    if(exactLower) return exactLower;
+
+    // Tiny Levenshtein implementation (strings are short; lists are small)
+    function levenshtein(a, b){
+        a = String(a); b = String(b);
+        const m = a.length, n = b.length;
+        const dp = Array.from({length: m+1}, ()=>Array(n+1).fill(0));
+        for(let i=0;i<=m;i++) dp[i][0] = i;
+        for(let j=0;j<=n;j++) dp[0][j] = j;
+        for(let i=1;i<=m;i++){
+            for(let j=1;j<=n;j++){
+                const cost = a[i-1] === b[j-1] ? 0 : 1;
+                dp[i][j] = Math.min(
+                    dp[i-1][j] + 1,
+                    dp[i][j-1] + 1,
+                    dp[i-1][j-1] + cost
+                );
+            }
+        }
+        return dp[m][n];
+    }
+
+    let best = '';
+    let bestDist = Infinity;
+    for(const cand of available){
+        const d = levenshtein(req.toLowerCase(), String(cand).toLowerCase());
+        if(d < bestDist){ bestDist = d; best = String(cand); }
+    }
+
+    // Only accept very small differences to avoid surprising mismatches.
+    return bestDist <= 3 ? best : '';
+}
 // Tooltip styles moved to `styles.css`
 
 // Helper: extract a formatted transcription text from the server response.
@@ -3145,7 +3226,7 @@ async function openSessionDetail(sessionIndex, patientId){
                     <button id="_realizar_analisis_btn" class="btn" style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white; padding:8px 16px; font-size:14px; border-radius:8px;">🔬 Realizar análisis</button>
                 </div>
                 <div style="padding:12px; background:#f9fafb; border:2px solid #e5e7eb; border-radius:8px; min-height:60px;">
-                    <p style="margin:0; color:#4b5563; line-height:1.5; font-size:14px;">${s.analisis || '<em style="color:#9ca3af;">(Sin análisis)</em>'}</p>
+                    <p id="_analisis_output" style="margin:0; color:#4b5563; line-height:1.5; font-size:14px;">${s.analisis || '<em style="color:#9ca3af;">(Sin análisis)</em>'}</p>
                 </div>
             </div>
 
@@ -3185,16 +3266,88 @@ async function openSessionDetail(sessionIndex, patientId){
     // Botón realizar análisis
     document.getElementById('_realizar_analisis_btn').onclick = async ()=>{
         const btn = document.getElementById('_realizar_analisis_btn');
+        const outEl = document.getElementById('_analisis_output');
+
+        const enfoqueLabel = document.getElementById('_enfoque_select')?.value || s.enfoque || '';
+        const collection = enfoqueLabelToCollection(enfoqueLabel);
+
+        if(!collection){
+            alert('Selecciona un enfoque antes de realizar el análisis.');
+            return;
+        }
+
+        const subjetivo = (s.soap && typeof s.soap.s === 'string') ? s.soap.s.trim() : '';
+        if(!subjetivo){
+            alert('Completa el SOAP Subjetivo antes de realizar el análisis.');
+            return;
+        }
+
+        const query = [
+            'Con base EXCLUSIVAMENTE en el siguiente texto (SOAP Subjetivo), redacta un análisis clínico breve y accionable.',
+            'Adapta el análisis al enfoque seleccionado (usa los fragmentos recuperados del libro).',
+            'No emitas diagnósticos definitivos; plantea hipótesis y sugerencias de intervención.',
+            'Cita el contexto recuperado usando referencias [n].',
+            '',
+            'SOAP SUBJETIVO:',
+            subjetivo
+        ].join('\n');
+
         btn.disabled = true;
-        btn.innerHTML = '⏳ Analizando...';
-        
-        // Simular análisis (aquí podrías integrar IA real)
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        console.log('✨ Análisis completado. Ahora puedes editarlo desde el botón "Editar".');
-        
-        btn.disabled = false;
-        btn.innerHTML = '🔬 Realizar análisis';
+        const prev = btn.innerHTML;
+        btn.innerHTML = '⏳ Consultando RAG...';
+        if(outEl) outEl.innerHTML = '<em style="color:#9ca3af;">(Analizando...)</em>';
+
+        try{
+            async function postAsk(selectedCollection){
+                const resp = await fetch(`${API_BASE}/api/rag/ask`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ collection: selectedCollection, query, k: 6, top_n: 25 })
+                });
+                const data = await resp.json().catch(()=>null);
+                return { resp, data };
+            }
+
+            let { resp, data } = await postAsk(collection);
+
+            // If the backend says the collection doesn't exist, try to auto-pick a close match.
+            if((!resp.ok || !data || !data.ok) && data && data.error === 'collection_not_found' && Array.isArray(data.available_collections)){
+                const picked = pickClosestCollection(collection, data.available_collections);
+                if(picked && picked !== collection){
+                    console.warn('RAG: colección no encontrada. Reintentando con:', picked, 'Disponibles:', data.available_collections);
+                    ({ resp, data } = await postAsk(picked));
+                    // Persist the corrected collection in session state to avoid repeating the issue.
+                    try{ s.enfoque = picked; await saveData(); }catch(e){}
+                }
+            }
+
+            if(!resp.ok || !data || !data.ok){
+                console.error('RAG error:', resp.status, data);
+                if(data && data.error === 'collection_not_found' && Array.isArray(data.available_collections)){
+                    alert(
+                        'La colección solicitada no existe en Qdrant.\n\n' +
+                        'Colección pedida: ' + (data.collection || collection) + '\n' +
+                        'Disponibles: ' + data.available_collections.join(', ') + '\n\n' +
+                        'Solución: ajusta QDRANT_URL/QDRANT_API_KEY o el mapeo del enfoque.'
+                    );
+                } else {
+                    alert('No se pudo obtener respuesta del RAG. Revisa consola/servidor.');
+                }
+                if(outEl) outEl.innerHTML = s.analisis || '<em style="color:#9ca3af;">(Sin análisis)</em>';
+                return;
+            }
+
+            s.analisis = data.answer || '';
+            await saveData();
+
+            if(outEl){
+                outEl.textContent = s.analisis || '(Sin análisis)';
+            }
+            console.log('✅ RAG OK:', data.collection);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = prev;
+        }
     };
     
     // Botón editar SOAP - abre modal de edición

@@ -70,6 +70,26 @@ loadDotenvAndLog();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Parse JSON even if stdout contains extra logs (e.g., Python warnings).
+function parsePossiblyNoisyJson(raw){
+    if(!raw) return null;
+    const s = String(raw).trim();
+    if(!s) return null;
+    try{ return JSON.parse(s); }catch(e){ /* fallthrough */ }
+
+    // Try to extract the last JSON object in the output.
+    try{
+        const matches = s.match(/\{[\s\S]*\}/g);
+        if(matches && matches.length){
+            for(let i = matches.length - 1; i >= 0; i--){
+                const chunk = matches[i];
+                try{ return JSON.parse(chunk); }catch(e){ /* continue */ }
+            }
+        }
+    }catch(e){ /* ignore */ }
+    return null;
+}
+
 // Make startup failures visible (useful when the process exits immediately)
 process.on('uncaughtException', (err) => {
     console.error('[fatal] uncaughtException:', err && err.stack ? err.stack : err);
@@ -577,7 +597,7 @@ app.post('/api/rag/ask', express.json({ limit: '1mb' }), (req, res) => {
             // Always try to parse JSON (even on non-zero exit codes) so we can return
             // structured errors from Python instead of opaque rag_failed messages.
             let parsed = null;
-            try{ parsed = JSON.parse(out); }catch(e){ parsed = null; }
+            parsed = parsePossiblyNoisyJson(out);
 
             if(parsed && typeof parsed === 'object'){
                 // Choose status codes that help debugging and avoid generic 500s when it's a bad request.
@@ -591,7 +611,7 @@ app.post('/api/rag/ask', express.json({ limit: '1mb' }), (req, res) => {
                     'collection_not_found'
                 ]);
                 const status = clientErrors.has(errCode) ? 400 : 500;
-                return res.status(status).json(Object.assign({ ok:false, code }, parsed));
+                return res.status(status).json(Object.assign({ ok:false, code, stderr: (err || '').slice(0, 8000) }, parsed));
             }
 
             if(code !== 0){
@@ -600,11 +620,90 @@ app.post('/api/rag/ask', express.json({ limit: '1mb' }), (req, res) => {
             try{
                 return res.json(JSON.parse(out));
             }catch(e){
-                return res.status(500).json({ ok:false, error: 'bad_python_json', detail: String(e && e.message), raw: out });
+                return res.status(500).json({ ok:false, error: 'bad_python_json', detail: String(e && e.message), raw: out, stderr: (err || '').slice(0, 8000) });
             }
         });
 
         child.stdin.write(JSON.stringify({ collection, query, k, top_n }));
+        child.stdin.end();
+    }catch(e){
+        return res.status(500).json({ ok:false, error: 'server_error', detail: String(e && e.message) });
+    }
+});
+
+// ICD-11 scoring endpoint: query ICD-11 collection in Qdrant and return normalized scores (JSON)
+app.post('/api/icd11/score', express.json({ limit: '1mb' }), (req, res) => {
+    try{
+        const {
+            clinical_text,
+            search_query,
+            k,
+            top_n,
+            out_top,
+            collection,
+        } = req.body || {};
+
+        if(!clinical_text || !String(clinical_text).trim()){
+            return res.status(400).json({ ok:false, error: 'missing_clinical_text' });
+        }
+
+        // Prefer project-local .venv python if it exists (Windows/Unix paths)
+        let pyExec = process.env.PYTHON_PATH || process.env.PYTHON || 'python';
+        try{
+            const venvWin = path.join(__dirname, '.venv', 'Scripts', 'python.exe');
+            const venvUnix = path.join(__dirname, '.venv', 'bin', 'python');
+            if(fs.existsSync(venvWin)) pyExec = venvWin;
+            else if(fs.existsSync(venvUnix)) pyExec = venvUnix;
+        }catch(e){ /* ignore */ }
+
+        const scriptPath = path.join(__dirname, 'tools', 'icd11_score.py');
+        const childEnv = Object.assign({}, process.env);
+        try{ childEnv.PYTHONIOENCODING = childEnv.PYTHONIOENCODING || 'utf-8'; }catch(e){}
+        try{ childEnv.PYTHONUTF8 = childEnv.PYTHONUTF8 || '1'; }catch(e){}
+
+        const child = spawn(pyExec, [scriptPath], { env: childEnv, cwd: __dirname });
+
+        let out = '';
+        let err = '';
+        if(child.stdout) child.stdout.on('data', (d)=>{ out += d.toString(); });
+        if(child.stderr) child.stderr.on('data', (d)=>{ err += d.toString(); });
+        child.on('error', (e)=>{
+            return res.status(500).json({ ok:false, error: 'icd11_spawn_error', detail: String(e && e.message) });
+        });
+        child.on('close', (code)=>{
+            let parsed = null;
+            parsed = parsePossiblyNoisyJson(out);
+
+            if(parsed && typeof parsed === 'object'){
+                const isOk = parsed.ok === true;
+                if(isOk) return res.json(parsed);
+
+                const errCode = String(parsed.error || 'icd11_error');
+                const clientErrors = new Set([
+                    'missing_clinical_text',
+                    'bad_json_in',
+                    'collection_not_found',
+                    'missing_qdrant_env',
+                    'missing_gemini_api_key'
+                ]);
+                const status = clientErrors.has(errCode) ? 400 : 500;
+                return res.status(status).json(Object.assign({ ok:false, code, stderr: (err || '').slice(0, 8000) }, parsed));
+            }
+
+            if(code !== 0){
+                return res.status(500).json({ ok:false, error: 'icd11_failed', code, detail: err || out || `exit_${code}` });
+            }
+            return res.status(500).json({ ok:false, error: 'bad_python_json', code, raw: out, stderr: (err || '').slice(0, 8000) });
+        });
+
+        child.stdin.write(JSON.stringify({
+            clinical_text,
+            search_query,
+            k,
+            top_n,
+            out_top,
+            collection,
+        }));
         child.stdin.end();
     }catch(e){
         return res.status(500).json({ ok:false, error: 'server_error', detail: String(e && e.message) });

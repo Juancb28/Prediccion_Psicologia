@@ -34,8 +34,16 @@ def main():
         print("Error: La transcripción está vacía")
         sys.exit(1)
     
-    # API Key de Gemini (deberías usar variable de entorno en producción)
-    API_KEY = os.environ.get('GEMINI_API_KEY', 'AIzaSyBoXzvKh1Lp-fn3PI-490-6Q3jUWGZeJQg')
+    # Cargar variables de entorno desde el archivo .env en el directorio raíz
+    from dotenv import load_dotenv
+    env_path = Path(__file__).parent.parent / '.env'
+    load_dotenv(dotenv_path=env_path)
+
+    # API Key de Gemini
+    API_KEY = os.environ.get('GEMINI_API_KEY')
+    if not API_KEY:
+        print("Error: GEMINI_API_KEY no está configurada en el archivo .env")
+        sys.exit(1)
     
     # Generar genograma
     try:

@@ -789,13 +789,80 @@ app.post('/api/generate-summary', express.json({ limit: '2mb' }), async (req, re
 app.post('/api/genograma/:patientId', async (req, res) => {
     try {
         const { patientId } = req.params;
-        const { transcription } = req.body;
-
-        if (!transcription) {
-            return res.status(400).json({ ok: false, error: 'No se proporcionó transcripción' });
-        }
+        // transcription from body is now optional/fallback
+        let transcription = req.body.transcription || '';
 
         console.log(`Generando genograma para paciente ${patientId}...`);
+
+        // 1. Obtener nombre del paciente desde data.json
+        const allData = readData();
+        const patientData = allData ? allData.pacientes.find(p => String(p.id) === String(patientId)) : null;
+
+        let fullTranscription = '';
+
+        if (patientData) {
+            const sanitizedName = sanitizePatientName(patientData.nombre);
+            const patientDir = path.join(outputsDir, `patient_${sanitizedName}`);
+
+            if (fs.existsSync(patientDir)) {
+                console.log(`Buscando sesiones en: ${patientDir}`);
+                const entries = fs.readdirSync(patientDir, { withFileTypes: true });
+
+                // Filtrar y ordenar carpetas de sesión (sesion_1, sesion_2, ...)
+                const sessionDirs = entries
+                    .filter(e => e.isDirectory() && e.name.startsWith('sesion_'))
+                    .sort((a, b) => {
+                        const numA = parseInt(a.name.replace('sesion_', '')) || 0;
+                        const numB = parseInt(b.name.replace('sesion_', '')) || 0;
+                        return numA - numB;
+                    });
+
+                // Leer transcripciones de cada sesión
+                for (const sessDir of sessionDirs) {
+                    const sessPath = path.join(patientDir, sessDir.name);
+                    // Fix: Directory is 'sesion_1' but file is '..._sesion1_...' (no underscore)
+                    const sessNameFile = sessDir.name.replace('_', ''); // sesion_1 -> sesion1
+                    const docStem = `patient_${sanitizedName}_${sessNameFile}`; // e.g. patient_juan_perez_sesion1
+
+                    // Intentar leer labeled.txt (mejor calidad)
+                    let textPath = path.join(sessPath, `${docStem}_labeled.txt`);
+                    const fallbackPath = path.join(sessPath, `${docStem}_transcription.txt`);
+
+                    console.log(`[debug] Checking sessDir: ${sessDir.name}`);
+                    console.log(`[debug] constructed textPath: ${textPath}`);
+
+                    if (!fs.existsSync(textPath)) {
+                        console.log(`[debug] labeled.txt not found, checking fallback: ${fallbackPath}`);
+                        // Fallback: transcription.txt
+                        textPath = fallbackPath;
+                    }
+
+                    if (fs.existsSync(textPath)) {
+                        try {
+                            const sessText = fs.readFileSync(textPath, 'utf8');
+                            const dateStr = sessDir.name.replace('sesion_', 'Sesión ');
+                            fullTranscription += `\n\n=== ${dateStr} ===\n${sessText}`;
+                            console.log(`Agregado texto de ${sessDir.name} (${sessText.length} chars)`);
+                        } catch (e) {
+                            console.error(`Error leyendo ${textPath}`, e);
+                        }
+                    } else {
+                        console.log(`[debug] No text file found for session ${sessDir.name}`);
+                    }
+                }
+            }
+        }
+
+        // Si encontramos texto en las carpetas, usémoslo. Si no, fallback al body.
+        if (fullTranscription.trim()) {
+            transcription = fullTranscription;
+        } else {
+            console.log("No se encontraron archivos de sesión, usando transcripción del request (si existe).");
+        }
+
+        if (!transcription || !transcription.trim()) {
+            return res.status(400).json({ ok: false, error: 'No se encontraron transcripciones para generar el genograma' });
+        }
 
         // Ejecutar script Python
         const { spawn } = require('child_process');

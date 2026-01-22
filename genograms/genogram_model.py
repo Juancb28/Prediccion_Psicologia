@@ -23,9 +23,9 @@ class GenogramGenerator:
     
     def extract_family_info(self, transcription: str) -> Dict:
         prompt = f"""
-        Analiza la siguiente transcripción y extrae la información familiar para crear un genograma.
+        Analiza la siguiente transcripción (que puede incluir múltiples sesiones de terapia) y extrae la información familiar acumulada para crear un genograma completo.
         
-        Transcripción:
+        Transcripciones:
         {transcription}
         
         Extrae la siguiente información estrictamente en formato JSON:
@@ -61,16 +61,34 @@ class GenogramGenerator:
         - Si no hay información de edad, usa null.
         - Identifica si la persona es el consultante (paciente que habla).
         - Detecta condiciones como enfermedades, consumo de sustancias, tratamientos.
+        
+        Reglas de Simbología y Contexto (para tu comprensión de atributos):
+        - Sexo y edad: El símbolo de cuadrado representa al sexo masculino, y es válido tanto para hombres adultos como para niños. El símbolo de círculo representa al sexo femenino.
+        - Orientación sexual: Cuando un individuo de sexo masculino es identificado como gay, se debe registrar 'gay' en orientacion. Esto aplica independientemente de la edad (niño o adulto).
+        - Consistencia semántica: Toda referencia a “hombre” puede interpretarse también como “niño”.
+        
+        Asegúrate de extraer fielmente la orientación sexual si se menciona explícitamente.
         """
 
         response = self.model.generate_content(prompt)
         
         response_text = response.text
+        # Clean markdown code blocks if present
+        if '```json' in response_text:
+            response_text = response_text.split('```json')[1].split('```')[0]
+        elif '```' in response_text:
+            response_text = response_text.split('```')[1].split('```')[0]
+            
         json_match = re.search(r'\{[\s\S]*\}', response_text)
         
         if json_match:
-            return json.loads(json_match.group())
+            data = json.loads(json_match.group())
+            # DEBUG: Print the extracted JSON to stdout so we can see it in server logs
+            print("DEBUG JSON FROM GEMINI:")
+            print(json.dumps(data, indent=2, ensure_ascii=False))
+            return data
         else:
+            print(f"DEBUG RAW RESPONSE: {response_text}")
             raise ValueError("No se pudo extraer información estructurada de la respuesta de Gemini")
 
     
@@ -94,7 +112,7 @@ class GenogramGenerator:
         genero = persona.get('genero', 'masculino')
         edad = persona.get('edad')
         condiciones = persona.get('condiciones', [])
-        orientacion = persona.get('orientacion', 'heterosexual')
+        orientacion = str(persona.get('orientacion', 'heterosexual')).lower()
         
         # Determinar carpeta base
         carpeta = 'hombre_nino' if genero == 'masculino' else 'mujer_nina'
@@ -121,16 +139,16 @@ class GenogramGenerator:
         if 'diagnostico_definitivo' in condiciones and 'consumo' in condiciones:
             return f"{carpeta}/{carpeta.split('_')[0]}_diagnostico_definitivo_consumo.svg"
         
-        if orientacion == 'gay' and 'consumo' in condiciones:
+        if (orientacion == 'gay' or orientacion == 'homosexual') and 'consumo' in condiciones:
             return f"{carpeta}/hombre_gay_consumo.svg"
         
-        if orientacion == 'lesbiana' and 'consumo' in condiciones:
-            return f"{carpeta}/mujer_lesbiana_consumo.svg"
+        if (orientacion == 'lesbiana' or orientacion == 'homosexual') and 'consumo' in condiciones and genero == 'femenino':
+             return f"{carpeta}/mujer_lesbiana_consumo.svg"
         
-        if orientacion == 'gay':
+        if orientacion == 'gay' or orientacion == 'homosexual':
             return f"{carpeta}/hombre_gay.svg"
         
-        if orientacion == 'lesbiana':
+        if orientacion == 'lesbiana' or (orientacion == 'homosexual' and genero == 'femenino'):
             return f"{carpeta}/mujer_lesbiana.svg"
         
         if orientacion == 'bisexual':
@@ -642,6 +660,17 @@ class GenogramGenerator:
         nombre = persona.get('nombre') or 'Sin nombre'
         edad = persona.get('edad')
         vivo = persona.get('vivo', True)
+        orientacion = str(persona.get('orientacion', 'heterosexual')).lower()
+        
+        # Símbolo de orientación sexual (triángulo invertido para gay/homosexual)
+        orientation_mark = ''
+        if orientacion in ['gay', 'homosexual', 'lesbiana']:
+             # Triángulo invertido dentro de la figura
+             # Scaling relative to size (which is usually around 60)
+             p1 = f"{size*0.2},{size*0.25}" # Top-left
+             p2 = f"{size*0.8},{size*0.25}" # Top-right
+             p3 = f"{size*0.5},{size*0.85}" # Bottom-center
+             orientation_mark = f'<polygon points="{p1} {p2} {p3}" fill="none" stroke="black" stroke-width="1.5"/>'
         
         # Determinar forma base: círculo para mujer, cuadrado para hombre
         if genero == 'femenino':

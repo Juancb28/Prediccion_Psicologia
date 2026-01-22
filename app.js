@@ -3939,45 +3939,110 @@ async function openSessionDetail(sessionIndex, patientId){
         });
     }
     
-    // Generate summary button handler
+    // Generate summary button handler - genera resumen basado en la transcripción de ESTA sesión
     const summaryBtn = document.getElementById('_generate_summary_btn');
     
     if(summaryBtn){
         summaryBtn.addEventListener('click', async ()=>{
+            // Obtener la transcripción de esta sesión específica
+            let transcripcion = '';
+            
+            // Intentar obtener de la grabación local primero
+            if(s.grabacion && s.grabacion.length > 0 && s.grabacion[0].transcripcion){
+                transcripcion = s.grabacion[0].transcripcion;
+            } else {
+                // Si no está local, intentar obtener del servidor
+                try {
+                    const processedUrl = `${API_BASE}/api/processed/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
+                    const resp = await fetch(processedUrl, { cache: 'no-store' });
+                    if(resp && resp.ok){
+                        const data = await resp.json();
+                        transcripcion = extractProcessedText(data) || '';
+                        // Actualizar el estado local con la transcripción obtenida
+                        if(transcripcion && s.grabacion && s.grabacion[0]){
+                            s.grabacion[0].transcripcion = transcripcion;
+                            await saveData();
+                        }
+                    }
+                } catch(e) {
+                    console.warn('Error al obtener transcripción del servidor:', e);
+                }
+            }
+            
+            // Limpiar la transcripción para mostrar solo el diálogo
+            transcripcion = cleanTranscriptionText(transcripcion);
+            
+            // Validar que exista transcripción
+            if(!transcripcion || !transcripcion.trim()){
+                alert('No hay transcripción disponible para esta sesión. Primero debe realizar una grabación y esperar a que se procese.');
+                return;
+            }
+            
             summaryBtn.disabled = true;
+            const prevHTML = summaryBtn.innerHTML;
             summaryBtn.innerHTML = '⏳ Generando resumen...';
             
-            // Simular generación de resumen
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            const summary = `
-                <div style="padding:20px;">
-                    <h3 style="color:#7b1fa2;">📋 Resumen de Sesión</h3>
-                    <div style="margin-top:16px; padding:16px; background:#f3e5f5; border-radius:8px; border-left:4px solid #9c27b0;">
-                        <p><strong>Paciente:</strong> ${p.nombre}</p>
-                        <p><strong>Fecha:</strong> ${s.fecha}</p>
-                        <p><strong>Enfoque:</strong> ${s.enfoque || '(No definido)'}</p>
-                        <hr style="margin:12px 0; border:none; border-top:1px solid #ce93d8;">
-                        <p><strong>Resumen generado:</strong></p>
-                        <p style="margin-top:8px; line-height:1.6;">
-                            ${s.soap?.s ? 'El paciente reporta: ' + s.soap.s + '. ' : ''}
-                            ${s.soap?.o ? 'Se observa: ' + s.soap.o + '. ' : ''}
-                            ${s.analisis ? 'Análisis: ' + s.analisis + '. ' : ''}
-                            ${s.planificacion ? 'Plan de acción: ' + s.planificacion : ''}
-                        </p>
+            try {
+                // Llamar al endpoint de resumen con la transcripción de esta sesión
+                const resp = await fetch(`${API_BASE}/api/generate-summary`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        transcription: transcripcion,
+                        patientName: p.nombre,
+                        sessionDate: s.fecha
+                    })
+                });
+                
+                if(!resp.ok){
+                    throw new Error(`Error del servidor: ${resp.status}`);
+                }
+                
+                const data = await resp.json();
+                
+                if(!data.ok || !data.summary){
+                    throw new Error('El servidor no devolvió un resumen válido');
+                }
+                
+                // Guardar el resumen en el campo SOAP Subjetivo
+                if(!s.soap) s.soap = {};
+                s.soap.s = data.summary;
+                await saveData();
+                
+                // Mostrar modal con el resumen generado
+                const summaryModal = createModal(`
+                    <div style="padding:20px; max-width:800px;">
+                        <h3 style="color:#7b1fa2; margin-bottom:16px;">✅ Resumen generado correctamente</h3>
+                        <div style="padding:16px; background:#f3e5f5; border-radius:8px; border-left:4px solid #9c27b0; margin-bottom:16px;">
+                            <p style="margin:0 0 8px 0; font-weight:600; color:#6a1b9a;">Resumen de la sesión:</p>
+                            <p style="margin:0; line-height:1.6; color:#4a148c; white-space:pre-wrap;">${data.summary}</p>
+                        </div>
+                        <div style="padding:12px; background:#e1f5fe; border-radius:8px; border-left:4px solid #0288d1;">
+                            <p style="margin:0; font-size:13px; color:#01579b;">
+                                <strong>💡 Nota:</strong> El resumen ha sido guardado en el campo SOAP Subjetivo. 
+                                Puede editarlo posteriormente si lo desea.
+                            </p>
+                        </div>
+                        <div class="actions" style="margin-top:16px; display:flex; justify-content:flex-end;">
+                            <button class="btn primary" id="_summary_close">Cerrar</button>
+                        </div>
                     </div>
-                    <div class="actions" style="margin-top:16px;">
-                        <button class="btn primary" id="_summary_close">Cerrar</button>
-                        <button class="btn ghost" style="margin-left:8px;">📥 Descargar PDF</button>
-                    </div>
-                </div>
-            `;
-            
-            const summaryModal = createModal(summary);
-            summaryModal.backdrop.querySelector('#_summary_close').onclick = ()=> summaryModal.close();
-            
-            summaryBtn.disabled = false;
-            summaryBtn.innerHTML = '✨ Generar resumen de sesión';
+                `);
+                
+                summaryModal.backdrop.querySelector('#_summary_close').onclick = ()=> {
+                    summaryModal.close();
+                    // Recargar la vista de sesión para mostrar el resumen actualizado
+                    modal.close();
+                    setTimeout(() => openSessionDetail(sessionIndex, patientId), 100);
+                };
+                
+            } catch(error) {
+                console.error('Error al generar resumen:', error);
+                alert(`Error al generar el resumen: ${error.message}\n\nAsegúrese de que el servidor esté en ejecución y que el endpoint /api/generate-summary esté disponible.`);
+            } finally {
+                summaryBtn.disabled = false;
+                summaryBtn.innerHTML = prevHTML;
+            }
         });
     }
 }

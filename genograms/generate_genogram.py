@@ -35,7 +35,7 @@ def main():
         sys.exit(1)
     
     # API Key de Gemini (deberías usar variable de entorno en producción)
-    API_KEY = os.environ.get('GEMINI_API_KEY', 'AIzaSyBpC1JV-hGJdBqXSBrY6SYksnAiz9uUreY')
+    API_KEY = os.environ.get('GEMINI_API_KEY', 'AIzaSyBoXzvKh1Lp-fn3PI-490-6Q3jUWGZeJQg')
     
     # Generar genograma
     try:

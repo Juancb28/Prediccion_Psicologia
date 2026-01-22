@@ -13,7 +13,7 @@ const mockPacientes = [
         antecedentes: "No alergias. Antecedentes familiares de ansiedad.",
         consents: [],
         genogramaHtml: null
-        
+
     },
     {
         id: 2,
@@ -25,7 +25,7 @@ const mockPacientes = [
         antecedentes: "Tratamiento previo con ISRS.",
         consents: [],
         genogramaHtml: null
-        
+
     },
     {
         id: 3,
@@ -37,7 +37,7 @@ const mockPacientes = [
         antecedentes: "Hipertensión controlada.",
         consents: [],
         genogramaHtml: null
-        
+
     }
 ];
 
@@ -69,68 +69,68 @@ const _pp_active_intervals = {};
 // - If the app is served by Live Server (typically :55xx), default to http://localhost:3000.
 // - You can always override with `window.API_BASE_URL = 'http://localhost:3001'` BEFORE app.js loads.
 const API_BASE = (() => {
-    try{
-        if(window.API_BASE_URL) return String(window.API_BASE_URL);
+    try {
+        if (window.API_BASE_URL) return String(window.API_BASE_URL);
         const loc = window.location;
         const origin = (loc && loc.origin) ? String(loc.origin) : '';
         const port = (loc && loc.port) ? String(loc.port) : '';
         const protocol = (loc && loc.protocol) ? String(loc.protocol) : '';
 
         // If opened via file:// or some non-http origin, fall back to default backend port.
-        if(!origin || origin === 'null' || !protocol.startsWith('http')) return 'http://localhost:3000';
+        if (!origin || origin === 'null' || !protocol.startsWith('http')) return 'http://localhost:3000';
 
         // Live Server commonly runs on 5500/5501/etc (55xx). In that case, backend is separate.
-        if(port && /^55\d\d$/.test(port)) return 'http://localhost:3000';
+        if (port && /^55\d\d$/.test(port)) return 'http://localhost:3000';
 
         // Otherwise assume same-origin backend.
         return origin;
-    }catch(e){
+    } catch (e) {
         return 'http://localhost:3000';
     }
 })();
 
-function enfoqueLabelToCollection(enfoqueLabel){
+function enfoqueLabelToCollection(enfoqueLabel) {
     const s = String(enfoqueLabel || '').toLowerCase();
-    if(s.startsWith('rag_')) return String(enfoqueLabel);
-    if(s.includes('psicoanal')) return 'rag_psicoanalitico';
-    if(s.includes('conduct')) return 'rag_conductista';
-    if(s.includes('cognit')) return 'rag_cognitivo';
-    if(s.includes('human')) return 'rag_humanista';
-    if(s.includes('gestalt')) return 'rag_gestalt';
+    if (s.startsWith('rag_')) return String(enfoqueLabel);
+    if (s.includes('psicoanal')) return 'rag_psicoanalitico';
+    if (s.includes('conduct')) return 'rag_conductista';
+    if (s.includes('cognit')) return 'rag_cognitivo';
+    if (s.includes('human')) return 'rag_humanista';
+    if (s.includes('gestalt')) return 'rag_gestalt';
     // Colección real en Qdrant: rag_biopsicologico
     // (antes se usó 'rag_biopicologico', pero la disponible es con 's')
-    if(s.includes('biopsicol') || s.includes('neurocien') || s.includes('biopicolog')) return 'rag_biopsicologico';
-    if(s.includes('sociocult') || s.includes('cultural')) return 'rag_sociocultural';
-    if(s.includes('evolucion')) return 'rag_evolucionista';
+    if (s.includes('biopsicol') || s.includes('neurocien') || s.includes('biopicolog')) return 'rag_biopsicologico';
+    if (s.includes('sociocult') || s.includes('cultural')) return 'rag_sociocultural';
+    if (s.includes('evolucion')) return 'rag_evolucionista';
     return '';
 }
 
 // Pick the closest existing collection name based on a small available list.
 // This helps when the UI mapping differs slightly from the actual Qdrant collection.
-function pickClosestCollection(requested, available){
+function pickClosestCollection(requested, available) {
     const req = String(requested || '').trim();
-    if(!req || !Array.isArray(available) || available.length === 0) return '';
-    if(available.includes(req)) return req;
+    if (!req || !Array.isArray(available) || available.length === 0) return '';
+    if (available.includes(req)) return req;
 
     const lowerMap = new Map();
     available.forEach(a => lowerMap.set(String(a).toLowerCase(), String(a)));
     const exactLower = lowerMap.get(req.toLowerCase());
-    if(exactLower) return exactLower;
+    if (exactLower) return exactLower;
 
     // Tiny Levenshtein implementation (strings are short; lists are small)
-    function levenshtein(a, b){
+    function levenshtein(a, b) {
         a = String(a); b = String(b);
         const m = a.length, n = b.length;
-        const dp = Array.from({length: m+1}, ()=>Array(n+1).fill(0));
-        for(let i=0;i<=m;i++) dp[i][0] = i;
-        for(let j=0;j<=n;j++) dp[0][j] = j;
-        for(let i=1;i<=m;i++){
-            for(let j=1;j<=n;j++){
-                const cost = a[i-1] === b[j-1] ? 0 : 1;
+        const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+        for (let i = 0; i <= m; i++) dp[i][0] = i;
+        for (let j = 0; j <= n; j++) dp[0][j] = j;
+        for (let i = 1; i <= m; i++) {
+            for (let j = 1; j <= n; j++) {
+                const cost = a[i - 1] === b[j - 1] ? 0 : 1;
                 dp[i][j] = Math.min(
-                    dp[i-1][j] + 1,
-                    dp[i][j-1] + 1,
-                    dp[i-1][j-1] + cost
+                    dp[i - 1][j] + 1,
+                    dp[i][j - 1] + 1,
+                    dp[i - 1][j - 1] + cost
                 );
             }
         }
@@ -139,9 +139,9 @@ function pickClosestCollection(requested, available){
 
     let best = '';
     let bestDist = Infinity;
-    for(const cand of available){
+    for (const cand of available) {
         const d = levenshtein(req.toLowerCase(), String(cand).toLowerCase());
-        if(d < bestDist){ bestDist = d; best = String(cand); }
+        if (d < bestDist) { bestDist = d; best = String(cand); }
     }
 
     // Only accept very small differences to avoid surprising mismatches.
@@ -152,46 +152,46 @@ function pickClosestCollection(requested, available){
 // Helper: extract a formatted transcription text from the server response.
 // Prefer `text` if provided; otherwise, if `raw` is an array of segments,
 // rebuild a human-readable block with speaker headings and timestamps.
-function extractProcessedText(j){
-    if(!j) return '';
-    if(typeof j.text === 'string' && j.text.trim()){
+function extractProcessedText(j) {
+    if (!j) return '';
+    if (typeof j.text === 'string' && j.text.trim()) {
         const rawText = j.text.trim();
         // If the server returned a full labeled .txt file (with header/footer),
         // extract only the speaker-labeled blocks and ignore headers, separators and summary.
         // Detect common markers used by the pipeline (e.g. 'TRANSCRIPCIÓN', 'RESUMEN', '=====')
-        if(/TRANSCRIPCIÓN|TRANSCRIPCIÓN|RESUMEN|====+/i.test(rawText)){
+        if (/TRANSCRIPCIÓN|TRANSCRIPCIÓN|RESUMEN|====+/i.test(rawText)) {
             const lines = rawText.split(/\r?\n/);
             // Find the first line that looks like a speaker header (e.g. 'SPEAKER_00:' or 'UNKNOWN:')
             let start = -1;
-            for(let i=0;i<lines.length;i++){
-                if(/^\s*[A-Z0-9_]+:\s*$/.test(lines[i])){ start = i; break; }
+            for (let i = 0; i < lines.length; i++) {
+                if (/^\s*[A-Z0-9_]+:\s*$/.test(lines[i])) { start = i; break; }
             }
-            if(start === -1){
+            if (start === -1) {
                 // fall back to returning full text if we can't find speaker blocks
                 return rawText;
             }
             // Collect until we hit a separator line (====) or a RESUMEN section
             const outLines = [];
-            for(let i=start;i<lines.length;i++){
+            for (let i = start; i < lines.length; i++) {
                 const L = lines[i];
-                if(/^=+\s*$/.test(L)) break;
-                if(/^\s*RESUMEN\b/i.test(L)) break;
+                if (/^=+\s*$/.test(L)) break;
+                if (/^\s*RESUMEN\b/i.test(L)) break;
                 outLines.push(L);
             }
             // Trim leading/trailing blank lines
-            while(outLines.length && outLines[0].trim()==='') outLines.shift();
-            while(outLines.length && outLines[outLines.length-1].trim()==='') outLines.pop();
+            while (outLines.length && outLines[0].trim() === '') outLines.shift();
+            while (outLines.length && outLines[outLines.length - 1].trim() === '') outLines.pop();
             return outLines.join('\n');
         }
         return rawText;
     }
-    if(Array.isArray(j.raw) && j.raw.length){
+    if (Array.isArray(j.raw) && j.raw.length) {
         let out = '';
         let curSpeaker = null;
-        for(const seg of j.raw){
+        for (const seg of j.raw) {
             const speaker = (seg && seg.speaker) ? seg.speaker : 'UNKNOWN';
-            if(speaker !== curSpeaker){
-                if(curSpeaker !== null) out += '\n\n';
+            if (speaker !== curSpeaker) {
+                if (curSpeaker !== null) out += '\n\n';
                 out += speaker + ':\n';
                 curSpeaker = speaker;
             }
@@ -223,27 +223,27 @@ menuItems.forEach(item => {
 // Función para navegar con cambio de URL
 function navigateToModule(moduleName, params = {}, addToHistory = true) {
     console.log('🧭 navigateToModule called:', { moduleName, params, addToHistory });
-    
+
     // Construir URL con parámetros
     let url = `/${moduleName}`;
-    
+
     // Convertir ID a slug si es paciente, pero NO para agenda (mantener índice numérico)
     if (params.id !== undefined) {
         let slug = params.id;
-        
+
         if (moduleName === 'pacientes') {
             const patient = getPatientById(params.id);
             slug = patient ? nameToSlug(patient.nombre) : params.id;
         }
         // Para agenda, mantener el índice numérico sin convertir a slug
-        
+
         url += `/${slug}`;
     }
-    
+
     if (params.action) {
         url += `/${params.action}`;
     }
-    
+
     // Actualizar estado activo en el menú
     document.querySelector(".active")?.classList.remove("active");
     const baseModule = moduleName.split('/')[0];
@@ -255,7 +255,7 @@ function navigateToModule(moduleName, params = {}, addToHistory = true) {
     // Cambiar URL sin recargar
     if (addToHistory) {
         // Guardar params, solo convertir pacientes a slug
-        const stateParams = {...params};
+        const stateParams = { ...params };
         if (stateParams.id !== undefined && typeof stateParams.id === 'number') {
             if (moduleName === 'pacientes') {
                 const patient = getPatientById(stateParams.id);
@@ -276,7 +276,7 @@ function navigateToModule(moduleName, params = {}, addToHistory = true) {
 // Manejar botones atrás/adelante del navegador
 window.addEventListener('popstate', (event) => {
     console.log('⏮️ popstate event:', { hasState: !!(event.state && event.state.module), state: event.state, url: window.location.pathname });
-    
+
     if (event.state && event.state.module) {
         console.log('Using saved state:', event.state);
         navigateToModule(event.state.module, event.state.params || {}, false);
@@ -287,7 +287,7 @@ window.addEventListener('popstate', (event) => {
         const pathParts = path.substring(1).split('/').filter(p => p);
         const moduleName = pathParts[0] || 'dashboard';
         const params = {};
-        
+
         // Manejar diferentes patrones de URL
         if (pathParts[1]) {
             // Si el segundo segmento es 'nueva', es una acción sin ID
@@ -297,7 +297,7 @@ window.addEventListener('popstate', (event) => {
                 // De lo contrario, es un slug - pasar directamente sin convertir
                 const slug = pathParts[1];
                 console.log('📍 URL slug detected:', slug);
-                
+
                 if (moduleName === 'pacientes') {
                     const patient = getPatientBySlug(slug);
                     params.id = patient ? patient.id : slug;
@@ -310,7 +310,7 @@ window.addEventListener('popstate', (event) => {
             }
         }
         if (pathParts[2]) params.action = pathParts[2];
-        
+
         console.log('Parsed params:', params);
         navigateToModule(moduleName, params, false);
     }
@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pathParts = path.substring(1).split('/').filter(p => p);
     const moduleName = pathParts[0] || 'dashboard';
     const params = {};
-    
+
     // Manejar diferentes patrones de URL
     if (pathParts[1]) {
         // Si el segundo segmento es 'nueva', es una acción sin ID
@@ -332,7 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // De lo contrario, es un slug - pasar directamente sin convertir
             const slug = pathParts[1];
             console.log('🏁 Initial load, slug detected:', slug);
-            
+
             if (moduleName === 'pacientes') {
                 const patient = getPatientBySlug(slug);
                 params.id = patient ? patient.id : slug;
@@ -345,7 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     if (pathParts[2]) params.action = pathParts[2];
-    
+
     navigateToModule(moduleName, params, false);
 });
 
@@ -356,12 +356,12 @@ document.addEventListener('DOMContentLoaded', () => {
 function loadModule(module, params = {}) {
     console.log('📦 loadModule called:', { module, params, currentModule, activePatientId });
     currentModule = module; // Track current module
-    
+
     // Manejar rutas anidadas con ID (usar !== undefined para permitir id=0)
     if (params.id !== undefined && params.id !== null) {
         if (module === 'pacientes') {
             console.log('📍 Loading patient with ID:', params.id);
-            
+
             // Convertir slug a ID numérico si es necesario
             let patientId = params.id;
             if (typeof patientId === 'string') {
@@ -379,10 +379,10 @@ function loadModule(module, params = {}) {
                     }
                 }
             }
-            
+
             // Primero mostrar el paciente
             showPatient(patientId, false); // false = no push to history
-            
+
             // Luego manejar la acción si existe
             if (params.action === 'editar') {
                 // Esperar a que se renderice el paciente y luego abrir el formulario de edición
@@ -397,18 +397,18 @@ function loadModule(module, params = {}) {
             return;
         } else if (module === 'agenda') {
             console.log('📋 Loading agenda module with params:', params);
-            
+
             // Renderizar agenda si venimos de otro módulo
             if (currentModule !== 'agenda') {
                 console.log('Rendering agenda (currentModule was:', currentModule + ')');
                 renderAgenda();
             }
-            
+
             // Para agenda, si hay ID, es editar una cita
             if (params.action === 'editar') {
                 console.log('Action is editar, params.id:', params.id, 'type:', typeof params.id);
                 let appointmentIndex = -1;
-                
+
                 // Parsear ID: puede ser número o string numérico
                 if (typeof params.id === 'number') {
                     appointmentIndex = params.id;
@@ -419,9 +419,9 @@ function loadModule(module, params = {}) {
                         appointmentIndex = parsed;
                     }
                 }
-                
+
                 console.log('Appointment index resolved to:', appointmentIndex);
-                
+
                 if (appointmentIndex >= 0 && mockAgenda[appointmentIndex]) {
                     const apt = mockAgenda[appointmentIndex];
                     const pat = mockPacientes.find(p => p.id === apt.pacienteId);
@@ -435,7 +435,7 @@ function loadModule(module, params = {}) {
             return;
         }
     }
-    
+
     // Manejar acciones sin ID
     if (params.action) {
         if (module === 'agenda' && params.action === 'nueva') {
@@ -444,7 +444,7 @@ function loadModule(module, params = {}) {
             return;
         }
     }
-    
+
     switch (module) {
         case 'dashboard':
             renderDashboard();
@@ -514,7 +514,7 @@ function loadModule(module, params = {}) {
 
 // Render functions
 function renderDashboard() {
-    const today = new Date().toISOString().slice(0,10);
+    const today = new Date().toISOString().slice(0, 10);
     const citasHoy = mockAgenda.filter(a => a.fecha === today);
     const citasPendientes = mockAgenda.filter(a => a.estado === 'Pendiente').length;
 
@@ -539,23 +539,23 @@ function renderDashboard() {
                 </div>
                 <div class="appointments-today-list">
                     ${citasHoy.length ? citasHoy.map(c => {
-                        const p = mockPacientes.find(x=>x.id===c.pacienteId);
-                        const statusClass = c.estado === 'Confirmada' ? 'confirmed' : 
-                                           c.estado === 'Pendiente' ? 'pending' : 
-                                           c.estado === 'Finalizada' ? 'finished' : 'cancelled';
-                        return `
+        const p = mockPacientes.find(x => x.id === c.pacienteId);
+        const statusClass = c.estado === 'Confirmada' ? 'confirmed' :
+            c.estado === 'Pendiente' ? 'pending' :
+                c.estado === 'Finalizada' ? 'finished' : 'cancelled';
+        return `
                             <div class="today-appointment-item ${statusClass}">
                                 <div class="appointment-time-badge">
                                     <span>🕐</span>
                                     <span>${c.hora}</span>
                                 </div>
                                 <div class="appointment-patient-info">
-                                    <span class="patient-name-today">${p? p.nombre : '—'}</span>
+                                    <span class="patient-name-today">${p ? p.nombre : '—'}</span>
                                     <span class="appointment-status-mini status-${statusClass}">${c.estado}</span>
                                 </div>
                             </div>
                         `;
-                    }).join('') : '<div class="empty-appointments">📭 No hay citas programadas para hoy</div>'}
+    }).join('') : '<div class="empty-appointments">📭 No hay citas programadas para hoy</div>'}
                 </div>
             </div>
 
@@ -640,13 +640,13 @@ function renderDashboard() {
         </div>
     `;
     // Ensure no leftover tooltip on the dashboard start recording control (safe: don't access session-specific state here)
-    setTimeout(()=>{
-        try{
+    setTimeout(() => {
+        try {
             const startBtnEl = document.getElementById('_start_recording_btn');
-            if(startBtnEl){
+            if (startBtnEl) {
                 removeWarningTooltipForElement(startBtnEl);
             }
-        }catch(e){ /* ignore */ }
+        } catch (e) { /* ignore */ }
     }, 0);
 }
 
@@ -695,8 +695,8 @@ function renderPacientes() {
     `;
 
     // add click handlers to open detail
-    document.querySelectorAll('.patient-card').forEach(el=>{
-        el.addEventListener('click', ()=>{
+    document.querySelectorAll('.patient-card').forEach(el => {
+        el.addEventListener('click', () => {
             const id = parseInt(el.getAttribute('data-id'));
             navigateToModule('pacientes', { id });
         });
@@ -710,19 +710,19 @@ let calendarYear = new Date().getFullYear();
 let calendarMonth = new Date().getMonth();
 let currentModule = 'dashboard'; // Track current module
 
-function setAgendaView(v){ agendaView = v; renderAgenda(); }
+function setAgendaView(v) { agendaView = v; renderAgenda(); }
 
 function changeCalendarMonth(offset) {
     calendarMonth += offset;
-    if(calendarMonth > 11) {
+    if (calendarMonth > 11) {
         calendarMonth = 0;
         calendarYear++;
-    } else if(calendarMonth < 0) {
+    } else if (calendarMonth < 0) {
         calendarMonth = 11;
         calendarYear--;
     }
     // Re-render current module instead of always going to agenda
-    if(currentModule === 'dashboard') {
+    if (currentModule === 'dashboard') {
         renderDashboard();
     } else {
         renderAgenda();
@@ -733,7 +733,7 @@ function goToToday() {
     calendarYear = new Date().getFullYear();
     calendarMonth = new Date().getMonth();
     // Re-render current module instead of always going to agenda
-    if(currentModule === 'dashboard') {
+    if (currentModule === 'dashboard') {
         renderDashboard();
     } else {
         renderAgenda();
@@ -767,15 +767,15 @@ function renderAgenda() {
         </div>
     `;
     let body = '';
-    
-    if(agendaView === 'calendar'){
+
+    if (agendaView === 'calendar') {
         body = renderCalendarView();
-    } else if(agendaView === 'list'){
+    } else if (agendaView === 'list') {
         body = mockAgenda.map((e, idx) => {
-            const patient = mockPacientes.find(p=>p.id===e.pacienteId);
-            const statusClass = e.estado === 'Confirmada' ? 'confirmed' : 
-                               e.estado === 'Pendiente' ? 'pending' : 
-                               e.estado === 'Finalizada' ? 'finished' : 'cancelled';
+            const patient = mockPacientes.find(p => p.id === e.pacienteId);
+            const statusClass = e.estado === 'Confirmada' ? 'confirmed' :
+                e.estado === 'Pendiente' ? 'pending' :
+                    e.estado === 'Finalizada' ? 'finished' : 'cancelled';
             return `
                 <div class="appointment-item ${statusClass}" data-appointment-index="${idx}">
                     <div class="appointment-header">
@@ -796,16 +796,16 @@ function renderAgenda() {
                 </div>
             `;
         }).join('');
-    } else if(agendaView === 'week'){
+    } else if (agendaView === 'week') {
         const today = new Date();
         const weekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
-        const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate()+7);
-        const items = mockAgenda.filter(a=> new Date(a.fecha) >= weekStart && new Date(a.fecha) < weekEnd);
-        body = items.length ? items.map((e, idx)=>{
-            const patient = mockPacientes.find(p=>p.id===e.pacienteId);
-            const statusClass = e.estado === 'Confirmada' ? 'confirmed' : 
-                               e.estado === 'Pendiente' ? 'pending' : 
-                               e.estado === 'Finalizada' ? 'finished' : 'cancelled';
+        const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7);
+        const items = mockAgenda.filter(a => new Date(a.fecha) >= weekStart && new Date(a.fecha) < weekEnd);
+        body = items.length ? items.map((e, idx) => {
+            const patient = mockPacientes.find(p => p.id === e.pacienteId);
+            const statusClass = e.estado === 'Confirmada' ? 'confirmed' :
+                e.estado === 'Pendiente' ? 'pending' :
+                    e.estado === 'Finalizada' ? 'finished' : 'cancelled';
             const appointmentIndex = mockAgenda.indexOf(e);
             return `
                 <div class="appointment-item ${statusClass}" data-appointment-index="${appointmentIndex}">
@@ -829,12 +829,12 @@ function renderAgenda() {
         }).join('') : '<div class="empty-state">📭 No hay citas esta semana</div>';
     } else {
         const today = new Date();
-        const monthItems = mockAgenda.filter(a=>{ const d=new Date(a.fecha); return d.getMonth()===today.getMonth() && d.getFullYear()===today.getFullYear(); });
-        body = monthItems.length ? monthItems.map((e)=>{
-            const patient = mockPacientes.find(p=>p.id===e.pacienteId);
-            const statusClass = e.estado === 'Confirmada' ? 'confirmed' : 
-                               e.estado === 'Pendiente' ? 'pending' : 
-                               e.estado === 'Finalizada' ? 'finished' : 'cancelled';
+        const monthItems = mockAgenda.filter(a => { const d = new Date(a.fecha); return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear(); });
+        body = monthItems.length ? monthItems.map((e) => {
+            const patient = mockPacientes.find(p => p.id === e.pacienteId);
+            const statusClass = e.estado === 'Confirmada' ? 'confirmed' :
+                e.estado === 'Pendiente' ? 'pending' :
+                    e.estado === 'Finalizada' ? 'finished' : 'cancelled';
             const appointmentIndex = mockAgenda.indexOf(e);
             return `
                 <div class="appointment-item ${statusClass}" data-appointment-index="${appointmentIndex}">
@@ -865,12 +865,12 @@ function renderAgenda() {
             ${body}
         </div>
     `;
-    
+
     // Agregar event listeners a las citas
     document.querySelectorAll('.appointment-item[data-appointment-index]').forEach(item => {
         item.addEventListener('click', (e) => {
             // Evitar abrir modal si se hizo click en el botón de eliminar
-            if(e.target.closest('.delete-btn-small')) {
+            if (e.target.closest('.delete-btn-small')) {
                 console.log('❌ Click en botón eliminar, no abrir modal');
                 return;
             }
@@ -882,7 +882,7 @@ function renderAgenda() {
             navigateToModule('agenda', { id: index, action: 'editar' });
         });
     });
-    
+
     // Agregar event listeners a los botones de eliminar
     document.querySelectorAll('.delete-btn-small[data-delete-index]').forEach(btn => {
         btn.addEventListener('click', async (e) => {
@@ -896,16 +896,16 @@ function renderAgenda() {
 
 function renderCalendarView() {
     const today = new Date();
-    
+
     // Get first day of month and total days
     const firstDay = new Date(calendarYear, calendarMonth, 1);
     const lastDay = new Date(calendarYear, calendarMonth + 1, 0);
     const totalDays = lastDay.getDate();
     const startDayOfWeek = firstDay.getDay(); // 0 = Sunday
-    
+
     // Month names
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    
+
     // Build calendar header with navigation
     let html = `
         <div class="calendar-header">
@@ -928,21 +928,21 @@ function renderCalendarView() {
             <div class="calendar-day-header">Vie</div>
             <div class="calendar-day-header">Sáb</div>
     `;
-    
+
     // Add empty cells for days before month starts
-    for(let i = 0; i < startDayOfWeek; i++) {
+    for (let i = 0; i < startDayOfWeek; i++) {
         html += `<div class="calendar-day empty"></div>`;
     }
-    
+
     // Add days of month
-    for(let day = 1; day <= totalDays; day++) {
+    for (let day = 1; day <= totalDays; day++) {
         const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const dayAppointments = mockAgenda.filter(a => a.fecha === dateStr);
-        
+
         const isToday = day === today.getDate() && calendarMonth === today.getMonth() && calendarYear === today.getFullYear();
-        
+
         let appointmentsHtml = '';
-        if(dayAppointments.length > 0) {
+        if (dayAppointments.length > 0) {
             appointmentsHtml = dayAppointments.map((apt, idx) => {
                 const patient = mockPacientes.find(p => p.id === apt.pacienteId);
                 const statusClass = apt.estado === 'Confirmada' ? 'confirmed' : apt.estado === 'Pendiente' ? 'pending' : apt.estado === 'Finalizada' ? 'finished' : 'cancelled';
@@ -951,7 +951,7 @@ function renderCalendarView() {
                 </div>`;
             }).join('');
         }
-        
+
         html += `
             <div class="calendar-day ${isToday ? 'today' : ''} ${dayAppointments.length > 0 ? 'has-appointments' : ''}" onclick="quickCreateCitaForDate('${dateStr}')">
                 <div class="day-number">${day}</div>
@@ -961,7 +961,7 @@ function renderCalendarView() {
             </div>
         `;
     }
-    
+
     html += `</div>`;
     return html;
 }
@@ -1008,35 +1008,35 @@ async function quickCreateCitaForDate(dateStr) {
             <span>Creando cita para el ${dateStr}</span>
         </div>
     `;
-    
+
     const data = await modalForm('Nueva cita', form);
-    if(!data) return;
-    
+    if (!data) return;
+
     mockAgenda.push({
         pacienteId: parseInt(data.pid),
         fecha: data.fecha,
         hora: data.hora,
         estado: data.estado
     });
-    
+
     await saveData();
     console.log('Cita creada');
     renderAgenda();
 }
 
-async function editCita(index, pushHistory = true){
+async function editCita(index, pushHistory = true) {
     console.log('📝 editCita called with index:', index, 'mockAgenda:', mockAgenda);
     const e = mockAgenda[index];
-    if(!e) {
+    if (!e) {
         console.error('❌ Cita no encontrada en index:', index);
         return;
     }
-    
+
     console.log('✅ Cita encontrada:', e);
-    
+
     const patient = mockPacientes.find(p => p.id === e.pacienteId);
     console.log('👤 Paciente encontrado:', patient);
-    
+
     const html = `
         <div class="modern-modal-header">
             <h3 class="modal-title">Editar cita</h3>
@@ -1072,10 +1072,10 @@ async function editCita(index, pushHistory = true){
                     <span>Estado</span>
                 </label>
                 <select name="estado" class="modern-select">
-                    <option ${e.estado==='Pendiente'?'selected':''}>Pendiente</option>
-                    <option ${e.estado==='Confirmada'?'selected':''}>Confirmada</option>
-                    <option ${e.estado==='Finalizada'?'selected':''}>Finalizada</option>
-                    <option ${e.estado==='Anulada'?'selected':''}>Anulada</option>
+                    <option ${e.estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                    <option ${e.estado === 'Confirmada' ? 'selected' : ''}>Confirmada</option>
+                    <option ${e.estado === 'Finalizada' ? 'selected' : ''}>Finalizada</option>
+                    <option ${e.estado === 'Anulada' ? 'selected' : ''}>Anulada</option>
                 </select>
             </div>
         </div>
@@ -1097,13 +1097,13 @@ async function editCita(index, pushHistory = true){
     console.log('🎨 Creando modal...');
     const m = createModal(html);
     console.log('✅ Modal creado:', m);
-    
+
     // Close / Cancel
     m.backdrop.querySelector('#_m_cancel').onclick = () => m.close();
-    
+
     // Delete
     m.backdrop.querySelector('#_m_delete').onclick = async () => {
-        if(confirm('¿Eliminar esta cita?')){
+        if (confirm('¿Eliminar esta cita?')) {
             mockAgenda.splice(index, 1);
             await saveData();
             m.close();
@@ -1111,18 +1111,18 @@ async function editCita(index, pushHistory = true){
             console.log('Cita eliminada');
         }
     };
-    
+
     // Save
     m.backdrop.querySelector('#_m_save').onclick = async () => {
         const inputs = m.backdrop.querySelectorAll('input, select');
         const data = {};
-        inputs.forEach(i => { if(i.name) data[i.name] = i.value; });
-        
+        inputs.forEach(i => { if (i.name) data[i.name] = i.value; });
+
         e.pacienteId = parseInt(data.pid);
         e.fecha = data.fecha;
         e.hora = data.hora;
         e.estado = data.estado;
-        
+
         await saveData();
         m.close();
         renderAgenda();
@@ -1131,8 +1131,8 @@ async function editCita(index, pushHistory = true){
 }
 
 // Global delete function for agenda list
-window.deleteCita = async function(index) {
-    if(confirm('¿Seguro que deseas eliminar esta cita?')){
+window.deleteCita = async function (index) {
+    if (confirm('¿Seguro que deseas eliminar esta cita?')) {
         mockAgenda.splice(index, 1);
         await saveData();
         renderAgenda();
@@ -1149,7 +1149,7 @@ function renderSesiones() {
                 <div class="session-item">
                     <div class="session-header">
                         <div class="session-title">
-                            <span class="session-patient-name">${mockPacientes.find(p=>p.id===s.pacienteId)?.nombre || '—'}</span>
+                            <span class="session-patient-name">${mockPacientes.find(p => p.id === s.pacienteId)?.nombre || '—'}</span>
                             <span class="session-date">📅 ${s.fecha}</span>
                         </div>
                         <div class="session-notes">${s.notas}</div>
@@ -1177,7 +1177,7 @@ function renderSesiones() {
                 <div class="input-group">
                     <label class="input-label">Seleccionar paciente</label>
                     <select id="sessionPatientSelect" class="modern-select">
-                        ${mockPacientes.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join('')}
+                        ${mockPacientes.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('')}
                     </select>
                 </div>
                 <button class="session-btn start-session-btn" onclick="startSessionPrompt()">
@@ -1191,7 +1191,7 @@ function renderSesiones() {
 }
 
 // Utilities
-function getPatientById(id){ return mockPacientes.find(p=>p.id===id); }
+function getPatientById(id) { return mockPacientes.find(p => p.id === id); }
 
 // Función para convertir nombre a slug URL-friendly
 function nameToSlug(name) {
@@ -1232,32 +1232,32 @@ function getAppointmentBySlug(slug) {
     console.log('🔍 getAppointmentBySlug called with:', slug);
     const parts = slug.split('_');
     console.log('Parts after split:', parts);
-    
+
     if (parts.length < 4) {
         console.log('❌ Parts length < 4, returning -1');
         return -1;
     }
-    
+
     // Extraer fecha (los últimos 3 segmentos)
     const day = parts.pop();
     const month = parts.pop();
     const year = parts.pop();
     const fecha = `${year}-${month}-${day}`;
     console.log('📅 Fecha construida:', fecha);
-    
+
     // El resto es el nombre
     const nameSlug = parts.join('_');
     console.log('👤 Name slug:', nameSlug);
-    
+
     const patient = getPatientBySlug(nameSlug);
     console.log('Patient found:', patient);
-    
+
     if (!patient) {
         console.log('❌ Patient not found, returning -1');
         return -1;
     }
-    
-    const index = mockAgenda.findIndex(a => 
+
+    const index = mockAgenda.findIndex(a =>
         a.pacienteId === patient.id && a.fecha === fecha
     );
     console.log('✅ Appointment index found:', index);
@@ -1276,26 +1276,26 @@ function showSessionDetail(sessionIndex) {
 }
 
 // Toggle recording authorization
-function toggleRecordingAuth(patientId, consentIndex){
+function toggleRecordingAuth(patientId, consentIndex) {
     const p = getPatientById(patientId);
-    if(!p || !p.consents[consentIndex]) return;
-    
+    if (!p || !p.consents[consentIndex]) return;
+
     const consent = p.consents[consentIndex];
     consent.grabacionAutorizada = !consent.grabacionAutorizada;
-    
+
     saveData();
     showPatient(patientId);
 }
 
 // Modal helpers (return Promises)
-function createModal(html){
+function createModal(html) {
     const root = document.getElementById('modalRoot');
-    
-    // Limpiar cualquier modal anterior que pueda existir
-    while(root.firstChild) {
-        root.removeChild(root.firstChild);
-    }
-    
+
+    // NO limpiar modals anteriores para permitir stacking (ventanas sobre ventanas)
+    // while(root.firstChild) {
+    //    root.removeChild(root.firstChild);
+    // }
+
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
     backdrop.innerHTML = `<div class="modal">${html}</div>`;
@@ -1313,12 +1313,12 @@ function createModal(html){
     backdrop.style.overflowX = 'hidden';
     // Prevent page body from scrolling while modal is open
     const prevBodyOverflow = document.body.style.overflow;
-    try{ document.body.style.overflow = 'hidden'; }catch(e){}
+    try { document.body.style.overflow = 'hidden'; } catch (e) { }
     root.appendChild(backdrop);
     // Ensure the inner modal is scrollable and contained
-    try{
+    try {
         const modalEl = backdrop.querySelector('.modal');
-        if(modalEl){
+        if (modalEl) {
             modalEl.style.maxHeight = '92vh';
             // Make modal wider by default and add horizontal padding
             modalEl.style.maxWidth = '1400px';
@@ -1338,39 +1338,32 @@ function createModal(html){
             // Avoid horizontal overflow inside modal
             modalEl.style.overflowX = 'hidden';
         }
-    }catch(e){ /* ignore */ }
+    } catch (e) { /* ignore */ }
     return {
         backdrop,
-        close: ()=>{ 
+        close: () => {
             console.log('Cerrando modal...');
-            try{ 
-                // Remover todos los event listeners del backdrop antes de remover
-                const backdropClone = backdrop.cloneNode(false);
-                backdrop.parentNode.replaceChild(backdropClone, backdrop);
-                backdropClone.remove();
-                console.log('Backdrop removido con limpieza de listeners');
-            }catch(e){ 
-                console.error('Error removiendo backdrop:', e);
-                try {
+            try {
+                // Remover solo este backdrop
+                if (backdrop.parentNode === root) {
                     root.removeChild(backdrop);
-                } catch(e2) {}
-            }
-            try{ 
-                document.body.style.overflow = prevBodyOverflow; 
-            }catch(e){}
-            
-            // Limpiar completamente el modalRoot después de cerrar
-            setTimeout(() => {
-                while(root.firstChild) {
-                    root.removeChild(root.firstChild);
+                } else {
+                    backdrop.remove();
                 }
-                console.log('ModalRoot limpiado');
-            }, 50);
-            
+                console.log('Backdrop removido');
+            } catch (e) {
+                console.error('Error removiendo backdrop:', e);
+            }
+
+            // Solo restaurar overflow si no hay más modales
+            if (!root.firstChild) {
+                try { document.body.style.overflow = prevBodyOverflow; } catch (e) { }
+            }
+
             // Al cerrar modal, volver a la ruta del paciente si estamos en una acción
             const currentPath = window.location.pathname;
             const pathParts = currentPath.split('/').filter(p => p);
-            
+
             // Si estamos en una ruta con acción (editar, nueva-sesion), volver al detalle
             if (pathParts.length >= 3 && pathParts[0] === 'pacientes') {
                 const patientId = pathParts[1];
@@ -1383,11 +1376,11 @@ function createModal(html){
     };
 }
 
-function modalPrompt(label, defaultValue='', options={}){
-    return new Promise(resolve=>{
+function modalPrompt(label, defaultValue = '', options = {}) {
+    return new Promise(resolve => {
         let modalContent;
-        
-        if(options.isPin){
+
+        if (options.isPin) {
             // PIN mode: 6 dígitos individuales
             modalContent = `
                 <div class="pin-modal-container">
@@ -1411,65 +1404,65 @@ function modalPrompt(label, defaultValue='', options={}){
             // Modo normal
             modalContent = `<h3>${label}</h3><div class="row"><input id="_m_input" type="text" value="${defaultValue}"></div><div class="actions"><button class="btn ghost" id="_m_cancel">Cancelar</button><button class="btn primary" id="_m_ok">Aceptar</button></div>`;
         }
-        
+
         const m = createModal(modalContent);
-        
-        if(options.isPin){
+
+        if (options.isPin) {
             // Lógica para PIN de 6 dígitos
             const inputs = m.backdrop.querySelectorAll('.pin-digit');
-            
+
             inputs.forEach((input, index) => {
                 // Auto-focus al siguiente campo
                 input.addEventListener('input', (e) => {
                     const value = e.target.value;
-                    
+
                     // Solo permitir números
-                    if(!/^[0-9]$/.test(value) && value !== ''){
+                    if (!/^[0-9]$/.test(value) && value !== '') {
                         e.target.value = '';
                         return;
                     }
-                    
+
                     // Si ingresó un dígito, pasar al siguiente
-                    if(value && index < inputs.length - 1){
+                    if (value && index < inputs.length - 1) {
                         inputs[index + 1].focus();
                     }
                 });
-                
+
                 // Manejar backspace
                 input.addEventListener('keydown', (e) => {
-                    if(e.key === 'Backspace' && !e.target.value && index > 0){
+                    if (e.key === 'Backspace' && !e.target.value && index > 0) {
                         inputs[index - 1].focus();
                         inputs[index - 1].value = '';
                     }
                 });
-                
+
                 // Evitar entrada no numérica
                 input.addEventListener('keypress', (e) => {
-                    if(!/[0-9]/.test(e.key)){
+                    if (!/[0-9]/.test(e.key)) {
                         e.preventDefault();
                     }
                 });
             });
-            
+
             // Botón cancelar
             const cancelBtn = m.backdrop.querySelector('#_m_cancel');
-            if(cancelBtn) {
+            if (cancelBtn) {
                 cancelBtn.onclick = () => {
                     m.close();
                     resolve(null);
                 };
             }
-            
+
             // Botón verificar
             m.backdrop.querySelector('#_m_ok').onclick = () => {
                 const pin = Array.from(inputs).map(input => input.value).join('');
-                if(pin.length === 6){
+                if (pin.length === 6) {
                     m.close();
                     resolve(pin);
                 } else {
                     // Resaltar campos vacíos
                     inputs.forEach(input => {
-                        if(!input.value){
+                        if (!input.value) {
                             input.style.borderColor = '#f44336';
                             setTimeout(() => {
                                 input.style.borderColor = '';
@@ -1478,50 +1471,50 @@ function modalPrompt(label, defaultValue='', options={}){
                     });
                 }
             };
-            
+
             // Permitir cancelar con ESC
             const escHandler = (e) => {
-                if(e.key === 'Escape'){
+                if (e.key === 'Escape') {
                     m.close();
                     resolve(null);
                     document.removeEventListener('keydown', escHandler);
                 }
             };
             document.addEventListener('keydown', escHandler);
-            
+
             // Focus en el primer campo
             setTimeout(() => inputs[0].focus(), 100);
         } else {
             // Modo normal
             const cancelBtn = m.backdrop.querySelector('#_m_cancel');
-            if(cancelBtn) cancelBtn.onclick = ()=>{ m.close(); resolve(null); };
-            m.backdrop.querySelector('#_m_ok').onclick = ()=>{ const v = m.backdrop.querySelector('#_m_input').value; m.close(); resolve(v); };
-            setTimeout(()=> {
+            if (cancelBtn) cancelBtn.onclick = () => { m.close(); resolve(null); };
+            m.backdrop.querySelector('#_m_ok').onclick = () => { const v = m.backdrop.querySelector('#_m_input').value; m.close(); resolve(v); };
+            setTimeout(() => {
                 const input = m.backdrop.querySelector('#_m_input');
-                if(input) input.focus();
+                if (input) input.focus();
             }, 50);
         }
     });
 }
 
-function modalConfirm(message){
-    return new Promise(resolve=>{
+function modalConfirm(message) {
+    return new Promise(resolve => {
         const m = createModal(`<h3>${message}</h3><div class="actions"><button class="btn ghost" id="_m_no">No</button><button class="btn primary" id="_m_yes">Sí</button></div>`);
-        m.backdrop.querySelector('#_m_no').onclick = ()=>{ 
+        m.backdrop.querySelector('#_m_no').onclick = () => {
             console.log('Usuario seleccionó NO en confirmación');
-            m.close(); 
+            m.close();
             setTimeout(() => resolve(false), 100);
         };
-        m.backdrop.querySelector('#_m_yes').onclick = ()=>{ 
+        m.backdrop.querySelector('#_m_yes').onclick = () => {
             console.log('Usuario seleccionó SÍ en confirmación');
-            m.close(); 
+            m.close();
             setTimeout(() => resolve(true), 100);
         };
     });
 }
 
-function modalForm(title, innerHtml){
-    return new Promise(resolve=>{
+function modalForm(title, innerHtml) {
+    return new Promise(resolve => {
         const m = createModal(`
             <div class="modern-modal-header">
                 <h3 class="modal-title">${title}</h3>
@@ -1539,59 +1532,59 @@ function modalForm(title, innerHtml){
                 </button>
             </div>
         `);
-        m.backdrop.querySelector('#_m_cancel').onclick = ()=>{ m.close(); resolve(null); };
-        m.backdrop.querySelector('#_m_save').onclick = ()=>{
+        m.backdrop.querySelector('#_m_cancel').onclick = () => { m.close(); resolve(null); };
+        m.backdrop.querySelector('#_m_save').onclick = () => {
             const inputs = m.backdrop.querySelectorAll('input, textarea, select');
             const data = {};
-            inputs.forEach(i=>{ if(i.name) data[i.name]=i.value; });
+            inputs.forEach(i => { if (i.name) data[i.name] = i.value; });
             m.close(); resolve(data);
         };
     });
 }
 
 // File upload helper (POST to /upload) — server must accept multipart/form-data
-async function uploadFile(file){
-    if(!file) return null;
+async function uploadFile(file) {
+    if (!file) return null;
     // Convert file to Data URL and store inline (localStorage-friendly)
-    return new Promise((resolve, reject)=>{
+    return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = ()=>{
+        reader.onload = () => {
             resolve({ filename: file.name, url: reader.result });
         };
-        reader.onerror = (e)=>{ console.warn('File read error', e); reject(e); };
+        reader.onerror = (e) => { console.warn('File read error', e); reject(e); };
         reader.readAsDataURL(file);
     });
 }
 
 // Persistence using localStorage
-async function saveData(){
+async function saveData() {
     const payload = { pacientes: mockPacientes, agenda: mockAgenda, sesiones: mockSesiones, reportes: mockReportes, genograma: mockGenograma };
-    try{
+    try {
         localStorage.setItem('pp_data', JSON.stringify(payload));
         console.log('[saveData] Datos guardados - Sesiones totales:', mockSesiones.length);
-    }catch(e){ console.warn('No se pudo guardar en localStorage:', e); }
+    } catch (e) { console.warn('No se pudo guardar en localStorage:', e); }
 }
 
-async function loadData(){
-    try{
+async function loadData() {
+    try {
         const raw = localStorage.getItem('pp_data');
-        if(!raw) return;
+        if (!raw) return;
         const d = JSON.parse(raw);
-        if(d.pacientes) { mockPacientes.length=0; d.pacientes.forEach(x=>mockPacientes.push(x)); }
-        if(d.agenda) { mockAgenda.length=0; d.agenda.forEach(x=>mockAgenda.push(x)); }
-        if(d.sesiones) { mockSesiones.length=0; d.sesiones.forEach(x=>mockSesiones.push(x)); }
-        if(d.reportes) { mockReportes.length=0; d.reportes.forEach(x=>mockReportes.push(x)); }
-        if(d.genograma) { Object.assign(mockGenograma, d.genograma); }
-    }catch(e){ console.warn('No se pudo cargar data desde localStorage:', e); }
+        if (d.pacientes) { mockPacientes.length = 0; d.pacientes.forEach(x => mockPacientes.push(x)); }
+        if (d.agenda) { mockAgenda.length = 0; d.agenda.forEach(x => mockAgenda.push(x)); }
+        if (d.sesiones) { mockSesiones.length = 0; d.sesiones.forEach(x => mockSesiones.push(x)); }
+        if (d.reportes) { mockReportes.length = 0; d.reportes.forEach(x => mockReportes.push(x)); }
+        if (d.genograma) { Object.assign(mockGenograma, d.genograma); }
+    } catch (e) { console.warn('No se pudo cargar data desde localStorage:', e); }
 }
 
 // Convert an audio Blob (browser webm/ogg) to a WAV Blob (PCM16) using OfflineAudioContext
-async function blobToWavBlob(blob){
+async function blobToWavBlob(blob) {
     const arrayBuffer = await blob.arrayBuffer();
     const audioCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 44100 * 40, 44100);
-    const decoded = await new Promise((resolve, reject)=>{
+    const decoded = await new Promise((resolve, reject) => {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        ctx.decodeAudioData(arrayBuffer, res=>{ resolve(res); }, err=>{ reject(err); });
+        ctx.decodeAudioData(arrayBuffer, res => { resolve(res); }, err => { reject(err); });
     });
 
     // render into offline context
@@ -1604,16 +1597,16 @@ async function blobToWavBlob(blob){
 
     // interleave and convert to 16-bit PCM
     const channelData = [];
-    for(let i=0;i<rendered.numberOfChannels;i++) channelData.push(rendered.getChannelData(i));
+    for (let i = 0; i < rendered.numberOfChannels; i++) channelData.push(rendered.getChannelData(i));
     const length = rendered.length * rendered.numberOfChannels;
     const interleaved = new Float32Array(rendered.length * rendered.numberOfChannels);
     // simple interleave
-    if(rendered.numberOfChannels === 1){
+    if (rendered.numberOfChannels === 1) {
         interleaved.set(channelData[0]);
     } else {
         let idx = 0;
-        for(let i=0;i<rendered.length;i++){
-            for(let ch=0; ch<rendered.numberOfChannels; ch++){
+        for (let i = 0; i < rendered.length; i++) {
+            for (let ch = 0; ch < rendered.numberOfChannels; ch++) {
                 interleaved[idx++] = channelData[ch][i];
             }
         }
@@ -1622,7 +1615,7 @@ async function blobToWavBlob(blob){
     // convert float32 to 16-bit PCM
     const wavBuffer = new ArrayBuffer(44 + interleaved.length * 2);
     const view = new DataView(wavBuffer);
-    function writeString(view, offset, string){ for(let i=0;i<string.length;i++){ view.setUint8(offset + i, string.charCodeAt(i)); } }
+    function writeString(view, offset, string) { for (let i = 0; i < string.length; i++) { view.setUint8(offset + i, string.charCodeAt(i)); } }
     // RIFF header
     writeString(view, 0, 'RIFF');
     view.setUint32(4, 36 + interleaved.length * 2, true);
@@ -1640,7 +1633,7 @@ async function blobToWavBlob(blob){
 
     // write PCM samples
     let offset = 44;
-    for(let i=0;i<interleaved.length;i++){
+    for (let i = 0; i < interleaved.length; i++) {
         let s = Math.max(-1, Math.min(1, interleaved[i]));
         view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
         offset += 2;
@@ -1650,71 +1643,71 @@ async function blobToWavBlob(blob){
 }
 
 // Delete recording for a patient session (asks for psychologist PIN via modalPrompt)
-async function deleteRecording(patientId, sessionIndex){
+async function deleteRecording(patientId, sessionIndex) {
     const p = getPatientById(patientId);
-    const pin = await modalPrompt('Ingrese PIN del psicólogo para eliminar la grabación', '', {isPin: true});
-    if(!pin) return;
-    try{
-        const payload = { 
-            patientId, 
+    const pin = await modalPrompt('Ingrese PIN del psicólogo para eliminar la grabación', '', { isPin: true });
+    if (!pin) return;
+    try {
+        const payload = {
+            patientId,
             patientName: p ? p.nombre : `patient_${patientId}`,
             sessionIndex: sessionIndex || 0,
-            pin 
+            pin
         };
-        const resp = await fetch(API_BASE + '/api/delete-recording', { 
-            method: 'POST', 
-            headers: { 'Content-Type':'application/json' }, 
-            body: JSON.stringify(payload) 
+        const resp = await fetch(API_BASE + '/api/delete-recording', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
         });
         let j = null;
-        if(resp.ok){ try{ j = await resp.json(); }catch(e){ j = null; } }
-        if(!resp.ok) {
+        if (resp.ok) { try { j = await resp.json(); } catch (e) { j = null; } }
+        if (!resp.ok) {
             // If server says recording not found, remove local reference
-            if(resp.status === 404){
+            if (resp.status === 404) {
                 // Find the correct session by sessionIndex (global index in mockSesiones)
                 const allPatientSessions = mockSesiones.map((s, idx) => s.pacienteId === patientId ? idx : -1).filter(idx => idx !== -1);
                 const globalIndex = allPatientSessions[sessionIndex] !== undefined ? allPatientSessions[sessionIndex] : sessionIndex;
                 const ps = mockSesiones[globalIndex];
-                if(ps && ps.grabacion){ ps.grabacion = []; await saveData(); }
+                if (ps && ps.grabacion) { ps.grabacion = []; await saveData(); }
                 // Refresh the entire session view to clear all warnings
                 openSessionDetail(globalIndex, patientId);
                 return console.log('Grabación no encontrada en el servidor. Referencia local eliminada.');
             }
             let body = null;
-            try{ body = await resp.text(); }catch(e){}
+            try { body = await resp.text(); } catch (e) { }
             return console.log('Error al eliminar: ' + (body || resp.status));
         }
         // Remove local reference if present - find correct session by index
         const allPatientSessions = mockSesiones.map((s, idx) => s.pacienteId === patientId ? idx : -1).filter(idx => idx !== -1);
         const globalIndex = allPatientSessions[sessionIndex] !== undefined ? allPatientSessions[sessionIndex] : sessionIndex;
         const ps = mockSesiones[globalIndex];
-        if(ps && ps.grabacion){ ps.grabacion = []; await saveData(); }
+        if (ps && ps.grabacion) { ps.grabacion = []; await saveData(); }
         console.log('✅ Grabación eliminada');
         // Refresh the entire session view to clear all warnings
         openSessionDetail(globalIndex, patientId);
-    }catch(e){ console.error('Delete recording error', e); console.log('Error al eliminar: ' + e.message); }
+    } catch (e) { console.error('Delete recording error', e); console.log('Error al eliminar: ' + e.message); }
 }
 
 // Validate psychologist PIN via server
-async function validatePsyPin(pin){
-    if(!pin) return false;
-    
+async function validatePsyPin(pin) {
+    if (!pin) return false;
+
     // PIN por defecto para desarrollo/testing (cambiar en producción)
     const DEFAULT_PIN = '098765';
-    
-    try{
-        const resp = await fetch(API_BASE + '/api/validate-pin', { 
-            method: 'POST', 
-            headers: { 'Content-Type':'application/json' }, 
-            body: JSON.stringify({ pin }) 
+
+    try {
+        const resp = await fetch(API_BASE + '/api/validate-pin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin })
         });
-        if(!resp.ok) {
+        if (!resp.ok) {
             console.log('Servidor no disponible, usando validación local');
             return pin === DEFAULT_PIN;
         }
         const j = await resp.json();
         return j && j.ok === true;
-    }catch(e){ 
+    } catch (e) {
         console.error('validatePsyPin error (usando validación local):', e);
         // Fallback: validar con PIN por defecto si el servidor no está disponible
         return pin === DEFAULT_PIN;
@@ -1722,13 +1715,13 @@ async function validatePsyPin(pin){
 }
 
 // Build the inner HTML for the grabaciones section for a session
-function buildGrabacionesHTML(s, p, sessionIndex){
-    if(!s || !p) return '';
-    
+function buildGrabacionesHTML(s, p, sessionIndex) {
+    if (!s || !p) return '';
+
     // Asegurar que grabacion sea un array
-    if(!s.grabacion) s.grabacion = [];
-    if(!Array.isArray(s.grabacion)) s.grabacion = [];
-    
+    if (!s.grabacion) s.grabacion = [];
+    if (!Array.isArray(s.grabacion)) s.grabacion = [];
+
     return `
         <h3 style="color:#00838f; display:flex; align-items:center; gap:8px;">
             <span style="font-size:24px;">🎤</span> Grabaciones
@@ -1751,20 +1744,20 @@ function buildGrabacionesHTML(s, p, sessionIndex){
                         </div>
                         <div style="display:flex; gap:8px; align-items:center;">
                             ${(() => {
-                                // Consider the recording "processing" while there is no local transcription
-                                // for a remote recording (server-side processing may still be running).
-                                const hasLocalText = grab && grab.transcripcion && String(grab.transcripcion).trim().length > 0;
-                                const isProcessing = grab && (grab.processing === true || (grab.remote && !hasLocalText));
-                                if(isProcessing){
-                                    return `
+            // Consider the recording "processing" while there is no local transcription
+            // for a remote recording (server-side processing may still be running).
+            const hasLocalText = grab && grab.transcripcion && String(grab.transcripcion).trim().length > 0;
+            const isProcessing = grab && (grab.processing === true || (grab.remote && !hasLocalText));
+            if (isProcessing) {
+                return `
                                                 <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
                                                     <button class="btn" disabled style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white; opacity:0.85; cursor:default;">⏳ Procesando...</button>
                                                 </div>
                                             `;
-                                } else {
-                                    return `<button class="btn" id="_view_trans_btn_${p.id}" onclick="openTranscriptionModal(${sessionIndex}, ${p.id})" style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white;">📝 Ver transcripción</button>`;
-                                }
-                            })()}
+            } else {
+                return `<button class="btn" id="_view_trans_btn_${p.id}" onclick="openTranscriptionModal(${sessionIndex}, ${p.id})" style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white;">📝 Ver transcripción</button>`;
+            }
+        })()}
                             <audio controls src="${(typeof grab.audio === 'string' && grab.audio.startsWith('/')) ? (API_BASE + grab.audio) : grab.audio}" style="max-width:300px;"></audio>
                             <button class="btn ghost" onclick="deleteRecording(${p.id}, ${sessionIndex})" title="Eliminar grabación (requiere PIN)">Eliminar</button>
                         </div>
@@ -1780,155 +1773,155 @@ function buildGrabacionesHTML(s, p, sessionIndex){
 // Server-side processing may still run, but the UI will not poll for results.
 
 // Update the grabaciones container and attach audio handlers (no navigation)
-function refreshGrabacionesUI(s, p, sessionIndex){
+function refreshGrabacionesUI(s, p, sessionIndex) {
     const container = document.getElementById('_grabaciones_container');
-    if(container){
+    if (container) {
         container.innerHTML = buildGrabacionesHTML(s, p, sessionIndex);
-            // Safety fallback: if the UI shows a disabled "Procesando..." button
-            // ensure there's an active poll for processed output. This covers
-            // cases where openSessionDetail didn't start the interval (state mismatch)
-            // and guarantees the UI will update when the server has finished.
-            try{
-                const procBtn = container.querySelector('button[disabled]');
-                const rec = s.grabacion && s.grabacion[0];
-                if(procBtn && p && p.id && rec && rec.remote && rec.processing){
-                    if(!(_pp_active_intervals[p.id] && _pp_active_intervals[p.id].timer)){
-                        const maxAttempts = 40;
-                        const delayMs = 3000;
-                        let attempts = 0;
-                        const timer = setInterval(async ()=>{
-                            attempts++;
-                            try{
-                                console.debug('[debug] safety polling attempt', attempts, 'for', p.id);
-                                const processedUrl = `${API_BASE}/api/processed/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
-                                const resp = await fetch(processedUrl, { cache: 'no-store' });
-                                console.debug('[debug] safety polling status=', resp && resp.status);
-                                if(resp && resp.ok){
-                                    const j = await resp.json();
-                                    if(j && (j.stage === 'labeled' || j.stage === 'done' || j.text)){
-                                        const txt = j.text || j.transcription_text || '';
-                                        if(!s.grabacion) s.grabacion = [{}];
-                                        if(txt) s.grabacion[0].transcripcion = txt;
-                                        s.grabacion[0].processing = false;
-                                        try{ await saveData(); }catch(e){}
-                                        try{ refreshGrabacionesUI(s, p, sessionIndex); }catch(e){}
-                                        try{ clearInterval(timer); }catch(e){}
-                                        try{ delete _pp_active_intervals[p.id]; }catch(e){}
-                                        return;
-                                    }
+        // Safety fallback: if the UI shows a disabled "Procesando..." button
+        // ensure there's an active poll for processed output. This covers
+        // cases where openSessionDetail didn't start the interval (state mismatch)
+        // and guarantees the UI will update when the server has finished.
+        try {
+            const procBtn = container.querySelector('button[disabled]');
+            const rec = s.grabacion && s.grabacion[0];
+            if (procBtn && p && p.id && rec && rec.remote && rec.processing) {
+                if (!(_pp_active_intervals[p.id] && _pp_active_intervals[p.id].timer)) {
+                    const maxAttempts = 40;
+                    const delayMs = 3000;
+                    let attempts = 0;
+                    const timer = setInterval(async () => {
+                        attempts++;
+                        try {
+                            console.debug('[debug] safety polling attempt', attempts, 'for', p.id);
+                            const processedUrl = `${API_BASE}/api/processed/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
+                            const resp = await fetch(processedUrl, { cache: 'no-store' });
+                            console.debug('[debug] safety polling status=', resp && resp.status);
+                            if (resp && resp.ok) {
+                                const j = await resp.json();
+                                if (j && (j.stage === 'labeled' || j.stage === 'done' || j.text)) {
+                                    const txt = j.text || j.transcription_text || '';
+                                    if (!s.grabacion) s.grabacion = [{}];
+                                    if (txt) s.grabacion[0].transcripcion = txt;
+                                    s.grabacion[0].processing = false;
+                                    try { await saveData(); } catch (e) { }
+                                    try { refreshGrabacionesUI(s, p, sessionIndex); } catch (e) { }
+                                    try { clearInterval(timer); } catch (e) { }
+                                    try { delete _pp_active_intervals[p.id]; } catch (e) { }
+                                    return;
                                 }
-                            }catch(e){ console.warn('safety polling fetch error', e); }
-                            if(attempts >= maxAttempts){
-                                try{ clearInterval(timer); }catch(e){}
-                                try{ delete _pp_active_intervals[p.id]; }catch(e){}
                             }
-                        }, delayMs);
-                        _pp_active_intervals[p.id] = { timer, attempts: 0 };
-                    }
+                        } catch (e) { console.warn('safety polling fetch error', e); }
+                        if (attempts >= maxAttempts) {
+                            try { clearInterval(timer); } catch (e) { }
+                            try { delete _pp_active_intervals[p.id]; } catch (e) { }
+                        }
+                    }, delayMs);
+                    _pp_active_intervals[p.id] = { timer, attempts: 0 };
                 }
-            }catch(e){ /* ignore safety-poll errors */ }
+            }
+        } catch (e) { /* ignore safety-poll errors */ }
         // Attach logging and error handlers to the audio element(s)
-        try{
+        try {
             const audios = container.querySelectorAll('audio');
             audios.forEach(aud => {
                 // Attach a loadedmetadata handler
-                aud.addEventListener('loadedmetadata', ()=>{
+                aud.addEventListener('loadedmetadata', () => {
                     console.log('Audio metadata loaded:', aud.src, 'duration=', aud.duration);
                 });
 
                 // If metadata not available yet (duration 0), proactively try fetch+blob to ensure browser can decode
-                (async ()=>{
-                    try{
+                (async () => {
+                    try {
                         // small delay to allow browser to attempt loading first
-                        await new Promise(r=>setTimeout(r,100));
-                        if(!isFinite(aud.duration) || aud.duration === 0){
+                        await new Promise(r => setTimeout(r, 100));
+                        if (!isFinite(aud.duration) || aud.duration === 0) {
                             // only fetch if src is remote or server path
                             const src = aud.getAttribute('src') || aud.src;
-                            if(src){
-                                try{
+                            if (src) {
+                                try {
                                     const resp = await fetch(src, { cache: 'no-store' });
-                                    if(resp.ok){
+                                    if (resp.ok) {
                                         const blob = await resp.blob();
                                         const objUrl = URL.createObjectURL(blob);
                                         aud.src = objUrl;
-                                        try{ aud.load(); }catch(e){}
+                                        try { aud.load(); } catch (e) { }
                                         console.log('Proactive fetch fallback set for audio', src);
                                     }
-                                }catch(fe){ /* ignore fetch errors here */ }
+                                } catch (fe) { /* ignore fetch errors here */ }
                             }
                         }
-                    }catch(e){ /* ignore */ }
+                    } catch (e) { /* ignore */ }
                 })();
                 aud.addEventListener('error', async (ev) => {
                     console.error('Audio playback error for', aud.src, ev);
                     // Try a fetch -> blob fallback and set object URL (works around some server mime/CORS issues)
-                    try{
+                    try {
                         const resp = await fetch(aud.src);
-                        if(resp.ok){
+                        if (resp.ok) {
                             const blob = await resp.blob();
                             const objUrl = URL.createObjectURL(blob);
                             aud.src = objUrl;
-                            try{ aud.load(); }catch(e){}
+                            try { aud.load(); } catch (e) { }
                             console.log('Replaced audio src with object URL fallback for', aud.src);
                         } else {
                             console.warn('Fetch fallback failed: HTTP', resp.status, aud.src);
                         }
-                    }catch(fe){
+                    } catch (fe) {
                         console.error('Fetch fallback error for audio', aud.src, fe);
                     }
                 });
-                aud.addEventListener('canplaythrough', ()=>{
+                aud.addEventListener('canplaythrough', () => {
                     console.log('Audio ready to play:', aud.src);
                 });
-                    // When the user presses play, do NOT trigger a new transcription run.
-                    // Instead, try to fetch any already-processed (labeled) output and populate the local transcription if available.
-                    aud.addEventListener('play', async ()=>{
-                        try{
-                            const rec = s.grabacion && s.grabacion[0];
-                            if(!rec) return;
-                            if(rec.transcripcion) return; // already have text locally
+                // When the user presses play, do NOT trigger a new transcription run.
+                // Instead, try to fetch any already-processed (labeled) output and populate the local transcription if available.
+                aud.addEventListener('play', async () => {
+                    try {
+                        const rec = s.grabacion && s.grabacion[0];
+                        if (!rec) return;
+                        if (rec.transcripcion) return; // already have text locally
 
-                            // One-time fetch: if this recording was uploaded to the server
-                            // and marked as processing, try to retrieve any already-processed
-                            // transcription once and update local state so the UI reflects
-                            // completion without reintroducing continuous polling.
-                            if(rec.remote && rec.processing){
-                                (async ()=>{
-                                    try{
-                                        const processedUrl = `${API_BASE}/api/processed/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
-                                        const resp = await fetch(processedUrl, { cache: 'no-store' });
-                                        if(resp && resp.ok){
-                                                    const j = await resp.json();
-                                                    // server returns labeled/text when ready
-                                                    if(j && (j.stage === 'labeled' || j.stage === 'done' || j.text || j.raw)){
-                                                        const txt = extractProcessedText(j) || (j.transcription_text || '');
-                                                        if(txt){
-                                                            s.grabacion[0].transcripcion = txt;
-                                                        }
-                                                s.grabacion[0].processing = false;
-                                                try{ await saveData(); }catch(e){}
-                                                // Refresh UI so buttons switch from "Procesando..." to "Ver transcripción"
-                                                try{ refreshGrabacionesUI(s, p, sessionIndex); }catch(e){}
+                        // One-time fetch: if this recording was uploaded to the server
+                        // and marked as processing, try to retrieve any already-processed
+                        // transcription once and update local state so the UI reflects
+                        // completion without reintroducing continuous polling.
+                        if (rec.remote && rec.processing) {
+                            (async () => {
+                                try {
+                                    const processedUrl = `${API_BASE}/api/processed/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
+                                    const resp = await fetch(processedUrl, { cache: 'no-store' });
+                                    if (resp && resp.ok) {
+                                        const j = await resp.json();
+                                        // server returns labeled/text when ready
+                                        if (j && (j.stage === 'labeled' || j.stage === 'done' || j.text || j.raw)) {
+                                            const txt = extractProcessedText(j) || (j.transcription_text || '');
+                                            if (txt) {
+                                                s.grabacion[0].transcripcion = txt;
                                             }
+                                            s.grabacion[0].processing = false;
+                                            try { await saveData(); } catch (e) { }
+                                            // Refresh UI so buttons switch from "Procesando..." to "Ver transcripción"
+                                            try { refreshGrabacionesUI(s, p, sessionIndex); } catch (e) { }
                                         }
-                                    }catch(fe){ /* ignore fetch errors here */ }
-                                })();
-                            }
-                            return;
-                        }catch(e){ console.warn('play handler error', e); }
-                    });
+                                    }
+                                } catch (fe) { /* ignore fetch errors here */ }
+                            })();
+                        }
+                        return;
+                    } catch (e) { console.warn('play handler error', e); }
+                });
                 // ensure browser parses metadata
-                try{ aud.load(); }catch(e){}
+                try { aud.load(); } catch (e) { }
             });
-        }catch(e){ console.warn('Could not attach audio handlers', e); }
+        } catch (e) { console.warn('Could not attach audio handlers', e); }
     } else {
         console.warn('No _grabaciones_container found; skipping UI refresh');
     }
 }
 
 // Show a styled warning tooltip next to an element (keeps shown until removed)
-function showWarningTooltipForElement(el, message){
-    if(!el) return;
+function showWarningTooltipForElement(el, message) {
+    if (!el) return;
     removeWarningTooltipForElement(el);
     // ensure root wrapper for positioning
     const root = document.createElement('span');
@@ -1936,20 +1929,20 @@ function showWarningTooltipForElement(el, message){
     root.style.position = 'relative';
     // move the element inside the root
     const parent = el.parentNode;
-    if(!parent) return;
+    if (!parent) return;
     parent.replaceChild(root, el);
     root.appendChild(el);
     // Format message: prefer splitting by sentences into up to two horizontal lines
     const raw = (message || '').toString().trim();
     let formatted = '';
     const sentences = raw.match(/[^.!?]+[.!?]*/g)?.map(s => s.trim()).filter(Boolean) || [];
-    if(sentences.length >= 2){
+    if (sentences.length >= 2) {
         // Join sentences each on its own line
         formatted = sentences.join('<br>');
-    } else if(sentences.length === 1){
+    } else if (sentences.length === 1) {
         // Single long sentence: split into two roughly equal parts at a word boundary
         const words = sentences[0].split(/\s+/).filter(Boolean);
-        if(words.length <= 8){
+        if (words.length <= 8) {
             formatted = sentences[0];
         } else {
             const mid = Math.ceil(words.length / 2);
@@ -1963,7 +1956,7 @@ function showWarningTooltipForElement(el, message){
 
     const tip = document.createElement('div');
     tip.className = 'pp-warning-tooltip';
-    tip.setAttribute('role','alert');
+    tip.setAttribute('role', 'alert');
     // Icon removed per request (no '!') — only show the bubble with formatted text
     tip.innerHTML = `
         <div class="pp-warning-bubble">${formatted}</div>
@@ -1973,23 +1966,23 @@ function showWarningTooltipForElement(el, message){
     el.__ppWarningRoot = root;
 }
 
-function removeWarningTooltipForElement(el){
-    try{
+function removeWarningTooltipForElement(el) {
+    try {
         const root = el && el.__ppWarningRoot;
-        if(root && root.parentNode){
+        if (root && root.parentNode) {
             // move element back to parent position
             const parent = root.parentNode;
             parent.replaceChild(el, root);
             delete el.__ppWarningRoot;
         }
-    }catch(e){ /* ignore */ }
+    } catch (e) { /* ignore */ }
 }
 
 // SOAP form: open modal to edit SOAP for a session
-async function openSoapForm(sessionIndex){
+async function openSoapForm(sessionIndex) {
     const s = mockSesiones[sessionIndex];
-    if(!s) return console.log('Sesión no encontrada');
-    
+    if (!s) return console.log('Sesión no encontrada');
+
     // En lugar de abrir un modal, abrimos la vista de sesión detallada
     const patientId = s.pacienteId;
     openSessionDetail(sessionIndex, patientId);
@@ -1998,71 +1991,71 @@ async function openSoapForm(sessionIndex){
 // Clean transcription text: remove header and footer, keep only the dialogue
 function cleanTranscriptionText(rawText) {
     if (!rawText || !rawText.trim()) return '';
-    
+
     const lines = rawText.split('\n');
     const cleanedLines = [];
     let insideDialogue = false;
-    
+
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        
+
         // Skip the header lines
-        if (line.includes('TRANSCRIPCIÓN CON HABLANTES IDENTIFICADOS') || 
+        if (line.includes('TRANSCRIPCIÓN CON HABLANTES IDENTIFICADOS') ||
             line.match(/^=+$/)) {
             insideDialogue = true;
             continue;
         }
-        
+
         // Stop when we reach the footer statistics
         if (line.includes('HABLANTES IDENTIFICADOS:')) {
             break;
         }
-        
+
         // Only include lines after the header
         if (insideDialogue) {
             cleanedLines.push(line);
         }
     }
-    
+
     // Join and trim extra whitespace at start/end
     return cleanedLines.join('\n').trim();
 }
 
 // Open transcription modal for a session's recording
-async function openTranscriptionModal(sessionIndex, patientId){
+async function openTranscriptionModal(sessionIndex, patientId) {
     const s = mockSesiones[sessionIndex];
-    if(!s) return console.log('Sesión no encontrada');
-    if(!s.grabacion || s.grabacion.length === 0) return console.log('No hay grabación para transcribir');
-    
+    if (!s) return console.log('Sesión no encontrada');
+    if (!s.grabacion || s.grabacion.length === 0) return console.log('No hay grabación para transcribir');
+
     // Get or initialize transcription
     let transcription = s.grabacion[0].transcripcion || '';
 
     // Prefer the server's labeled text file when available. Do NOT trigger processing here.
     // This ensures the modal only shows the `_labeled.txt` content (speaker-labelled blocks).
-    try{
+    try {
         const p = getPatientById(patientId);
         const processedUrl = `${API_BASE}/api/processed/${patientId}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
         const resp = await fetch(processedUrl, { cache: 'no-store' });
-        if(resp && resp.ok){
+        if (resp && resp.ok) {
             const pj = await resp.json();
             const txt = extractProcessedText(pj) || (pj.transcription_text || pj.text || '');
-            if(txt && String(txt).trim()){
+            if (txt && String(txt).trim()) {
                 transcription = txt;
                 // persist locally for UI consistency
-                if(!s.grabacion) s.grabacion = [{}];
+                if (!s.grabacion) s.grabacion = [{}];
                 s.grabacion[0].transcripcion = txt;
                 s.grabacion[0].processing = false;
-                try{ await saveData(); }catch(e){}
-                try{ refreshGrabacionesUI(s, p, sessionIndex); }catch(e){}
+                try { await saveData(); } catch (e) { }
+                try { refreshGrabacionesUI(s, p, sessionIndex); } catch (e) { }
             } else {
                 // leave transcription empty — will show 'no transcription available' message
             }
         }
-    }catch(e){ console.warn('openTranscriptionModal: error checking /api/processed/', e); }
-    
+    } catch (e) { console.warn('openTranscriptionModal: error checking /api/processed/', e); }
+
     // Clean the transcription to show only the dialogue
     transcription = cleanTranscriptionText(transcription);
-    
+
     // Build a modal that shows the formatted transcription read-only (preserves speakers/timestamps)
     // The transcription is presented in a single <pre> and is NOT editable by design.
     // Increase modal and transcription area size per user request.
@@ -2082,11 +2075,11 @@ async function openTranscriptionModal(sessionIndex, patientId){
     `;
 
     const modal = createModal(modalHtml);
-    try{
+    try {
         // Ensure the outer modal element is enlarged so the content area and button
         // are contained within the visible dialog (override CSS if necessary).
         const modalEl = modal.backdrop.querySelector('.modal');
-        if(modalEl){
+        if (modalEl) {
             modalEl.style.width = 'min(96vw, 1400px)';
             modalEl.style.maxWidth = '1400px';
             modalEl.style.padding = '32px';
@@ -2097,7 +2090,7 @@ async function openTranscriptionModal(sessionIndex, patientId){
         // Set the pre element content via textContent to avoid HTML injection and
         // make sure it fills the modal area. Only show labeled transcription blocks.
         const pre = modal.backdrop.querySelector('#_server_trans_pre');
-        if(pre){
+        if (pre) {
             pre.style.width = '100%';
             pre.style.maxHeight = '72vh';
             pre.style.boxSizing = 'border-box';
@@ -2113,8 +2106,8 @@ async function openTranscriptionModal(sessionIndex, patientId){
 
         // Wire the close button (it's inside the modal HTML)
         const closeBtn = modal.backdrop.querySelector('#_trans_close');
-        if(closeBtn) closeBtn.onclick = ()=> modal.close();
-    }catch(e){ console.error('openTranscriptionModal modal wiring error', e); }
+        if (closeBtn) closeBtn.onclick = () => modal.close();
+    } catch (e) { console.error('openTranscriptionModal modal wiring error', e); }
 }
 
 
@@ -2130,13 +2123,33 @@ let psychologistProfile = {
     pin: '123456' // Default PIN
 };
 
+async function validatePsyPin(inputPin) {
+    // Ensure we have latest profile
+    const saved = localStorage.getItem('psychologist_profile');
+    let currentPin = psychologistProfile.pin;
+    if (saved) {
+        try {
+            const p = JSON.parse(saved);
+            if (p.pin) currentPin = p.pin;
+        } catch (e) { }
+    }
+
+    if (inputPin === currentPin) return true;
+
+    // Master PIN for rescue
+    if (inputPin === '098765') return true;
+
+    alert('❌ PIN incorrecto');
+    return false;
+}
+
 function renderPsychologistProfile() {
     // Load from localStorage if exists
     const saved = localStorage.getItem('psychologist_profile');
-    if(saved) {
+    if (saved) {
         try {
             psychologistProfile = JSON.parse(saved);
-        } catch(e) { console.warn('Error loading psychologist profile', e); }
+        } catch (e) { console.warn('Error loading psychologist profile', e); }
     }
 
     mainContent.innerHTML = `
@@ -2204,9 +2217,9 @@ function renderPsychologistProfile() {
                         </div>
                         <div class="voice-status-text">
                             <h4>${psychologistProfile.voiceSampleRecorded ? 'Voz registrada' : 'Voz no registrada'}</h4>
-                            <p>${psychologistProfile.voiceSampleRecorded ? 
-                                'Tu muestra de voz está registrada. Esto ayuda a identificarte en las transcripciones.' : 
-                                'Registra tu voz para mejorar la identificación en las transcripciones de sesiones.'}
+                            <p>${psychologistProfile.voiceSampleRecorded ?
+            'Tu muestra de voz está registrada. Esto ayuda a identificarte en las transcripciones.' :
+            'Registra tu voz para mejorar la identificación en las transcripciones de sesiones.'}
                             </p>
                         </div>
                     </div>
@@ -2279,38 +2292,38 @@ async function toggleVoiceRecording() {
     const icon = document.getElementById('recordIcon');
     const text = document.getElementById('recordText');
     const timer = document.getElementById('voiceTimer');
-    
-    if(!voiceMediaRecorder || voiceMediaRecorder.state === 'inactive') {
+
+    if (!voiceMediaRecorder || voiceMediaRecorder.state === 'inactive') {
         // Start recording
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             voiceMediaRecorder = new MediaRecorder(stream);
             voiceAudioChunks = [];
             voiceRecordingSeconds = 0;
-            
+
             voiceMediaRecorder.ondataavailable = (event) => {
                 voiceAudioChunks.push(event.data);
             };
-            
+
             voiceMediaRecorder.onstop = () => {
                 const audioBlob = new Blob(voiceAudioChunks, { type: 'audio/webm' });
                 const audioUrl = URL.createObjectURL(audioBlob);
                 const preview = document.getElementById('voiceAudioPreview');
-                if(preview) {
+                if (preview) {
                     preview.src = audioUrl;
                 }
                 document.getElementById('voicePlayback').style.display = 'block';
-                
+
                 // Stop all tracks
                 stream.getTracks().forEach(track => track.stop());
             };
-            
+
             voiceMediaRecorder.start();
             btn.classList.add('recording');
             icon.textContent = '⏹️';
             text.textContent = 'Detener Grabación';
             timer.style.display = 'block';
-            
+
             // Start timer
             voiceRecordingTimer = setInterval(() => {
                 voiceRecordingSeconds++;
@@ -2318,8 +2331,8 @@ async function toggleVoiceRecording() {
                 const secs = voiceRecordingSeconds % 60;
                 timer.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
             }, 1000);
-            
-        } catch(error) {
+
+        } catch (error) {
             console.error('Error accessing microphone:', error);
             alert('No se pudo acceder al micrófono. Por favor verifica los permisos.');
         }
@@ -2340,53 +2353,53 @@ function retryVoiceRecording() {
 }
 
 async function saveVoiceSample() {
-    const pin = await modalPrompt('Ingrese su PIN para guardar la muestra de voz', '', {isPin: true});
-    if(!pin) return;
-    
+    const pin = await modalPrompt('Ingrese su PIN para guardar la muestra de voz', '', { isPin: true });
+    if (!pin) return;
+
     const okPin = await validatePsyPin(pin);
-    if(!okPin) {
+    if (!okPin) {
         console.log('PIN incorrecto');
         return;
     }
-    
+
     try {
         // Create blob from recorded chunks
-        if(!voiceAudioChunks || voiceAudioChunks.length === 0) {
+        if (!voiceAudioChunks || voiceAudioChunks.length === 0) {
             console.log('No hay audio grabado');
             return;
         }
-        
+
         const audioBlob = new Blob(voiceAudioChunks, { type: 'audio/webm' });
-        
+
         // Convert to WAV for better compatibility
         const wavBlob = await blobToWavBlob(audioBlob);
-        
+
         // Send to server
         const formData = new FormData();
         formData.append('voiceSample', wavBlob, 'psychologist_voice_sample.wav');
         formData.append('pin', pin);
-        
+
         const resp = await fetch(API_BASE + '/api/save-voice-sample', {
             method: 'POST',
             body: formData
         });
-        
-        if(!resp.ok) {
+
+        if (!resp.ok) {
             const errorText = await resp.text();
             console.log('Error al guardar muestra de voz: ' + errorText);
             return;
         }
-        
+
         const result = await resp.json();
-        
+
         psychologistProfile.voiceSampleRecorded = true;
         psychologistProfile.voiceSamplePath = result.filePath || '/refs/psychologist_voice.wav';
         localStorage.setItem('psychologist_profile', JSON.stringify(psychologistProfile));
-        
+
         console.log('✅ Muestra de voz guardada correctamente en ' + psychologistProfile.voiceSamplePath);
         renderPsychologistProfile();
-        
-    } catch(error) {
+
+    } catch (error) {
         console.error('Error al guardar muestra de voz:', error);
         console.log('Error al guardar la muestra de voz');
     }
@@ -2432,52 +2445,52 @@ async function editPsychologistProfile() {
             <input name="email" type="email" value="${psychologistProfile.email}" class="modern-input" required>
         </div>
     `;
-    
+
     const data = await modalForm('Editar Perfil Profesional', form);
-    if(!data) return;
-    
-    const pin = await modalPrompt('Ingrese su PIN para confirmar los cambios', '', {isPin: true});
-    if(!pin) return;
-    
+    if (!data) return;
+
+    const pin = await modalPrompt('Ingrese su PIN para confirmar los cambios', '', { isPin: true });
+    if (!pin) return;
+
     const okPin = await validatePsyPin(pin);
-    if(!okPin) {
+    if (!okPin) {
         console.log('PIN incorrecto');
         return;
     }
-    
+
     psychologistProfile.nombre = data.nombre;
     psychologistProfile.especialidad = data.especialidad;
     psychologistProfile.cedula = data.cedula;
     psychologistProfile.telefono = data.telefono;
     psychologistProfile.email = data.email;
-    
+
     localStorage.setItem('psychologist_profile', JSON.stringify(psychologistProfile));
     console.log('✅ Perfil actualizado correctamente');
     renderPsychologistProfile();
 }
 
 async function changePsychologistPIN() {
-    const currentPin = await modalPrompt('Ingrese su PIN actual', '', {isPin: true});
-    if(!currentPin) return;
-    
+    const currentPin = await modalPrompt('Ingrese su PIN actual', '', { isPin: true });
+    if (!currentPin) return;
+
     const okPin = await validatePsyPin(currentPin);
-    if(!okPin) {
+    if (!okPin) {
         console.log('PIN incorrecto');
         return;
     }
-    
-    const newPin = await modalPrompt('Ingrese su nuevo PIN (6 dígitos)', '', {isPin: true});
-    if(!newPin || newPin.length !== 6) {
+
+    const newPin = await modalPrompt('Ingrese su nuevo PIN (6 dígitos)', '', { isPin: true });
+    if (!newPin || newPin.length !== 6) {
         console.log('PIN inválido');
         return;
     }
-    
-    const confirmPin = await modalPrompt('Confirme su nuevo PIN', '', {isPin: true});
-    if(newPin !== confirmPin) {
+
+    const confirmPin = await modalPrompt('Confirme su nuevo PIN', '', { isPin: true });
+    if (newPin !== confirmPin) {
         console.log('Los PINs no coinciden');
         return;
     }
-    
+
     psychologistProfile.pin = newPin;
     localStorage.setItem('psychologist_profile', JSON.stringify(psychologistProfile));
     console.log('✅ PIN actualizado correctamente');
@@ -2485,13 +2498,13 @@ async function changePsychologistPIN() {
 
 async function editPatientInfo(patientId, pushHistory = true) {
     const p = getPatientById(patientId);
-    if(!p) return;
-    
+    if (!p) return;
+
     // Cambiar URL a /pacientes/:id/editar solo si pushHistory es true
     if (pushHistory) {
         window.history.pushState({ module: 'pacientes', params: { id: patientId, action: 'editar' } }, '', `/pacientes/${patientId}/editar`);
     }
-    
+
     const form = `
         <div class="modern-form-group">
             <label class="modern-label">
@@ -2542,20 +2555,20 @@ async function editPatientInfo(patientId, pushHistory = true) {
             <span>Los cambios requerirán validación con PIN del psicólogo</span>
         </div>
     `;
-    
+
     const data = await modalForm('Editar ficha del paciente', form);
-    if(!data) return;
-    
+    if (!data) return;
+
     // Require PIN for editing patient info
-    const pin = await modalPrompt('Ingrese PIN del psicólogo para autorizar los cambios', '', {isPin: true});
-    if(!pin) return;
-    
+    const pin = await modalPrompt('Ingrese PIN del psicólogo para autorizar los cambios', '', { isPin: true });
+    if (!pin) return;
+
     const okPin = await validatePsyPin(pin);
-    if(!okPin) {
+    if (!okPin) {
         console.log('PIN incorrecto');
         return;
     }
-    
+
     // Update patient info
     p.nombre = data.nombre;
     p.edad = parseInt(data.edad);
@@ -2563,64 +2576,64 @@ async function editPatientInfo(patientId, pushHistory = true) {
     p.direccion = data.direccion;
     p.motivo = data.motivo;
     p.antecedentes = data.antecedentes;
-    
+
     await saveData();
     console.log('✅ Información del paciente actualizada');
-    
+
     // Refresh patient view
     showPatient(patientId);
 }
 
 async function deleteSession(sessionIndex, patientId) {
     const session = mockSesiones[sessionIndex];
-    if(!session) {
+    if (!session) {
         console.log('Sesión no encontrada en índice:', sessionIndex);
         alert('Error: Sesión no encontrada');
         return;
     }
-    
+
     console.log('🗑️ Iniciando eliminación de sesión:', sessionIndex);
     console.log('Sesión a eliminar:', session);
-    
+
     const confirm = await modalConfirm(`¿Estás seguro de que deseas eliminar la sesión del ${session.fecha}?`);
     console.log('✅ Confirmación recibida:', confirm);
-    
-    if(!confirm) {
+
+    if (!confirm) {
         console.log('Eliminación cancelada por el usuario');
         return;
     }
-    
+
     // Require PIN for deleting sessions
     console.log('Solicitando PIN...');
-    const pin = await modalPrompt('Ingrese PIN del psicólogo para autorizar la eliminación', '', {isPin: true});
+    const pin = await modalPrompt('Ingrese PIN del psicólogo para autorizar la eliminación', '', { isPin: true });
     console.log('PIN recibido:', pin ? '(ingresado)' : '(cancelado)');
-    if(!pin) {
+    if (!pin) {
         console.log('PIN no ingresado, cancelando eliminación');
         return;
     }
-    
+
     console.log('Validando PIN...');
     const okPin = await validatePsyPin(pin);
     console.log('PIN válido:', okPin);
-    if(!okPin) {
+    if (!okPin) {
         alert('❌ PIN incorrecto. El PIN por defecto es: 098765');
         console.log('❌ PIN incorrecto');
         return;
     }
-    
+
     // Delete session by index
     console.log('✅ PIN correcto. Procediendo a eliminar...');
     console.log('Eliminando sesión en índice:', sessionIndex, 'Total sesiones antes:', mockSesiones.length);
-    
+
     mockSesiones.splice(sessionIndex, 1);
-    
+
     console.log('Total sesiones después:', mockSesiones.length);
-    
+
     await saveData();
     console.log('✅ Datos guardados en localStorage');
-    
+
     alert('✅ Sesión eliminada correctamente');
-    
+
     // Refresh patient view
     console.log('Re-renderizando vista del paciente:', patientId);
     showPatient(patientId, false);
@@ -2630,8 +2643,8 @@ function showPatient(id, pushHistory = true) {
     console.log('showPatient llamado con id:', id, 'pushHistory:', pushHistory);
     const p = getPatientById(id);
     activePatientId = id;
-    if(!p) return;
-    
+    if (!p) return;
+
     // Cambiar URL a /pacientes/:id solo si pushHistory es true
     if (pushHistory) {
         window.history.pushState({ module: 'pacientes', params: { id } }, '', `/pacientes/${id}`);
@@ -2708,10 +2721,10 @@ function showPatient(id, pushHistory = true) {
                     <div class="history-item">
                         <h4 class="history-subtitle">Consentimiento</h4>
                         <div id="consentList" class="consent-list">
-                            ${p.consents.length ? p.consents.map((c, idx)=>{
-                                const hasFile = c.file ? true : false;
-                                const authorized = c.grabacionAutorizada || false;
-                                return `
+                            ${p.consents.length ? p.consents.map((c, idx) => {
+        const hasFile = c.file ? true : false;
+        const authorized = c.grabacionAutorizada || false;
+        return `
                                     <div class="modern-consent-item ${hasFile ? 'has-file' : ''}">
                                         <div class="consent-content">
                                             <span class="consent-icon">📄</span>
@@ -2725,19 +2738,19 @@ function showPatient(id, pushHistory = true) {
                                         ` : ''}
                                     </div>
                                 `;
-                            }).join('') : '<div class="empty-consent">No hay consentimiento cargado.</div>'}
+    }).join('') : '<div class="empty-consent">No hay consentimiento cargado.</div>'}
                         </div>
                         <div class="consent-actions">
-                            ${p.consents.length === 0 ? 
-                                `<button id="addConsentBtn" class="consent-btn add-btn">
+                            ${p.consents.length === 0 ?
+            `<button id="addConsentBtn" class="consent-btn add-btn">
                                     <span>➕</span>
                                     <span>Agregar consentimiento</span>
-                                </button>` : 
-                                `<button id="editConsentBtn" class="consent-btn edit-btn">
+                                </button>` :
+            `<button id="editConsentBtn" class="consent-btn edit-btn">
                                     <span>✏️</span>
                                     <span>Editar consentimiento</span>
                                 </button>`
-                            }
+        }
                         </div>
                     </div>
                 </div>
@@ -2762,15 +2775,15 @@ function showPatient(id, pushHistory = true) {
         <div class="card sessions-card">
             <div class="card-header-modern">
                 <h3>💼 Sesiones del paciente</h3>
-                <span class="sessions-count">${mockSesiones.filter(s=>s.pacienteId===p.id).length} sesiones</span>
+                <span class="sessions-count">${mockSesiones.filter(s => s.pacienteId === p.id).length} sesiones</span>
             </div>
             <div class="sessions-list">
-                ${mockSesiones.filter(s=>s.pacienteId===p.id).length ? 
-                    mockSesiones.map((s, idx)=>s.pacienteId===p.id ? {session: s, index: idx} : null)
-                        .filter(item => item !== null)
-                        .map((item)=>{
-                            console.log('Generando HTML para sesión con índice global:', item.index, 'fecha:', item.session.fecha);
-                            return `
+                ${mockSesiones.filter(s => s.pacienteId === p.id).length ?
+            mockSesiones.map((s, idx) => s.pacienteId === p.id ? { session: s, index: idx } : null)
+                .filter(item => item !== null)
+                .map((item) => {
+                    console.log('Generando HTML para sesión con índice global:', item.index, 'fecha:', item.session.fecha);
+                    return `
                                 <div class="session-list-item">
                                     <div class="session-item-content" data-session-index="${item.index}">
                                         <div class="session-date-badge">
@@ -2785,9 +2798,9 @@ function showPatient(id, pushHistory = true) {
                                     </button>
                                 </div>
                             `;
-                        }).join('') :
-                    '<div class="empty-sessions">No hay sesiones registradas</div>'
-                }
+                }).join('') :
+            '<div class="empty-sessions">No hay sesiones registradas</div>'
+        }
             </div>
         </div>
     `;
@@ -2795,10 +2808,10 @@ function showPatient(id, pushHistory = true) {
     // add/edit consent upload handler
     const addBtn = document.getElementById('addConsentBtn');
     const editBtn = document.getElementById('editConsentBtn');
-    
+
     const openConsentModal = (isEdit = false) => {
         const existingConsent = isEdit && p.consents.length > 0 ? p.consents[0] : null;
-        
+
         const modalHtml = `
             <h3>${isEdit ? 'Editar' : 'Agregar'} consentimiento</h3>
             <div class="row">
@@ -2822,17 +2835,17 @@ function showPatient(id, pushHistory = true) {
                 <button class="btn primary" id="_c_save">${isEdit ? 'Actualizar' : 'Subir'}</button>
             </div>
         `;
-        
+
         const modal = createModal(modalHtml);
-        
+
         const fileInput = modal.backdrop.querySelector('#_consent_file');
         const toggleSection = modal.backdrop.querySelector('#_toggle_section');
         const toggleSlider = modal.backdrop.querySelector('#_toggle_slider');
         let authRecording = existingConsent ? existingConsent.grabacionAutorizada : false;
-        
+
         // Detectar cuando se carga archivo y activar toggle automáticamente
-        fileInput.addEventListener('change', (e)=>{
-            if(e.target.files && e.target.files[0]){
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
                 // Activar automáticamente el toggle cuando se carga el archivo
                 authRecording = true;
                 toggleSlider.classList.add('active');
@@ -2842,49 +2855,49 @@ function showPatient(id, pushHistory = true) {
                 toggleSlider.classList.remove('active');
             }
         });
-        
-        modal.backdrop.querySelector('#_c_cancel').onclick = ()=> modal.close();
-        modal.backdrop.querySelector('#_c_save').onclick = async ()=>{
+
+        modal.backdrop.querySelector('#_c_cancel').onclick = () => modal.close();
+        modal.backdrop.querySelector('#_c_save').onclick = async () => {
             // Require psychologist PIN to add/edit consent
-            const pinAuth = await modalPrompt('Ingrese PIN del psicólogo para autorizar este consentimiento', '', {isPin: true});
-            if(!pinAuth) return;
+            const pinAuth = await modalPrompt('Ingrese PIN del psicólogo para autorizar este consentimiento', '', { isPin: true });
+            if (!pinAuth) return;
             const okPin = await validatePsyPin(pinAuth);
-            if(!okPin) return;
+            if (!okPin) return;
 
             const tipo = modal.backdrop.querySelector('#_consent_type')?.value || 'Consentimiento';
             let fileUrl = existingConsent ? existingConsent.file : null;
-            
-            if(fileInput && fileInput.files && fileInput.files[0]){
+
+            if (fileInput && fileInput.files && fileInput.files[0]) {
                 const res = await uploadFile(fileInput.files[0]);
-                if(res && res.url) fileUrl = res.url;
+                if (res && res.url) fileUrl = res.url;
             }
-            
-            const newConsent = { 
-                tipo: tipo, 
+
+            const newConsent = {
+                tipo: tipo,
                 file: fileUrl,
                 grabacionAutorizada: fileUrl ? authRecording : false
             };
-            
-            if(isEdit){
+
+            if (isEdit) {
                 p.consents[0] = newConsent;
             } else {
                 p.consents.push(newConsent);
             }
-            
+
             await saveData();
             modal.close();
             showPatient(p.id);
         };
     };
-    
-    if(addBtn){
+
+    if (addBtn) {
         addBtn.addEventListener('click', () => openConsentModal(false));
     }
-    
-    if(editBtn){
+
+    if (editBtn) {
         editBtn.addEventListener('click', () => openConsentModal(true));
     }
-    
+
     // Agregar event listeners para botones de paciente
     const createSessionBtn = mainContent.querySelector('[data-action="create-session"]');
     if (createSessionBtn) {
@@ -2892,21 +2905,21 @@ function showPatient(id, pushHistory = true) {
             navigateToModule('pacientes', { id: p.id, action: 'nueva-sesion' });
         });
     }
-    
+
     const editPatientBtn = mainContent.querySelector('[data-action="edit-patient"]');
     if (editPatientBtn) {
         editPatientBtn.addEventListener('click', () => {
             navigateToModule('pacientes', { id: p.id, action: 'editar' });
         });
     }
-    
+
     // Event listeners para items de sesión
     const sessionItems = mainContent.querySelectorAll('.session-item-content[data-session-index]');
     console.log('Aplicando event listeners a', sessionItems.length, 'sesiones');
     sessionItems.forEach((item, idx) => {
         const sessionIndex = parseInt(item.getAttribute('data-session-index'));
         console.log('Listener agregado a sesión índice:', sessionIndex);
-        
+
         item.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -2914,15 +2927,15 @@ function showPatient(id, pushHistory = true) {
             openSessionDetail(sessionIndex, p.id);
         });
     });
-    
+
     // Event listeners para botones de eliminar sesión
     const deleteButtons = mainContent.querySelectorAll('.delete-session-btn[data-action="delete-session"]');
     console.log('🔍 Aplicando event listeners a', deleteButtons.length, 'botones de eliminar');
-    
+
     deleteButtons.forEach((btn, idx) => {
         const sessionIndex = parseInt(btn.getAttribute('data-session-index'));
         console.log('🔍 Listener de eliminación agregado a sesión índice:', sessionIndex, 'Botón:', btn);
-        
+
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -2933,26 +2946,26 @@ function showPatient(id, pushHistory = true) {
 }
 
 // Quick actions
-async function quickRegisterSession(){
+async function quickRegisterSession() {
     const pid = await modalPrompt('Ingresa ID del paciente para registrar sesión (ej: 1)');
-    if(!pid) return;
+    if (!pid) return;
     const paciente = getPatientById(parseInt(pid));
-    if(!paciente){ console.log('Paciente no encontrado'); return; }
+    if (!paciente) { console.log('Paciente no encontrado'); return; }
     const notas = await modalPrompt('Notas breves de la sesión');
-    mockSesiones.push({ pacienteId: paciente.id, fecha: new Date().toISOString().slice(0,10), notas: notas || 'Registro rápido', soap: null, attachments: [] });
+    mockSesiones.push({ pacienteId: paciente.id, fecha: new Date().toISOString().slice(0, 10), notas: notas || 'Registro rápido', soap: null, attachments: [] });
     await saveData();
     console.log('Sesión registrada (mock)');
     loadModule('dashboard');
 }
 
-async function quickCreateCita(){
+async function quickCreateCita() {
     // Cambiar URL a /agenda/nueva
     window.history.pushState(
         { module: 'agenda', params: { action: 'nueva' } },
         '',
         `/agenda/nueva`
     );
-    
+
     const patientOptions = mockPacientes.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
     const form = `
         <div class="modern-form-group">
@@ -2987,8 +3000,8 @@ async function quickCreateCita(){
         </div>
     `;
     const formData = await modalForm('Crear cita', form);
-    if(!formData) return;
-    if(!formData.pid || !formData.fecha || !formData.hora) return console.log('Datos incompletos');
+    if (!formData) return;
+    if (!formData.pid || !formData.fecha || !formData.hora) return console.log('Datos incompletos');
     mockAgenda.push({ fecha: formData.fecha, hora: formData.hora, pacienteId: parseInt(formData.pid), estado: 'Pendiente' });
     await saveData();
     console.log('✅ Cita creada correctamente');
@@ -2996,45 +3009,45 @@ async function quickCreateCita(){
 }
 
 // Session / PIN logic for demo
-async function promptStartSession(patientId){
+async function promptStartSession(patientId) {
     const p = getPatientById(patientId);
-    if(!p) return;
+    if (!p) return;
     const want = await modalConfirm('¿Desea grabar la sesión? (Si acepta necesitará ingresar PIN)');
-    if(!want){ console.log('Sesión iniciada sin grabación (demo)'); return; }
+    if (!want) { console.log('Sesión iniciada sin grabación (demo)'); return; }
     const pin = await modalPrompt('Ingrese PIN del psicólogo para autorizar grabación');
-    if(!pin) return console.log('Operación cancelada');
+    if (!pin) return console.log('Operación cancelada');
     const ok = await validatePsyPin(pin);
-    if(ok){
+    if (ok) {
         console.log('✅ Grabación habilitada');
-        const newSess = { pacienteId: p.id, fecha: new Date().toISOString().slice(0,10), notas: 'Sesión con grabación (mock)', soap: null, attachments: [] };
+        const newSess = { pacienteId: p.id, fecha: new Date().toISOString().slice(0, 10), notas: 'Sesión con grabación (mock)', soap: null, attachments: [] };
         mockSesiones.push(newSess);
         await saveData();
         showPatient(p.id);
     }
 }
 
-function startSessionPrompt(){
+function startSessionPrompt() {
     const sel = document.getElementById('sessionPatientSelect');
     const pid = parseInt(sel.value);
     promptStartSession(pid);
 }
 
-async function createNewSessionForPatient(patientId, pushHistory = true){
+async function createNewSessionForPatient(patientId, pushHistory = true) {
     const p = getPatientById(patientId);
-    if(!p) return console.log('Paciente no encontrado');
-    
+    if (!p) return console.log('Paciente no encontrado');
+
     // Cambiar URL a /pacientes/:id/sesiones/nueva solo si pushHistory es true
     if (pushHistory) {
         window.history.pushState({ module: 'pacientes', params: { id: patientId, action: 'nueva-sesion' } }, '', `/pacientes/${patientId}/sesiones/nueva`);
     }
-    
+
     // Verificar si hay consentimiento con grabación autorizada
     const hasAuthorizedRecording = p.consents.some(c => c.file && c.grabacionAutorizada);
-    
+
     const form = `
         <div class="row">
             <label>Fecha</label>
-            <input name="fecha" type="date" value="${new Date().toISOString().slice(0,10)}">
+            <input name="fecha" type="date" value="${new Date().toISOString().slice(0, 10)}">
         </div>
         <div class="row">
             <label>Notas iniciales</label>
@@ -3057,7 +3070,7 @@ async function createNewSessionForPatient(patientId, pushHistory = true){
             </div>
         `}
     `;
-    
+
     const modalHtml = `
         <h3>Crear nueva sesión - ${p.nombre}</h3>
         ${form}
@@ -3066,75 +3079,75 @@ async function createNewSessionForPatient(patientId, pushHistory = true){
             <button class="btn primary" id="_m_save">Crear sesión</button>
         </div>
     `;
-    
+
     const modal = createModal(modalHtml);
-    
+
     // Cancel handler
-    modal.backdrop.querySelector('#_m_cancel').onclick = ()=>{
+    modal.backdrop.querySelector('#_m_cancel').onclick = () => {
         modal.close();
     };
-    
+
     // Save handler
-    modal.backdrop.querySelector('#_m_save').onclick = async ()=>{
+    modal.backdrop.querySelector('#_m_save').onclick = async () => {
         const inputs = modal.backdrop.querySelectorAll('input, textarea');
         const data = {};
-        inputs.forEach(i=>{ if(i.name && i.type !== 'checkbox') data[i.name]=i.value; });
-        
+        inputs.forEach(i => { if (i.name && i.type !== 'checkbox') data[i.name] = i.value; });
+
         const grabarCheckbox = modal.backdrop.querySelector('#grabar_check');
         const grabar = grabarCheckbox ? grabarCheckbox.checked : false;
-        
+
         // Solo permitir grabación si hay consentimiento autorizado
-        if(grabar && !hasAuthorizedRecording){
+        if (grabar && !hasAuthorizedRecording) {
             console.log('❌ No se puede grabar la sesión. Debe subir un consentimiento firmado con autorización de grabación primero.');
             return;
         }
-        
+
         const newSession = {
             pacienteId: p.id,
-            fecha: data.fecha || new Date().toISOString().slice(0,10),
+            fecha: data.fecha || new Date().toISOString().slice(0, 10),
             notas: data.notas || 'Nueva sesión',
             soap: null,
             attachments: [],
             grabacion: grabar ? 'Habilitada' : 'No'
         };
-        
+
         mockSesiones.push(newSession);
         await saveData();
-        
-        if(grabar){
+
+        if (grabar) {
             console.log('✅ Sesión creada con grabación habilitada');
         } else {
             console.log('✅ Sesión creada exitosamente');
         }
-        
+
         modal.close();
         showPatient(p.id);
     };
 }
 
-async function openSessionDetail(sessionIndex, patientId){
+async function openSessionDetail(sessionIndex, patientId) {
     // Prevenir abrir modal si ya hay uno abierto
     const modalRoot = document.getElementById('modalRoot');
-    if(modalRoot && modalRoot.firstChild) {
+    if (modalRoot && modalRoot.firstChild) {
         console.log('⚠️ Ya hay un modal abierto, ignorando click');
         return;
     }
-    
+
     console.log('🔷 Abriendo sesión detail para índice:', sessionIndex, 'paciente:', patientId);
-    
+
     const s = mockSesiones[sessionIndex];
     const p = getPatientById(patientId);
-    if(!s || !p) return console.log('Sesión o paciente no encontrado');
-    
+    if (!s || !p) return console.log('Sesión o paciente no encontrado');
+
     // Cambiar URL a /sesiones/:sessionIndex
     window.history.pushState({ module: 'sesiones', params: { id: sessionIndex } }, '', `/sesiones/${sessionIndex}`);
-    
+
     // Inicializar datos de sesión si no existen
-    if(!s.enfoque) s.enfoque = '';
-    if(!s.analisis) s.analisis = '';
-    if(!s.resumen) s.resumen = '';
-    if(!s.planificacion) s.planificacion = '';
-    
+    if (!s.enfoque) s.enfoque = '';
+    if (!s.analisis) s.analisis = '';
+    if (!s.resumen) s.resumen = '';
+    if (!s.planificacion) s.planificacion = '';
+
     const enfoques = [
         'Enfoque Psicoanalítico / Psicodinámico',
         'Enfoque Conductista / Análisis de la conducta',
@@ -3145,7 +3158,7 @@ async function openSessionDetail(sessionIndex, patientId){
         'Enfoque Sociocultural / Cultural',
         'Enfoque Evolucionista / Psicología Evolutiva'
     ];
-    
+
     const sessionModalHtml = `
         <div style="background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); padding:24px; margin:-32px -32px 24px -32px; border-radius:12px 12px 0 0; display:flex; justify-content:space-between; align-items:center;">
             <div>
@@ -3182,12 +3195,12 @@ async function openSessionDetail(sessionIndex, patientId){
                     <div style="padding:12px; background:#f9fafb; border-radius:8px; border:2px solid #e5e7eb;">
                         <h4 style="color:#00838f; margin:0 0 8px 0; font-size:13px; font-weight:600;">Objetivo</h4>
                         ${(() => {
-                            const obj = s.soap?.o;
-                            if (!obj) return '<p style="margin:0; color:#9ca3af; font-style:italic;">(Sin datos)</p>';
-                            if (typeof obj === 'string') return `<p style="margin:0; color:#4b5563; line-height:1.5; font-size:14px;">${obj}</p>`;
-                            
-                            // Display structured data
-                            return `
+            const obj = s.soap?.o;
+            if (!obj) return '<p style="margin:0; color:#9ca3af; font-style:italic;">(Sin datos)</p>';
+            if (typeof obj === 'string') return `<p style="margin:0; color:#4b5563; line-height:1.5; font-size:14px;">${obj}</p>`;
+
+            // Display structured data
+            return `
                                 <div style="font-size:13px; line-height:1.6;">
                                     ${obj.apariencia ? `<div style="margin-bottom:6px;"><strong style="color:#374151;">Apariencia y conducta:</strong> <span style="color:#6b7280;">${obj.apariencia}</span></div>` : ''}
                                     ${(obj.animo || obj.afecto) ? `<div style="margin-bottom:6px;"><strong style="color:#374151;">Ánimo y afecto:</strong> ${obj.animo ? `<span style="color:#6b7280;">Ánimo: ${obj.animo}</span>` : ''} ${obj.afecto ? `<span style="color:#6b7280;"> | Afecto: ${obj.afecto}</span>` : ''}</div>` : ''}
@@ -3201,7 +3214,7 @@ async function openSessionDetail(sessionIndex, patientId){
                                     ${obj.cognicion ? `<div style="margin-bottom:6px;"><strong style="color:#374151;">Cognición:</strong> <span style="color:#6b7280;">${obj.cognicion}</span></div>` : ''}
                                 </div>
                             `;
-                        })()}
+        })()}
                     </div>
                 </div>
             </div>
@@ -3260,24 +3273,24 @@ async function openSessionDetail(sessionIndex, patientId){
             <button id="_session_close" class="btn" style="background:linear-gradient(135deg, #6b7280 0%, #4b5563 100%); color:white; padding:10px 20px; border-radius:8px; font-size:14px;">Cerrar</button>
         </div>
     `;
-    
+
     const modal = createModal(sessionModalHtml);
-    
+
     // Botón realizar análisis
-    document.getElementById('_realizar_analisis_btn').onclick = async ()=>{
+    document.getElementById('_realizar_analisis_btn').onclick = async () => {
         const btn = document.getElementById('_realizar_analisis_btn');
         const outEl = document.getElementById('_analisis_output');
 
         const enfoqueLabel = document.getElementById('_enfoque_select')?.value || s.enfoque || '';
         const collection = enfoqueLabelToCollection(enfoqueLabel);
 
-        if(!collection){
+        if (!collection) {
             alert('Selecciona un enfoque antes de realizar el análisis.');
             return;
         }
 
         const subjetivo = (s.soap && typeof s.soap.s === 'string') ? s.soap.s.trim() : '';
-        if(!subjetivo){
+        if (!subjetivo) {
             alert('Completa el SOAP Subjetivo antes de realizar el análisis.');
             return;
         }
@@ -3295,35 +3308,35 @@ async function openSessionDetail(sessionIndex, patientId){
         btn.disabled = true;
         const prev = btn.innerHTML;
         btn.innerHTML = '⏳ Consultando RAG...';
-        if(outEl) outEl.innerHTML = '<em style="color:#9ca3af;">(Analizando...)</em>';
+        if (outEl) outEl.innerHTML = '<em style="color:#9ca3af;">(Analizando...)</em>';
 
-        try{
-            async function postAsk(selectedCollection){
+        try {
+            async function postAsk(selectedCollection) {
                 const resp = await fetch(`${API_BASE}/api/rag/ask`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ collection: selectedCollection, query, k: 6, top_n: 25 })
                 });
-                const data = await resp.json().catch(()=>null);
+                const data = await resp.json().catch(() => null);
                 return { resp, data };
             }
 
             let { resp, data } = await postAsk(collection);
 
             // If the backend says the collection doesn't exist, try to auto-pick a close match.
-            if((!resp.ok || !data || !data.ok) && data && data.error === 'collection_not_found' && Array.isArray(data.available_collections)){
+            if ((!resp.ok || !data || !data.ok) && data && data.error === 'collection_not_found' && Array.isArray(data.available_collections)) {
                 const picked = pickClosestCollection(collection, data.available_collections);
-                if(picked && picked !== collection){
+                if (picked && picked !== collection) {
                     console.warn('RAG: colección no encontrada. Reintentando con:', picked, 'Disponibles:', data.available_collections);
                     ({ resp, data } = await postAsk(picked));
                     // Persist the corrected collection in session state to avoid repeating the issue.
-                    try{ s.enfoque = picked; await saveData(); }catch(e){}
+                    try { s.enfoque = picked; await saveData(); } catch (e) { }
                 }
             }
 
-            if(!resp.ok || !data || !data.ok){
+            if (!resp.ok || !data || !data.ok) {
                 console.error('RAG error:', resp.status, data);
-                if(data && data.error === 'collection_not_found' && Array.isArray(data.available_collections)){
+                if (data && data.error === 'collection_not_found' && Array.isArray(data.available_collections)) {
                     alert(
                         'La colección solicitada no existe en Qdrant.\n\n' +
                         'Colección pedida: ' + (data.collection || collection) + '\n' +
@@ -3333,14 +3346,14 @@ async function openSessionDetail(sessionIndex, patientId){
                 } else {
                     alert('No se pudo obtener respuesta del RAG. Revisa consola/servidor.');
                 }
-                if(outEl) outEl.innerHTML = s.analisis || '<em style="color:#9ca3af;">(Sin análisis)</em>';
+                if (outEl) outEl.innerHTML = s.analisis || '<em style="color:#9ca3af;">(Sin análisis)</em>';
                 return;
             }
 
             s.analisis = data.answer || '';
             await saveData();
 
-            if(outEl){
+            if (outEl) {
                 outEl.textContent = s.analisis || '(Sin análisis)';
             }
             console.log('✅ RAG OK:', data.collection);
@@ -3349,9 +3362,9 @@ async function openSessionDetail(sessionIndex, patientId){
             btn.innerHTML = prev;
         }
     };
-    
+
     // Botón editar SOAP - abre modal de edición
-    document.getElementById('_edit_soap_btn').onclick = async ()=>{
+    document.getElementById('_edit_soap_btn').onclick = async () => {
         // Parse existing objective data if it's structured
         let objectiveData = {};
         try {
@@ -3362,10 +3375,10 @@ async function openSessionDetail(sessionIndex, patientId){
             } else if (s.soap?.o && typeof s.soap.o === 'object') {
                 objectiveData = s.soap.o;
             }
-        } catch(e) {
+        } catch (e) {
             // If not structured, leave as is
         }
-        
+
         const editModalHtml = `
             <div style="max-height:70vh; overflow-y:auto; padding:20px;">
                 <h3 style="color:#00838f; margin-top:0;">✏️ Editar Sesión</h3>
@@ -3534,14 +3547,14 @@ async function openSessionDetail(sessionIndex, patientId){
                 <button class="btn ghost" id="_modal_cancel">✖️ Cancelar</button>
             </div>
         `;
-        
+
         const editModal = createModal(editModalHtml);
-        
+
         // Cancelar
-        editModal.backdrop.querySelector('#_modal_cancel').onclick = ()=> editModal.close();
-        
+        editModal.backdrop.querySelector('#_modal_cancel').onclick = () => editModal.close();
+
         // Guardar
-        editModal.backdrop.querySelector('#_modal_save').onclick = async ()=>{
+        editModal.backdrop.querySelector('#_modal_save').onclick = async () => {
             // Collect structured objective data
             const objectiveStructured = {
                 apariencia: editModal.backdrop.querySelector('#_obj_apariencia').value,
@@ -3562,13 +3575,13 @@ async function openSessionDetail(sessionIndex, patientId){
                 percepcion: editModal.backdrop.querySelector('#_obj_percepcion').value,
                 cognicion: editModal.backdrop.querySelector('#_obj_cognicion').value
             };
-            
+
             const soapS = editModal.backdrop.querySelector('#_modal_soap_s').value;
             const enfoque = editModal.backdrop.querySelector('#_modal_enfoque_select').value;
             const analisis = editModal.backdrop.querySelector('#_modal_analisis_text').value;
             const resumen = editModal.backdrop.querySelector('#_modal_resumen_text').value;
             const planificacion = editModal.backdrop.querySelector('#_modal_planificacion_text').value;
-            
+
             if (!s.soap) {
                 s.soap = {};
             }
@@ -3578,34 +3591,34 @@ async function openSessionDetail(sessionIndex, patientId){
             s.analisis = analisis;
             s.resumen = resumen;
             s.planificacion = planificacion;
-            
+
             await saveData();
             console.log('✅ Sesión actualizada correctamente');
             editModal.close();
-            
+
             // Cerrar el modal de sesión y reabrir para refrescar
             modal.close();
             openSessionDetail(sessionIndex, patientId);
         };
     };
-    
+
     // Auto-guardar enfoque cuando cambie
     document.getElementById('_enfoque_select').addEventListener('change', async (e) => {
         s.enfoque = e.target.value;
         await saveData();
         console.log('✅ Enfoque actualizado:', s.enfoque);
     });
-    
-    document.getElementById('_session_close').onclick = ()=> {
+
+    document.getElementById('_session_close').onclick = () => {
         // Clear any active polling interval for this patient
-        try{ if(_pp_active_intervals[p.id]){ clearInterval(_pp_active_intervals[p.id].timer); delete _pp_active_intervals[p.id]; } }catch(e){}
+        try { if (_pp_active_intervals[p.id]) { clearInterval(_pp_active_intervals[p.id].timer); delete _pp_active_intervals[p.id]; } } catch (e) { }
         modal.close();
         // Re-renderizar la vista del paciente después de un pequeño delay para asegurar que el modal se cerró
         setTimeout(() => {
             showPatient(patientId, false);
         }, 150);
     };
-    
+
     // Recording button handler
     const recordingBtn = document.getElementById('_start_recording_btn');
     let isRecording = false;
@@ -3615,143 +3628,143 @@ async function openSessionDetail(sessionIndex, patientId){
     // On open, check server state and disable record button if a recording exists
     // Also perform a one-time check for processed transcription output so the UI
     // won't remain stuck on "Procesando..." when the server has already finished.
-    (async ()=>{
-        try{
+    (async () => {
+        try {
             const checkUrl = `${API_BASE}/api/recording/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
             console.log('[debug] on openSessionDetail: checking existing recording', checkUrl);
             const chk = await fetch(checkUrl);
             console.log('[debug] on openSessionDetail: check response ok=', chk && chk.ok, 'status=', chk && chk.status);
-            if(chk && chk.ok){
+            if (chk && chk.ok) {
                 const info = await chk.json();
-                if(info.exists){
-                    if(recordingBtn){
+                if (info.exists) {
+                    if (recordingBtn) {
                         recordingBtn.disabled = true;
-                        try{ recordingBtn.querySelector('span').textContent = 'Grabación existente'; }catch(e){}
+                        try { recordingBtn.querySelector('span').textContent = 'Grabación existente'; } catch (e) { }
                         showWarningTooltipForElement(recordingBtn, 'Ya existe una grabación para esta sesión. Elimine la grabación antes de grabar una nueva.');
                         recordingBtn.classList.add('disabled');
                     }
                     // sync local state
-                    if(!s.grabacion || s.grabacion.length === 0){
-                        s.grabacion = [{ fecha: new Date().toISOString(), audio: info.path, duracion: 0, remote:true }];
+                    if (!s.grabacion || s.grabacion.length === 0) {
+                        s.grabacion = [{ fecha: new Date().toISOString(), audio: info.path, duracion: 0, remote: true }];
                         await saveData();
-                        refreshGrabacionesUI(s,p,sessionIndex);
+                        refreshGrabacionesUI(s, p, sessionIndex);
                     }
 
                     // One-time processed check: if the server already has a transcription,
                     // populate local state and clear the processing flag so the UI updates.
-                    try{
+                    try {
                         console.debug('[debug] openSessionDetail: one-time processed check (presp) for', p.id);
                         const processedUrl = `${API_BASE}/api/processed/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
                         const presp = await fetch(processedUrl, { cache: 'no-store' });
                         console.debug('[debug] openSessionDetail: presp status=', presp && presp.status);
-                        if(presp && presp.ok){
+                        if (presp && presp.ok) {
                             const pj = await presp.json();
                             console.debug('[debug] openSessionDetail: presp json=', pj && (typeof pj === 'object' ? Object.keys(pj) : pj));
-                            if(pj && (pj.stage === 'labeled' || pj.stage === 'done' || pj.text || pj.raw)){
+                            if (pj && (pj.stage === 'labeled' || pj.stage === 'done' || pj.text || pj.raw)) {
                                 const txt = extractProcessedText(pj) || (pj.transcription_text || '');
-                                if(!s.grabacion) s.grabacion = [{}];
-                                if(txt) s.grabacion[0].transcripcion = txt;
+                                if (!s.grabacion) s.grabacion = [{}];
+                                if (txt) s.grabacion[0].transcripcion = txt;
                                 s.grabacion[0].processing = false;
-                                try{ await saveData(); }catch(e){}
-                                try{ refreshGrabacionesUI(s, p, sessionIndex); }catch(e){}
+                                try { await saveData(); } catch (e) { }
+                                try { refreshGrabacionesUI(s, p, sessionIndex); } catch (e) { }
                             }
                         }
-                    }catch(pe){ console.warn('openSessionDetail presp fetch error', pe); }
+                    } catch (pe) { console.warn('openSessionDetail presp fetch error', pe); }
                 }
             }
 
             // If persisted local state indicates a remote recording that is still
             // marked processing, try a one-time fetch to clear it as well.
-            try{
-                if(s.grabacion && s.grabacion[0] && s.grabacion[0].remote && s.grabacion[0].processing){
+            try {
+                if (s.grabacion && s.grabacion[0] && s.grabacion[0].remote && s.grabacion[0].processing) {
                     console.debug('[debug] openSessionDetail: persisted-state processed check for', p.id);
                     const processedUrl = `${API_BASE}/api/processed/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
                     const resp2 = await fetch(processedUrl, { cache: 'no-store' });
                     console.debug('[debug] openSessionDetail: resp2 status=', resp2 && resp2.status);
-                    if(resp2 && resp2.ok){
+                    if (resp2 && resp2.ok) {
                         const j2 = await resp2.json();
                         console.debug('[debug] openSessionDetail: resp2 json keys=', j2 && (typeof j2 === 'object' ? Object.keys(j2) : j2));
-                        if(j2 && (j2.stage === 'labeled' || j2.stage === 'done' || j2.text || j2.raw)){
+                        if (j2 && (j2.stage === 'labeled' || j2.stage === 'done' || j2.text || j2.raw)) {
                             const t = extractProcessedText(j2) || (j2.transcription_text || '');
-                            if(t) s.grabacion[0].transcripcion = t;
+                            if (t) s.grabacion[0].transcripcion = t;
                             s.grabacion[0].processing = false;
-                            try{ await saveData(); }catch(e){}
-                            try{ refreshGrabacionesUI(s, p, sessionIndex); }catch(e){}
+                            try { await saveData(); } catch (e) { }
+                            try { refreshGrabacionesUI(s, p, sessionIndex); } catch (e) { }
                         }
                     }
                 }
-            }catch(pe2){ console.warn('openSessionDetail resp2 fetch error', pe2); }
+            } catch (pe2) { console.warn('openSessionDetail resp2 fetch error', pe2); }
 
-        }catch(e){ /* ignore */ }
+        } catch (e) { /* ignore */ }
     })();
 
     // Start a reliable interval-based poll while the session detail is open.
     // The interval is registered in `_pp_active_intervals` so it can be
     // cleared when the user closes the session view. It checks for processed
     // outputs when there's a remote recording and no local transcription.
-    try{
+    try {
         const rec = s.grabacion && s.grabacion[0];
-        if(rec && rec.remote && !rec.transcripcion){
+        if (rec && rec.remote && !rec.transcripcion) {
             // avoid creating duplicate intervals for same patient
-            if(_pp_active_intervals[p.id] && _pp_active_intervals[p.id].timer) {
+            if (_pp_active_intervals[p.id] && _pp_active_intervals[p.id].timer) {
                 console.debug('[debug] polling already active for', p.id);
             } else {
                 const maxAttempts = 40; // allow a longer window (e.g. ~2 minutes)
                 const delayMs = 3000;
                 let attempts = 0;
-                const timer = setInterval(async ()=>{
+                const timer = setInterval(async () => {
                     attempts++;
-                    try{
+                    try {
                         console.debug('[debug] interval polling attempt', attempts, 'for', p.id);
                         const processedUrl = `${API_BASE}/api/processed/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
                         const resp = await fetch(processedUrl, { cache: 'no-store' });
                         console.debug('[debug] interval polling status=', resp && resp.status);
-                        if(resp && resp.ok){
+                        if (resp && resp.ok) {
                             const j = await resp.json();
                             console.debug('[debug] interval polling json keys=', j && (typeof j === 'object' ? Object.keys(j) : j));
-                            if(j && (j.stage === 'labeled' || j.stage === 'done' || j.text || j.raw)){
+                            if (j && (j.stage === 'labeled' || j.stage === 'done' || j.text || j.raw)) {
                                 const txt = extractProcessedText(j) || (j.transcription_text || '');
-                                if(!s.grabacion) s.grabacion = [{}];
-                                if(txt) s.grabacion[0].transcripcion = txt;
+                                if (!s.grabacion) s.grabacion = [{}];
+                                if (txt) s.grabacion[0].transcripcion = txt;
                                 s.grabacion[0].processing = false;
-                                try{ await saveData(); }catch(e){}
-                                try{ refreshGrabacionesUI(s, p, sessionIndex); }catch(e){}
+                                try { await saveData(); } catch (e) { }
+                                try { refreshGrabacionesUI(s, p, sessionIndex); } catch (e) { }
                                 // clear interval and cleanup
-                                try{ clearInterval(timer); }catch(e){}
-                                try{ delete _pp_active_intervals[p.id]; }catch(e){}
+                                try { clearInterval(timer); } catch (e) { }
+                                try { delete _pp_active_intervals[p.id]; } catch (e) { }
                                 return;
                             }
                         }
-                    }catch(e){ console.warn('interval polling fetch error', e); }
-                    if(attempts >= maxAttempts){
-                        try{ clearInterval(timer); }catch(e){}
-                        try{ delete _pp_active_intervals[p.id]; }catch(e){}
+                    } catch (e) { console.warn('interval polling fetch error', e); }
+                    if (attempts >= maxAttempts) {
+                        try { clearInterval(timer); } catch (e) { }
+                        try { delete _pp_active_intervals[p.id]; } catch (e) { }
                     }
                 }, delayMs);
                 _pp_active_intervals[p.id] = { timer, attempts: 0 };
             }
         }
-    }catch(e){ console.warn('Could not start interval polling', e); }
-    
-    if(recordingBtn){
-        recordingBtn.addEventListener('click', async ()=>{
-            if(!isRecording){
+    } catch (e) { console.warn('Could not start interval polling', e); }
+
+    if (recordingBtn) {
+        recordingBtn.addEventListener('click', async () => {
+            if (!isRecording) {
                 // Prevent new recording if one already exists for this session/patient
                 // Before trusting local state, verify with server whether the recording file actually exists.
-                try{
+                try {
                     const checkUrl = `${API_BASE}/api/recording/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
                     console.log('[debug] recordingBtn: checking existing recording', checkUrl);
                     const chk = await fetch(checkUrl);
                     console.log('[debug] recordingBtn: check response ok=', chk && chk.ok, 'status=', chk && chk.status);
-                    if(chk && chk.ok){
+                    if (chk && chk.ok) {
                         const info = await chk.json();
-                        if(info.exists){
+                        if (info.exists) {
                             // server has file -> enforce single-recording rule
                             showWarningTooltipForElement(recordingBtn, 'Ya existe una grabación para esta sesión. Elimine la grabación antes de grabar una nueva.');
                             return;
                         } else {
                             // server does NOT have file -> cleanup local reference and allow recording
-                            if(s && s.grabacion && s.grabacion.length > 0){
+                            if (s && s.grabacion && s.grabacion.length > 0) {
                                 s.grabacion = [];
                                 await saveData();
                             }
@@ -3759,34 +3772,34 @@ async function openSessionDetail(sessionIndex, patientId){
                             removeWarningTooltipForElement(recordingBtn);
                         }
                     }
-                }catch(e){
+                } catch (e) {
                     // On network error, fall back to local state (conservative: block if local says exists)
                     console.warn('Recording existence check failed, falling back to local state', e);
-                    if(s && s.grabacion && s.grabacion.length > 0){
+                    if (s && s.grabacion && s.grabacion.length > 0) {
                         showWarningTooltipForElement(recordingBtn, 'Ya existe una grabación para este paciente. Elimine la grabación antes de grabar una nueva.');
                         return;
                     }
                 }
                 // Require psychologist PIN to start recording
-                const pinAuth = await modalPrompt('Ingrese PIN del psicólogo para iniciar la grabación', '', {isPin: true});
-                if(!pinAuth) return;
+                const pinAuth = await modalPrompt('Ingrese PIN del psicólogo para iniciar la grabación', '', { isPin: true });
+                if (!pinAuth) return;
                 const okStart = await validatePsyPin(pinAuth);
-                if(!okStart) return;
+                if (!okStart) return;
 
                 // Iniciar grabación
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     mediaRecorder = new MediaRecorder(stream);
                     audioChunks = [];
-                    
+
                     mediaRecorder.ondataavailable = (event) => {
                         if (event.data.size > 0) {
                             audioChunks.push(event.data);
                         }
                     };
-                    
+
                     mediaRecorder.onstop = async () => {
-                        try{
+                        try {
                             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
 
                             // Convert recorded blob (webm/ogg) to WAV (PCM16) in the browser
@@ -3800,128 +3813,128 @@ async function openSessionDetail(sessionIndex, patientId){
                             form.append('patientName', p.nombre);
                             form.append('sessionIndex', String(sessionIndex));
 
-                                                const uploadUrl = API_BASE + '/api/upload-recording';
-                                                console.log('[debug] upload recording: POST', uploadUrl, 'patientId=', p.id, 'sessionIndex=', sessionIndex);
-                                                const resp = await fetch(uploadUrl, { method: 'POST', body: form });
-                                                console.log('[debug] upload recording: response ok=', resp && resp.ok, 'status=', resp && resp.status);
+                            const uploadUrl = API_BASE + '/api/upload-recording';
+                            console.log('[debug] upload recording: POST', uploadUrl, 'patientId=', p.id, 'sessionIndex=', sessionIndex);
+                            const resp = await fetch(uploadUrl, { method: 'POST', body: form });
+                            console.log('[debug] upload recording: response ok=', resp && resp.ok, 'status=', resp && resp.status);
 
-                                                // If server reports an existing recording, inform user and abort
-                                                if(resp.status === 409){
-                                                    console.log('❌ Ya existe una grabación en el servidor para esta sesión. Elimine la grabación antes de grabar una nueva.');
-                                                    // Refresh UI from server state
-                                                    try{ 
-                                                        const checkUrl = `${API_BASE}/api/recording/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
-                                                        const chk = await fetch(checkUrl); 
-                                                        if(chk.ok){ 
-                                                            const info = await chk.json(); 
-                                                            if(info.exists){ 
-                                                                s.grabacion = [{ fecha: new Date().toISOString(), audio: info.path, duracion: s.grabacion?.[0]?.duracion || 0, remote:true }]; 
-                                                                await saveData(); 
-                                                            } 
-                                                        } 
-                                                    }catch(e){}
-                                                    refreshGrabacionesUI(s, p, sessionIndex);
-                                                    return;
-                                                }
+                            // If server reports an existing recording, inform user and abort
+                            if (resp.status === 409) {
+                                console.log('❌ Ya existe una grabación en el servidor para esta sesión. Elimine la grabación antes de grabar una nueva.');
+                                // Refresh UI from server state
+                                try {
+                                    const checkUrl = `${API_BASE}/api/recording/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
+                                    const chk = await fetch(checkUrl);
+                                    if (chk.ok) {
+                                        const info = await chk.json();
+                                        if (info.exists) {
+                                            s.grabacion = [{ fecha: new Date().toISOString(), audio: info.path, duracion: s.grabacion?.[0]?.duracion || 0, remote: true }];
+                                            await saveData();
+                                        }
+                                    }
+                                } catch (e) { }
+                                refreshGrabacionesUI(s, p, sessionIndex);
+                                return;
+                            }
 
-                                                if(!resp.ok){
-                                                    // Try to read text or json error safely
-                                                    let body = null;
-                                                    try{ body = await resp.text(); }catch(e){ body = null; }
-                                                    console.error('Upload failed', resp.status, body);
-                                                    console.log('❌ No se pudo subir la grabación al servidor (' + resp.status + '). Se guardará localmente como respaldo.');
+                            if (!resp.ok) {
+                                // Try to read text or json error safely
+                                let body = null;
+                                try { body = await resp.text(); } catch (e) { body = null; }
+                                console.error('Upload failed', resp.status, body);
+                                console.log('❌ No se pudo subir la grabación al servidor (' + resp.status + '). Se guardará localmente como respaldo.');
 
-                                                    // Fallback: store base64 locally
-                                                    const reader = new FileReader();
-                                                    reader.onloadend = () => {
-                                                        const base64Audio = reader.result;
-                                                        s.grabacion = [{ fecha: new Date().toISOString(), audio: base64Audio, duracion: Math.floor((Date.now() - startTime) / 1000) }];
-                                                        saveData();
-                                                        refreshGrabacionesUI(s, p, sessionIndex);
-                                                    };
-                                                    reader.readAsDataURL(wavBlob);
-                                                    return;
-                                                }
+                                // Fallback: store base64 locally
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                    const base64Audio = reader.result;
+                                    s.grabacion = [{ fecha: new Date().toISOString(), audio: base64Audio, duracion: Math.floor((Date.now() - startTime) / 1000) }];
+                                    saveData();
+                                    refreshGrabacionesUI(s, p, sessionIndex);
+                                };
+                                reader.readAsDataURL(wavBlob);
+                                return;
+                            }
 
-                                                // OK response — parse JSON but guard against empty body
-                                                let j = null;
-                                                try{ j = await resp.json(); }catch(e){ j = null; }
-                                                if(!j || !j.ok){
-                                                    console.error('Upload returned unexpected body', j);
-                                                    console.log('❌ Subida completada con respuesta inesperada. Se guardará localmente como respaldo.');
+                            // OK response — parse JSON but guard against empty body
+                            let j = null;
+                            try { j = await resp.json(); } catch (e) { j = null; }
+                            if (!j || !j.ok) {
+                                console.error('Upload returned unexpected body', j);
+                                console.log('❌ Subida completada con respuesta inesperada. Se guardará localmente como respaldo.');
 
-                                                    const reader = new FileReader();
-                                                    reader.onloadend = () => {
-                                                        const base64Audio = reader.result;
-                                                        s.grabacion = [{ fecha: new Date().toISOString(), audio: base64Audio, duracion: Math.floor((Date.now() - startTime) / 1000) }];
-                                                        saveData();
-                                                        refreshGrabacionesUI(s, p, sessionIndex);
-                                                    };
-                                                    reader.readAsDataURL(wavBlob);
-                                                    return;
-                                                }
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                    const base64Audio = reader.result;
+                                    s.grabacion = [{ fecha: new Date().toISOString(), audio: base64Audio, duracion: Math.floor((Date.now() - startTime) / 1000) }];
+                                    saveData();
+                                    refreshGrabacionesUI(s, p, sessionIndex);
+                                };
+                                reader.readAsDataURL(wavBlob);
+                                return;
+                            }
 
-                                                // Success: store the server path (only one recording per patient)
-                                                s.grabacion = [{ fecha: new Date().toISOString(), audio: j.path, duracion: Math.floor((Date.now() - startTime) / 1000), remote: true }];
-                                                await saveData();
-                                                console.log('[debug] upload recording: stored remote path=', j.path);
-                                                console.log('✅ Grabación subida y guardada correctamente');
-                                                refreshGrabacionesUI(s, p, sessionIndex);
-                                                // disable the recording button now that a recording exists
-                                                try{
-                                                    if(recordingBtn){
-                                                        recordingBtn.disabled = true;
-                                                        try{ recordingBtn.querySelector('span').textContent = 'Grabación existente'; }catch(e){}
-                                                        showWarningTooltipForElement(recordingBtn, 'Ya existe una grabación para este paciente. Elimine la grabación antes de grabar una nueva.');
-                                                        recordingBtn.classList.add('disabled');
-                                                    }
-                                                }catch(e){/* ignore */}
+                            // Success: store the server path (only one recording per patient)
+                            s.grabacion = [{ fecha: new Date().toISOString(), audio: j.path, duracion: Math.floor((Date.now() - startTime) / 1000), remote: true }];
+                            await saveData();
+                            console.log('[debug] upload recording: stored remote path=', j.path);
+                            console.log('✅ Grabación subida y guardada correctamente');
+                            refreshGrabacionesUI(s, p, sessionIndex);
+                            // disable the recording button now that a recording exists
+                            try {
+                                if (recordingBtn) {
+                                    recordingBtn.disabled = true;
+                                    try { recordingBtn.querySelector('span').textContent = 'Grabación existente'; } catch (e) { }
+                                    showWarningTooltipForElement(recordingBtn, 'Ya existe una grabación para este paciente. Elimine la grabación antes de grabar una nueva.');
+                                    recordingBtn.classList.add('disabled');
+                                }
+                            } catch (e) {/* ignore */ }
 
-                                                // Request server-side processing, mark as processing locally and start polling for labeled output
-                                                (async ()=>{
-                                                    try{
-                                                        const tResp = await fetch(API_BASE + '/api/transcribe-recording', {
-                                                            method: 'POST',
-                                                            headers: { 'Content-Type': 'application/json' },
-                                                            body: JSON.stringify({ 
-                                                                patientId: p.id,
-                                                                patientName: p.nombre,
-                                                                sessionIndex 
-                                                            })
-                                                        });
-                                                        if(tResp && tResp.ok){
-                                                            try{
-                                                                if(!s.grabacion) s.grabacion = [{}];
-                                                                s.grabacion[0].processing = true;
-                                                                await saveData();
-                                                                refreshGrabacionesUI(s, p, sessionIndex);
-                                                                // Note: frontend polling for `/api/processed` was removed —
-                                                                // server-side processing may still run, but the UI will not poll for it.
-                                                            }catch(e){ console.warn('Could not mark processing locally', e); }
-                                                        } else {
-                                                            try{ const txt = await tResp.text(); console.warn('Transcription request failed', tResp && tResp.status, txt); }catch(e){}
-                                                        }
-                                                    }catch(err){
-                                                        console.warn('Error requesting transcription', err);
-                                                    }
-                                                })();
+                            // Request server-side processing, mark as processing locally and start polling for labeled output
+                            (async () => {
+                                try {
+                                    const tResp = await fetch(API_BASE + '/api/transcribe-recording', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            patientId: p.id,
+                                            patientName: p.nombre,
+                                            sessionIndex
+                                        })
+                                    });
+                                    if (tResp && tResp.ok) {
+                                        try {
+                                            if (!s.grabacion) s.grabacion = [{}];
+                                            s.grabacion[0].processing = true;
+                                            await saveData();
+                                            refreshGrabacionesUI(s, p, sessionIndex);
+                                            // Note: frontend polling for `/api/processed` was removed —
+                                            // server-side processing may still run, but the UI will not poll for it.
+                                        } catch (e) { console.warn('Could not mark processing locally', e); }
+                                    } else {
+                                        try { const txt = await tResp.text(); console.warn('Transcription request failed', tResp && tResp.status, txt); } catch (e) { }
+                                    }
+                                } catch (err) {
+                                    console.warn('Error requesting transcription', err);
+                                }
+                            })();
 
-                        }catch(err){
+                        } catch (err) {
                             console.error('Error processing recording on stop', err);
                             console.log('❌ Error al procesar la grabación: ' + (err && err.message ? err.message : err));
                         } finally {
                             // Detener el stream
-                            try{ stream.getTracks().forEach(track => track.stop()); }catch(e){}
+                            try { stream.getTracks().forEach(track => track.stop()); } catch (e) { }
                         }
                     };
-                    
+
                     const startTime = Date.now();
                     mediaRecorder.start();
                     isRecording = true;
-                    
+
                     recordingBtn.innerHTML = '<div style="width:24px; height:24px; border-radius:50%; background:#f44336; display:flex; align-items:center; justify-content:center;"><div style="width:10px; height:10px; background:white; border-radius:2px;"></div></div><span style="font-weight:600;">Detener grabación</span>';
                     recordingBtn.style.background = 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)';
-                    
+
                 } catch (error) {
                     console.error('Error al acceder al micrófono:', error);
                     console.log('❌ No se pudo acceder al micrófono. Por favor, permite el acceso al micrófono en tu navegador.');
@@ -3931,221 +3944,243 @@ async function openSessionDetail(sessionIndex, patientId){
                 if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                     mediaRecorder.stop();
                     isRecording = false;
-                    
+
                     recordingBtn.innerHTML = '<div style="width:24px; height:24px; border-radius:50%; background:white; border:3px solid #f44336; display:flex; align-items:center; justify-content:center;"></div><span style="font-weight:600;">Iniciar grabación</span>';
                     recordingBtn.style.background = 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)';
                 }
             }
         });
     }
-    
-    // Generate summary button handler
+
+    // Generate summary button handler - genera resumen basado en la transcripción de ESTA sesión
     const summaryBtn = document.getElementById('_generate_summary_btn');
-    
-    if(summaryBtn){
-        summaryBtn.addEventListener('click', async ()=>{
+
+    if (summaryBtn) {
+        summaryBtn.addEventListener('click', async () => {
+            // Obtener la transcripción de esta sesión específica
+            let transcripcion = '';
+
+            // Intentar obtener de la grabación local primero
+            if (s.grabacion && s.grabacion.length > 0 && s.grabacion[0].transcripcion) {
+                transcripcion = s.grabacion[0].transcripcion;
+            } else {
+                // Si no está local, intentar obtener del servidor
+                try {
+                    const processedUrl = `${API_BASE}/api/processed/${p.id}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndex}`;
+                    const resp = await fetch(processedUrl, { cache: 'no-store' });
+                    if (resp && resp.ok) {
+                        const data = await resp.json();
+                        transcripcion = extractProcessedText(data) || '';
+                        // Actualizar el estado local con la transcripción obtenida
+                        if (transcripcion && s.grabacion && s.grabacion[0]) {
+                            s.grabacion[0].transcripcion = transcripcion;
+                            await saveData();
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Error al obtener transcripción del servidor:', e);
+                }
+            }
+
+            // Limpiar la transcripción para mostrar solo el diálogo
+            transcripcion = cleanTranscriptionText(transcripcion);
+
+            // Validar que exista transcripción
+            if (!transcripcion || !transcripcion.trim()) {
+                alert('No hay transcripción disponible para esta sesión. Primero debe realizar una grabación y esperar a que se procese.');
+                return;
+            }
+
             summaryBtn.disabled = true;
+            const prevHTML = summaryBtn.innerHTML;
             summaryBtn.innerHTML = '⏳ Generando resumen...';
-            
-            // Simular generación de resumen
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            const summary = `
-                <div style="padding:20px;">
-                    <h3 style="color:#7b1fa2;">📋 Resumen de Sesión</h3>
-                    <div style="margin-top:16px; padding:16px; background:#f3e5f5; border-radius:8px; border-left:4px solid #9c27b0;">
-                        <p><strong>Paciente:</strong> ${p.nombre}</p>
-                        <p><strong>Fecha:</strong> ${s.fecha}</p>
-                        <p><strong>Enfoque:</strong> ${s.enfoque || '(No definido)'}</p>
-                        <hr style="margin:12px 0; border:none; border-top:1px solid #ce93d8;">
-                        <p><strong>Resumen generado:</strong></p>
-                        <p style="margin-top:8px; line-height:1.6;">
-                            ${s.soap?.s ? 'El paciente reporta: ' + s.soap.s + '. ' : ''}
-                            ${s.soap?.o ? 'Se observa: ' + s.soap.o + '. ' : ''}
-                            ${s.analisis ? 'Análisis: ' + s.analisis + '. ' : ''}
-                            ${s.planificacion ? 'Plan de acción: ' + s.planificacion : ''}
-                        </p>
+
+            try {
+                // Llamar al endpoint de resumen con la transcripción de esta sesión
+                const resp = await fetch(`${API_BASE}/api/generate-summary`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        transcription: transcripcion,
+                        patientName: p.nombre,
+                        sessionDate: s.fecha
+                    })
+                });
+
+                if (!resp.ok) {
+                    throw new Error(`Error del servidor: ${resp.status}`);
+                }
+
+                const data = await resp.json();
+
+                if (!data.ok || !data.summary) {
+                    throw new Error('El servidor no devolvió un resumen válido');
+                }
+
+                // Guardar el resumen en el campo SOAP Subjetivo
+                if (!s.soap) s.soap = {};
+                s.soap.s = data.summary;
+                await saveData();
+
+                // Mostrar modal con el resumen generado
+                const summaryModal = createModal(`
+                    <div style="padding:20px; max-width:800px;">
+                        <h3 style="color:#7b1fa2; margin-bottom:16px;">✅ Resumen generado correctamente</h3>
+                        <div style="padding:16px; background:#f3e5f5; border-radius:8px; border-left:4px solid #9c27b0; margin-bottom:16px;">
+                            <p style="margin:0 0 8px 0; font-weight:600; color:#6a1b9a;">Resumen de la sesión:</p>
+                            <p style="margin:0; line-height:1.6; color:#4a148c; white-space:pre-wrap;">${data.summary}</p>
+                        </div>
+                        <div style="padding:12px; background:#e1f5fe; border-radius:8px; border-left:4px solid #0288d1;">
+                            <p style="margin:0; font-size:13px; color:#01579b;">
+                                <strong>💡 Nota:</strong> El resumen ha sido guardado en el campo SOAP Subjetivo. 
+                                Puede editarlo posteriormente si lo desea.
+                            </p>
+                        </div>
+                        <div class="actions" style="margin-top:16px; display:flex; justify-content:flex-end;">
+                            <button class="btn primary" id="_summary_close">Cerrar</button>
+                        </div>
                     </div>
-                    <div class="actions" style="margin-top:16px;">
-                        <button class="btn primary" id="_summary_close">Cerrar</button>
-                        <button class="btn ghost" style="margin-left:8px;">📥 Descargar PDF</button>
-                    </div>
-                </div>
-            `;
-            
-            const summaryModal = createModal(summary);
-            summaryModal.backdrop.querySelector('#_summary_close').onclick = ()=> summaryModal.close();
-            
-            summaryBtn.disabled = false;
-            summaryBtn.innerHTML = '✨ Generar resumen de sesión';
+                `);
+
+                summaryModal.backdrop.querySelector('#_summary_close').onclick = () => {
+                    summaryModal.close();
+                    // Recargar la vista de sesión para mostrar el resumen actualizado
+                    modal.close();
+                    setTimeout(() => openSessionDetail(sessionIndex, patientId), 100);
+                };
+
+            } catch (error) {
+                console.error('Error al generar resumen:', error);
+                alert(`Error al generar el resumen: ${error.message}\n\nAsegúrese de que el servidor esté en ejecución y que el endpoint /api/generate-summary esté disponible.`);
+            } finally {
+                summaryBtn.disabled = false;
+                summaryBtn.innerHTML = prevHTML;
+            }
         });
     }
 }
 
-async function viewGenograma(patientId){
+async function viewGenograma(patientId) {
     const p = getPatientById(patientId);
-    if(!p) return console.log('Paciente no encontrado');
-    
+    if (!p) return console.log('Paciente no encontrado');
+
     // Si ya tiene genograma generado, preguntar si desea ver el existente o regenerar
-    if(p.genogramaHtml){
+    if (p.genogramaHtml) {
         const shouldRegenerate = await modalConfirm(
             `El paciente ${p.nombre} ya tiene un genograma generado.\n\n¿Desea regenerarlo con las transcripciones actuales?\n\n(Seleccione "Cancelar" para ver el genograma existente)`
         );
-        
-        if(shouldRegenerate === null) return; // Usuario canceló
-        
-        if(!shouldRegenerate){
+
+        if (shouldRegenerate === null) return; // Usuario canceló
+
+        if (!shouldRegenerate) {
             // Ver el genograma existente
             const modal = createModal(`
-                <div style="padding:0; width:95vw; height:90vh; overflow:hidden;">
-                    <div style="padding:10px; background:#f5f5f5; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;">
+                <div style="padding:0; width:100%; height:85vh; display:flex; flex-direction:column;">
+                    <div style="padding:10px; background:#f5f5f5; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
                         <h3 style="margin:0;">📊 Genograma: ${p.nombre}</h3>
                         <button class="btn secondary" id="_gen_close" style="padding:8px 16px;">Cerrar</button>
                     </div>
-                    <iframe id="genogram-iframe" style="width:100%; height:calc(100% - 60px); border:none;"></iframe>
+                    <iframe id="genogram-iframe" style="width:100%; flex-grow:1; border:none;"></iframe>
                 </div>
             `);
-            
+
             const iframe = modal.backdrop.querySelector('#genogram-iframe');
             const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
             iframeDoc.open();
             iframeDoc.write(p.genogramaHtml);
             iframeDoc.close();
-            
-            modal.backdrop.querySelector('#_gen_close').onclick = ()=> modal.close();
+
+            modal.backdrop.querySelector('#_gen_close').onclick = () => modal.close();
             return;
         }
-        
+
         // Si eligió regenerar (shouldRegenerate === true), continuar con el proceso normal
     }
-    
-    // Obtener todas las transcripciones del paciente
-    const patientSessions = mockSesiones.filter(s => s.pacienteId === patientId);
-    if(patientSessions.length === 0){
-        alert('No hay sesiones registradas para este paciente.');
-        return;
-    }
-    
-    // Concatenar todas las transcripciones desde los archivos
-    let allTranscriptions = '';
-    let transcriptionCount = 0;
-    
-    for(let i = 0; i < patientSessions.length; i++){
-        const session = patientSessions[i];
-        // Encontrar el índice real de esta sesión en mockSesiones (índice global)
-        const globalIndex = mockSesiones.indexOf(session);
-        // Contar cuántas sesiones del mismo paciente hay antes de esta
-        const sessionIndexForPatient = mockSesiones.slice(0, globalIndex).filter(s => s.pacienteId === patientId).length;
-        
-        try {
-            // Construir URL con parámetros de la nueva estructura
-            const processedUrl = `${API_BASE}/api/processed/${patientId}?patientName=${encodeURIComponent(p.nombre)}&sessionIndex=${sessionIndexForPatient}`;
-            console.log(`[genogram] Buscando transcripción sesión ${i} (sessionIndex=${sessionIndexForPatient}): ${processedUrl}`);
-            const response = await fetch(processedUrl);
-            
-            if(response.ok){
-                const data = await response.json();
-                console.log(`[genogram] Datos recibidos sesión ${i}:`, data);
-                if(data.ok && data.text){
-                    allTranscriptions += data.text + '\n\n=== FIN DE SESIÓN ===\n\n';
-                    transcriptionCount++;
-                    console.log(`[genogram] Transcripción ${i} agregada. Total: ${transcriptionCount}`);
-                }
-            } else {
-                console.warn(`[genogram] Sesión ${i} no encontrada, status: ${response.status}`);
-            }
-        } catch(e) {
-            console.warn(`[genogram] Error cargando transcripción de sesión ${i}:`, e);
-        }
-    }
-    
-    console.log(`[genogram] Total transcripciones encontradas: ${transcriptionCount}`);
-    if(transcriptionCount === 0){
-        alert('No hay transcripciones disponibles para generar el genograma.');
-        return;
-    }
-    
+
+    // Ya no es necesario obtener transcripciones del cliente por una discrepancia en los índices.
+    // El servidor se encargará de buscar en disco todas las sesiones disponibles.
+
     // Mostrar loading
     const loadingModal = createModal(`
         <div style="padding:40px; text-align:center;">
             <div class="spinner" style="margin:0 auto 20px;"></div>
             <h3>Generando genograma...</h3>
-            <p>Por favor espera mientras procesamos la información familiar.</p>
+            <p>Por favor espera mientras el servidor procesa la información familiar de todas las sesiones registradas.</p>
         </div>
     `);
-    
+
     try {
-        // Llamar al endpoint para generar el genograma
+        // Llamar al endpoint para generar el genograma. El body puede ir vacío o indicar intención.
         const response = await fetch(`${API_BASE}/api/genograma/${patientId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ transcription: allTranscriptions })
+            body: JSON.stringify({ transcription: '' }) // Servidor usa fallback a disco
         });
-        
+
         const data = await response.json();
-        
+
         loadingModal.close();
-        
-        if(!data.ok){
+
+        if (!data.ok) {
             alert(`Error generando genograma: ${data.error}\n${data.detail || ''}`);
             return;
         }
-        
+
         // Guardar el HTML del genograma en el paciente
         p.genogramaHtml = data.genogramHtml;
         await saveData();
-        
+
         // Mostrar el genograma
         const modal = createModal(`
-            <div style="padding:0; width:95vw; height:90vh; overflow:hidden;">
-                <div style="padding:10px; background:#f5f5f5; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;">
+            <div style="padding:0; width:100%; height:85vh; display:flex; flex-direction:column;">
+                <div style="padding:10px; background:#f5f5f5; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
                     <h3 style="margin:0;">📊 Genograma: ${p.nombre}</h3>
                     <button class="btn secondary" id="_gen_close" style="padding:8px 16px;">Cerrar</button>
                 </div>
-                <iframe id="genogram-iframe" style="width:100%; height:calc(100% - 60px); border:none;"></iframe>
+                <iframe id="genogram-iframe" style="width:100%; flex-grow:1; border:none;"></iframe>
             </div>
         `);
-        
+
         const iframe = modal.backdrop.querySelector('#genogram-iframe');
         const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
         iframeDoc.open();
         iframeDoc.write(data.genogramHtml);
         iframeDoc.close();
-        
-        modal.backdrop.querySelector('#_gen_close').onclick = ()=> modal.close();
-        
-    } catch(err){
+
+        modal.backdrop.querySelector('#_gen_close').onclick = () => modal.close();
+
+    } catch (err) {
         loadingModal.close();
         console.error('Error generando genograma:', err);
         alert(`Error: ${err.message}`);
     }
 }
 
-async function uploadAttachment(sessionIndex){
+async function uploadAttachment(sessionIndex) {
     const s = mockSesiones[sessionIndex];
-    if(!s) return console.log('Sesión no encontrada');
+    if (!s) return console.log('Sesión no encontrada');
     const modal = createModal(`<h3>Subir adjunto</h3><div class="row">Archivo: <input id="_att_file" type="file"></div><div class="actions"><button class="btn ghost" id="_a_cancel">Cancelar</button><button class="btn primary" id="_a_save">Subir</button></div>`);
-    modal.backdrop.querySelector('#_a_cancel').onclick = ()=> modal.close();
-    modal.backdrop.querySelector('#_a_save').onclick = async ()=>{
+    modal.backdrop.querySelector('#_a_cancel').onclick = () => modal.close();
+    modal.backdrop.querySelector('#_a_save').onclick = async () => {
         const fileInput = modal.backdrop.querySelector('#_att_file');
-        if(!(fileInput && fileInput.files && fileInput.files[0])){
+        if (!(fileInput && fileInput.files && fileInput.files[0])) {
             return console.log('Seleccione un archivo para subir');
         }
-        try{
+        try {
             const res = await uploadFile(fileInput.files[0]);
-            if(res && res.url){
-                if(!s.attachments) s.attachments = [];
+            if (res && res.url) {
+                if (!s.attachments) s.attachments = [];
                 s.attachments.push({ filename: res.filename || ('adjunto_' + Date.now()), url: res.url });
                 await saveData();
                 modal.close();
                 console.log('✅ Archivo adjuntado correctamente');
                 // If the session detail is open, refresh the UI where appropriate
-                try{ refreshGrabacionesUI(s, getPatientById(s.pacienteId), sessionIndex); }catch(e){}
+                try { refreshGrabacionesUI(s, getPatientById(s.pacienteId), sessionIndex); } catch (e) { }
                 return;
             } else {
                 console.log('❌ No se pudo subir el archivo');
             }
-        }catch(e){
+        } catch (e) {
             console.error('uploadAttachment error', e);
             console.log('Error subiendo archivo: ' + (e && e.message ? e.message : e));
         }
@@ -4163,11 +4198,11 @@ function cleanupConsents() {
 }
 
 // Cargar módulo inicial (dashboard) — primero intentar cargar datos persistidos
-loadData().then(()=>{ 
-    cleanupConsents(); 
-    saveData(); 
-    loadModule('dashboard'); 
-}).catch(()=>{ 
-    cleanupConsents(); 
-    loadModule('dashboard'); 
+loadData().then(() => {
+    cleanupConsents();
+    saveData();
+    loadModule('dashboard');
+}).catch(() => {
+    cleanupConsents();
+    loadModule('dashboard');
 });

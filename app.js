@@ -147,6 +147,126 @@ function pickClosestCollection(requested, available) {
     // Only accept very small differences to avoid surprising mismatches.
     return bestDist <= 3 ? best : '';
 }
+
+// ---------------------
+// ICD-11 scoring helpers (RAG collection: rag_ics_enfermedadesmundiales)
+// ---------------------
+
+function icd11Key(item){
+    const code = (item && (item.codigo || item.code)) ? String(item.codigo || item.code).trim() : '';
+    if(code) return 'code:' + code;
+    const name = String(item && (item.nombre || item.name) || '').trim().toLowerCase();
+    return name ? ('name:' + name) : '';
+}
+
+function objectiveToText(obj){
+    if(!obj) return '';
+    if(typeof obj === 'string') return obj.trim();
+    try{ return JSON.stringify(obj, null, 2); }catch(e){ return String(obj); }
+}
+
+function buildClinicalTextForIcd11(s, analysisText){
+    const subjetivo = (s && s.soap && typeof s.soap.s === 'string') ? s.soap.s.trim() : '';
+    const objetivo = (s && s.soap) ? objectiveToText(s.soap.o) : '';
+    const analisis = String(analysisText || '').trim();
+    return [
+        'SOAP SUBJETIVO:',
+        subjetivo,
+        '',
+        'SOAP OBJETIVO:',
+        objetivo,
+        '',
+        'ANALISIS PREVIO:',
+        analisis
+    ].join('\n').trim();
+}
+
+function icd11DynamicAlpha(sessionCount){
+    const n = Math.max(1, Number(sessionCount || 1));
+    if(n <= 2) return 0.50;
+    if(n <= 5) return 0.35;
+    return 0.25;
+}
+
+function mergeIcd11Aggregate(prevAgg, sessionScores, alpha){
+    const prev = (prevAgg && typeof prevAgg === 'object') ? prevAgg : {};
+    const next = Object.assign({}, prev);
+    const a = Math.max(0.05, Math.min(0.80, Number(alpha || 0.30)));
+
+    const seenKeys = new Set();
+    const scores = Array.isArray(sessionScores) ? sessionScores : [];
+    for(const it of scores){
+        const key = icd11Key(it);
+        if(!key) continue;
+        seenKeys.add(key);
+
+        const nombre = String(it.nombre || it.name || '').trim();
+        const codigo = String(it.codigo || it.code || '').trim();
+        const score = Math.max(0, Math.min(100, Number(it.score || 0)));
+
+        const prevEntry = next[key] || { nombre, codigo, score: 0 };
+        const prevScore = (prevEntry && typeof prevEntry.score === 'number') ? prevEntry.score : Number(prevEntry && prevEntry.score) || 0;
+        next[key] = {
+            nombre: nombre || prevEntry.nombre || '',
+            codigo: codigo || prevEntry.codigo || '',
+            score: (a * score) + ((1 - a) * prevScore)
+        };
+    }
+
+    // Gentle decay for items not observed in this session (prevents old hypotheses from sticking forever)
+    for(const key of Object.keys(next)){
+        if(seenKeys.has(key)) continue;
+        const entry = next[key];
+        const prevScore = (entry && typeof entry.score === 'number') ? entry.score : Number(entry && entry.score) || 0;
+        next[key] = Object.assign({}, entry, { score: prevScore * (1 - (a * 0.12)) });
+    }
+
+    return next;
+}
+
+function icd11AggTopList(aggMap, limit=5){
+    const arr = Object.values((aggMap && typeof aggMap === 'object') ? aggMap : {});
+    arr.sort((a,b)=>(Number(b.score)||0) - (Number(a.score)||0));
+    return arr.slice(0, Math.max(1, Number(limit||5))).map(x=>({
+        nombre: String(x.nombre || '').trim(),
+        codigo: String(x.codigo || '').trim(),
+        score: Math.round(Math.max(0, Math.min(100, Number(x.score || 0))))
+    })).filter(x=>x.nombre);
+}
+
+function formatIcd11Block({ sessionScores, sessionNote, aggTop }){
+    const lines = [];
+    lines.push('---');
+    lines.push('📌 Score ICD‑11 (orientativo, no diagnóstico)');
+    lines.push('');
+
+    if(Array.isArray(sessionScores) && sessionScores.length){
+        lines.push('Sesión actual:');
+        sessionScores.slice(0,5).forEach(x=>{
+            const code = x.codigo ? ` (${x.codigo})` : '';
+            lines.push(`- ${x.nombre}${code}: ${Math.round(Number(x.score)||0)}%`);
+        });
+        lines.push('');
+    } else {
+        lines.push('Sesión actual: (sin datos)');
+        lines.push('');
+    }
+
+    if(Array.isArray(aggTop) && aggTop.length){
+        lines.push('Acumulado paciente (se afina con sesiones):');
+        aggTop.forEach(x=>{
+            const code = x.codigo ? ` (${x.codigo})` : '';
+            lines.push(`- ${x.nombre}${code}: ${Math.round(Number(x.score)||0)}%`);
+        });
+        lines.push('');
+    }
+
+    if(sessionNote){
+        lines.push(`Nota: ${String(sessionNote).trim()}`);
+    }
+
+    return lines.join('\n');
+}
 // Tooltip styles moved to `styles.css`
 
 // Helper: extract a formatted transcription text from the server response.
@@ -3239,7 +3359,7 @@ async function openSessionDetail(sessionIndex, patientId) {
                     <button id="_realizar_analisis_btn" class="btn" style="background:linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); color:white; padding:8px 16px; font-size:14px; border-radius:8px;">🔬 Realizar análisis</button>
                 </div>
                 <div style="padding:12px; background:#f9fafb; border:2px solid #e5e7eb; border-radius:8px; min-height:60px;">
-                    <p id="_analisis_output" style="margin:0; color:#4b5563; line-height:1.5; font-size:14px;">${s.analisis || '<em style="color:#9ca3af;">(Sin análisis)</em>'}</p>
+                    <p id="_analisis_output" style="margin:0; color:#4b5563; line-height:1.5; font-size:14px; white-space:pre-wrap;">${s.analisis || '<em style="color:#9ca3af;">(Sin análisis)</em>'}</p>
                 </div>
             </div>
 
@@ -3321,6 +3441,23 @@ async function openSessionDetail(sessionIndex, patientId) {
                 return { resp, data };
             }
 
+            async function postIcd11Score(clinicalText, searchQuery){
+                const resp = await fetch(`${API_BASE}/api/icd11/score`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        clinical_text: clinicalText,
+                        search_query: searchQuery,
+                        out_top: 5,
+                        k: 8,
+                        top_n: 40,
+                        collection: 'rag_ics_enfermedadesmundiales'
+                    })
+                });
+                const data = await resp.json().catch(()=>null);
+                return { resp, data };
+            }
+
             let { resp, data } = await postAsk(collection);
 
             // If the backend says the collection doesn't exist, try to auto-pick a close match.
@@ -3343,6 +3480,15 @@ async function openSessionDetail(sessionIndex, patientId) {
                         'Disponibles: ' + data.available_collections.join(', ') + '\n\n' +
                         'Solución: ajusta QDRANT_URL/QDRANT_API_KEY o el mapeo del enfoque.'
                     );
+                } else if(data && (data.error || data.detail || data.hint)) {
+                    const msg = [
+                        'Fallo en RAG (servidor).',
+                        data.error ? ('Código: ' + data.error) : '',
+                        data.detail ? ('Detalle: ' + data.detail) : '',
+                        data.hint ? ('Hint: ' + data.hint) : '',
+                        data.stderr ? ('stderr: ' + String(data.stderr).slice(0, 600)) : ''
+                    ].filter(Boolean).join('\n');
+                    alert(msg);
                 } else {
                     alert('No se pudo obtener respuesta del RAG. Revisa consola/servidor.');
                 }
@@ -3351,12 +3497,69 @@ async function openSessionDetail(sessionIndex, patientId) {
             }
 
             s.analisis = data.answer || '';
+
+            // ICD-11 scoring (robust JSON via backend endpoint)
+            let icdSessionScores = [];
+            let icdSessionNote = '';
+            try{
+                const clinicalText = buildClinicalTextForIcd11(s, s.analisis);
+                const { resp: ir, data: idata } = await postIcd11Score(clinicalText, subjetivo);
+
+                if((!ir.ok || !idata || !idata.ok) && idata && idata.error === 'collection_not_found' && Array.isArray(idata.available_collections)){
+                    const picked = pickClosestCollection('rag_ics_enfermedadesmundiales', idata.available_collections);
+                    if(picked && picked !== 'rag_ics_enfermedadesmundiales'){
+                        console.warn('ICD-11: colección no encontrada. Reintentando con:', picked);
+                        const rr = await fetch(`${API_BASE}/api/icd11/score`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ clinical_text: clinicalText, search_query: subjetivo, out_top: 5, k: 8, top_n: 40, collection: picked })
+                        });
+                        const dd = await rr.json().catch(()=>null);
+                        if(rr.ok && dd && dd.ok){
+                            icdSessionScores = Array.isArray(dd.scores) ? dd.scores : [];
+                            icdSessionNote = String(dd.note || '').trim();
+                        }
+                    }
+                } else if(ir.ok && idata && idata.ok){
+                    icdSessionScores = Array.isArray(idata.scores) ? idata.scores : [];
+                    icdSessionNote = String(idata.note || '').trim();
+                } else {
+                    console.warn('ICD-11 score no disponible:', ir.status, idata);
+                }
+            }catch(e){
+                console.warn('ICD-11 score error:', e);
+            }
+
+            // Persist session + aggregated patient scores
+            try{
+                s.icd11 = {
+                    scores: icdSessionScores,
+                    note: icdSessionNote,
+                    updatedAt: new Date().toISOString()
+                };
+
+                // aggregate per patient
+                p.icd11 = p.icd11 || {};
+                p.icd11.aggregate = p.icd11.aggregate || {};
+                const alpha = icd11DynamicAlpha(sessionIndex + 1);
+                p.icd11.aggregate = mergeIcd11Aggregate(p.icd11.aggregate, icdSessionScores, alpha);
+                p.icd11.updatedAt = new Date().toISOString();
+                p.icd11.alpha = alpha;
+            }catch(e){ /* ignore persistence errors */ }
+
             await saveData();
 
-            if (outEl) {
-                outEl.textContent = s.analisis || '(Sin análisis)';
+            const aggTop = icd11AggTopList(p && p.icd11 ? p.icd11.aggregate : {}, 5);
+            const finalText = (s.analisis || '(Sin análisis)') + '\n\n' + formatIcd11Block({
+                sessionScores: icdSessionScores,
+                sessionNote: icdSessionNote,
+                aggTop
+            });
+
+            if(outEl){
+                outEl.textContent = finalText;
             }
-            console.log('✅ RAG OK:', data.collection);
+            console.log('✅ RAG OK:', data.collection, '| ICD-11 scores:', Array.isArray(icdSessionScores) ? icdSessionScores.length : 0);
         } finally {
             btn.disabled = false;
             btn.innerHTML = prev;

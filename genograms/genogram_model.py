@@ -1,16 +1,53 @@
-import google.generativeai as genai
+from google import genai
 import json
+import ast
 import re
+import time
 import os
 import base64
+import datetime
+import sys
 from typing import Dict, List, Optional
 from pathlib import Path
 
 class GenogramGenerator:
     
-    def __init__(self, api_key: str, icons_path: str = None):
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('models/gemini-2.5-flash')
+    def __init__(self, api_key: Optional[str] = None, icons_path: str = None):
+        # New google.genai SDK uses a Client object. Make api_key optional so
+        # generator can be instantiated for local/demo rendering without
+        # contacting the model service.
+        # If api_key not provided, try to find it in environment variables
+        # or in a project `.env` file (simple KEY=VALUE parser).
+        key = api_key or os.environ.get('GEMINI_API_KEY') or os.environ.get('GENAI_API_KEY') or os.environ.get('API_KEY')
+        if not key:
+            # Try to read a .env file in project root
+            try:
+                project_root = Path(__file__).resolve().parents[1]
+                env_path = project_root / '.env'
+                if env_path.exists():
+                    with open(env_path, 'r', encoding='utf-8') as ef:
+                        for line in ef:
+                            line = line.strip()
+                            if not line or line.startswith('#') or '=' not in line:
+                                continue
+                            k, v = line.split('=', 1)
+                            k = k.strip()
+                            v = v.strip().strip('"').strip("'")
+                            # Only set if not already present
+                            if k not in os.environ:
+                                os.environ[k] = v
+                    # Re-check common names
+                    key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GENAI_API_KEY') or os.environ.get('API_KEY')
+            except Exception:
+                key = None
+
+        if key:
+            self.client = genai.Client(api_key=key)
+            # Use gemini-2.5-flash which was verified to have quota
+            self.model_id = 'gemini-2.5-flash'
+        else:
+            self.client = None
+            self.model_id = None
         
         # Ruta a los iconos SVG
         if icons_path is None:
@@ -23,7 +60,14 @@ class GenogramGenerator:
     
     def extract_family_info(self, transcription: str) -> Dict:
         prompt = f"""
-        Analiza la siguiente transcripción (que puede incluir múltiples sesiones de terapia) y extrae la información familiar acumulada para crear un genograma completo.
+        Analiza la siguiente transcripción (que puede incluir múltiples sesiones de terapia) y extrae la información familiar completa para un genograma profesional.
+        
+        REGLAS DE EXTRACCIÓN:
+        - EXTRAE a todas las personas mencionadas con un rol familiar (padres, hijos, abuelos, tíos, primos, hermanos, etc.)
+        - NO inventes conexiones. Solo registra lo que se menciona.
+        - RELACIONES DE PAREJA: Usa tipo "pareja". Solo si se dice que están casados, son novios o viven juntos.
+        - RELACIONES PADRE-HIJO: Usa tipo "padre-hijo". Persona1 es el padre/madre, Persona2 es el hijo/hija.
+        - Si no se menciona la edad o ocupación, usa null.
         
         Transcripciones:
         {transcription}
@@ -36,60 +80,93 @@ class GenogramGenerator:
                     "nombre": "nombre completo",
                     "genero": "masculino/femenino",
                     "edad": edad_o_null,
+                    "ocupacion": "ocupación/profesión si se menciona" o null,
                     "vivo": true/false,
                     "orientacion": "heterosexual/gay/lesbiana/bisexual/trans/otro" (si se menciona),
-                    "condiciones": ["consultante", "enfermedad", "consumo", "tratamiento", "diagnostico_fijo", "diagnostico_presuntivo", "muerte", "embarazada", "padre_soltero", "madre_soltera"] (lista de condiciones que apliquen),
+                    "condiciones": ["consultante", "enfermedad", "consumo", "tratamiento", "diagnostico_fijo", "muerte", "padre_soltero", "madre_soltera"],
                     "notas": "información adicional relevante"
                 }}
             ],
             "relaciones": [
                 {{
-                    "tipo": "pareja/padre-hijo/hermanos/gemelos",
-                    "persona1_id": "id_persona1",
-                    "persona2_id": "id_persona2",
-                    "estado_civil": "casados/union_libre_legalizado/union_libre_novios/divorciado/separado" (solo para parejas),
-                    "calidad_relacion": "alianza_buena/conflictiva_violenta/distante/nibuena_nimala/toxica_simbiotica/abuso_sexual_violacion" (si se menciona),
-                    "notas": "información adicional"
+                    "tipo": "pareja" o "padre-hijo" (IMPORTANTE: Usa solo estos términos),
+                    "persona1_id": "id_parent_o_partner1",
+                    "persona2_id": "id_child_o_partner2",
+                    "estado_civil": "casados/union_libre/novios/divorciado/separado",
+                    "fecha": "año de matrimonio o unión" o null,
+                    "calidad_relacion": "alianza_buena/conflictiva/distante/toxica" (si se menciona)
                 }}
             ]
         }}
         
         Reglas importantes:
         - Responde UNICAMENTE con el objeto JSON.
-        - Usa IDs únicos y descriptivos (ej: "juan_garcia").
-        - Para relaciones padres-hijos usa tipo "padre-hijo" (persona1 es el padre/madre).
-        - Si no hay información de edad, usa null.
-        - Identifica si la persona es el consultante (paciente que habla).
-        - Detecta condiciones como enfermedades, consumo de sustancias, tratamientos.
-        
-        Reglas de Simbología y Contexto (para tu comprensión de atributos):
-        - Sexo y edad: El símbolo de cuadrado representa al sexo masculino, y es válido tanto para hombres adultos como para niños. El símbolo de círculo representa al sexo femenino.
-        - Orientación sexual: Cuando un individuo de sexo masculino es identificado como gay, se debe registrar 'gay' en orientacion. Esto aplica independientemente de la edad (niño o adulto).
-        - Consistencia semántica: Toda referencia a “hombre” puede interpretarse también como “niño”.
-        
-        Asegúrate de extraer fielmente la orientación sexual si se menciona explícitamente.
+        - Los IDs deben coincidir exactamente entre la lista de personas y la lista de relaciones.
+        - Identifica claramente al "consultante" (el paciente que habla).
         """
 
-        response = self.model.generate_content(prompt)
+        # 3. Call the SDK
+        try:
+            # Try to use JSON mode
+            response = self.client.models.generate_content(
+                model=self.model_id,
+                contents=prompt,
+                config={'response_mime_type': 'application/json'}
+            )
+            response_text = response.text
+        except Exception as e:
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model_id,
+                    contents=prompt
+                )
+                response_text = response.text
+            except Exception as e2:
+                raise RuntimeError(f"Gemini API call failed: {e2}")
+
+        # Hyper-robust JSON extraction
+        data = None
         
-        response_text = response.text
-        # Clean markdown code blocks if present
-        if '```json' in response_text:
-            response_text = response_text.split('```json')[1].split('```')[0]
-        elif '```' in response_text:
-            response_text = response_text.split('```')[1].split('```')[0]
+        # Helper to find valid JSON in a string by trying substrings
+        def find_best_json(text):
+            # Try full text first
+            try:
+                return json.loads(text.strip())
+            except Exception:
+                pass
             
-        json_match = re.search(r'\{[\s\S]*\}', response_text)
+            # Find all potential start { and try pairing with last }
+            starts = [m.start() for m in re.finditer('{', text)]
+            ends = [m.start() for m in re.finditer('}', text)]
+            
+            if not starts or not ends:
+                return None
+                
+            # Try from longest possible to shortest
+            for s in starts:
+                for e in reversed(ends):
+                    if e > s:
+                        candidate = text[s:e+1]
+                        try:
+                            return json.loads(candidate)
+                        except Exception:
+                            # Try simple quote fix
+                            try:
+                                cleaned = candidate.replace("'", '"')
+                                return json.loads(cleaned)
+                            except Exception:
+                                continue
+            return None
+
+        data = find_best_json(response_text)
         
-        if json_match:
-            data = json.loads(json_match.group())
-            # DEBUG: Print the extracted JSON to stdout so we can see it in server logs
-            print("DEBUG JSON FROM GEMINI:")
-            print(json.dumps(data, indent=2, ensure_ascii=False))
-            return data
-        else:
-            print(f"DEBUG RAW RESPONSE: {response_text}")
-            raise ValueError("No se pudo extraer información estructurada de la respuesta de Gemini")
+        if data is None:
+            # Last ditch effort: regex for personas and relaciones arrays
+            print(f"DEBUG: Hyper-parsing failed. Raw: {response_text[:300]}...", file=sys.stderr)
+            raise ValueError("La respuesta del modelo no contiene un formato JSON procesable.")
+
+        print(f"DEBUG: JSON extracted. Persons: {len(data.get('personas', []))}", file=sys.stderr)
+        return data
 
     
     def load_svg(self, path: str) -> str:
@@ -99,7 +176,7 @@ class GenogramGenerator:
         
         full_path = self.icons_path / path
         if not full_path.exists():
-            print(f"Advertencia: No se encontró el SVG en {full_path}")
+            print(f"Advertencia: No se encontró el SVG en {full_path}", file=sys.stderr)
             return ""
         
         with open(full_path, 'r', encoding='utf-8') as f:
@@ -235,23 +312,67 @@ class GenogramGenerator:
         
         personas = family_data.get('personas', [])
         relaciones = family_data.get('relaciones', [])
+
+        # Normalize IDs to avoid mismatches from heuristic extractor
+        def _norm_id(s: str) -> str:
+            if s is None:
+                return ''
+            return re.sub(r"\W+", '_', str(s).strip().lower())
+
+        # Rebuild personas list with normalized ids and keep a map for names
+        id_map = {}
+        new_personas = []
+        for p in personas:
+            orig_id = p.get('id') or p.get('nombre') or ''
+            nid = _norm_id(orig_id)
+            # If collision, append a suffix
+            suffix = 1
+            base = nid or ('person' + str(len(new_personas)+1))
+            nid_unique = base
+            while nid_unique in id_map:
+                suffix += 1
+                nid_unique = f"{base}_{suffix}"
+            id_map[p.get('id')] = nid_unique
+            p['id'] = nid_unique
+            new_personas.append(p)
+        personas = new_personas
+
+        # Normalize relaciones ids
+        for r in relaciones:
+            if 'persona1_id' in r:
+                r['persona1_id'] = id_map.get(r['persona1_id'], _norm_id(r.get('persona1_id')))
+            if 'persona2_id' in r:
+                r['persona2_id'] = id_map.get(r['persona2_id'], _norm_id(r.get('persona2_id')))
+
+        # FILTER: keep only padre-hijo relations and remove any person that is
+        # mentioned as 'abuelo'/'abuela' in their nombre/notas. We also remove
+        # any relations that reference filtered-out persons.
+        gp_keywords = ('abuelo', 'abuela', 'abuelos', 'abuela paterna', 'abuelo paterno', 'abuela materna', 'abuelo materno')
+        removed_ids = set()
+        for p in personas:
+            text = ((p.get('nombre') or '') + ' ' + (p.get('notas') or '')).lower()
+            if any(k in text for k in gp_keywords):
+                removed_ids.add(p['id'])
+
+        personas = [p for p in personas if p['id'] not in removed_ids]
+        relaciones = [r for r in relaciones if r.get('tipo') == 'padre-hijo' and r.get('persona1_id') not in removed_ids and r.get('persona2_id') not in removed_ids]
         
         if not personas:
             raise ValueError("No hay personas en los datos familiares")
         
-        # Constantes de diseño (ajustadas para mejor visualización)
-        ICON_SIZE = 60
-        SPACING_X = 140
-        SPACING_Y = 180
-        COUPLE_SPACING = 80  # Espacio entre parejas
+        # Constantes de diseño (ajustadas para mejor visualización profesional)
+        ICON_SIZE = 50  # Tamaño mediano para símbolos
+        SPACING_X = 180  # Más espacio horizontal entre personas
+        SPACING_Y = 180  # Más espacio vertical entre generaciones
+        COUPLE_SPACING = 120  # Espacio entre pareja
         START_X = 100
         START_Y = 100
         
-        # Organizar personas por generaciones y familias nucleares
-        estructura = self._organize_family_structure(personas, relaciones)
-        
-        # Calcular posiciones basadas en la estructura familiar
-        posiciones = self._calculate_positions(estructura, ICON_SIZE, SPACING_X, SPACING_Y, COUPLE_SPACING, START_X, START_Y)
+        # Organizar personas por generaciones basadas únicamente en padre-hijo
+        generaciones = self._organize_generations(personas, relaciones)
+
+        # Calcular posiciones basadas en generaciones (simple jerárquico)
+        posiciones = self._calculate_positions_simple(generaciones, ICON_SIZE, SPACING_X, SPACING_Y, START_X, START_Y)
         
         # Calcular dimensiones del SVG
         max_x = max([pos['x'] for pos in posiciones.values()], default=START_X) + ICON_SIZE + 200
@@ -351,12 +472,15 @@ class GenogramGenerator:
 </body>
 </html>'''
         
-        # Guardar archivo
+        # Guardar archivo (asegurando que el directorio existe)
         output_path = f"{output_file}.html"
-        with open(output_path, 'w', encoding='utf-8') as f:
+        out_p = Path(output_path)
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(out_p, 'w', encoding='utf-8') as f:
             f.write(html_content)
         
-        return output_path
+        return str(out_p.absolute())
     
     def _organize_family_structure(self, personas: List[Dict], relaciones: List[Dict]) -> Dict:
         """Organiza la estructura familiar en generaciones con parejas agrupadas"""
@@ -378,239 +502,375 @@ class GenogramGenerator:
                 if hijo not in padres_de:
                     padres_de[hijo] = []
                 padres_de[hijo].append(padre)
-        
-        # Encontrar generación raíz (personas sin padres)
-        personas_con_padres = set(padres_de.keys())
-        raices = [p['id'] for p in personas if p['id'] not in personas_con_padres]
-        
-        if not raices:
-            raices = [personas[0]['id']]  # Usar primera persona si no hay raíces claras
-        
-        # Organizar en generaciones
-        generaciones = []
+        # Strategy: if there is a consultante (patient), build centered generations
+        # up to grandparents (2 ancestor levels) and direct children. Otherwise
+        # fall back to previous root->children BFS.
+
+        # Find consultante (focal person) if present
+        consultantes = [p['id'] for p in personas if 'condiciones' in p and 'consultante' in p.get('condiciones', [])]
+
+        generaciones_ids: List[List[str]] = []
         procesadas = set()
-        generacion_actual = raices
-        
-        while generacion_actual:
-            # Agrupar parejas en esta generación
-            gen_grupos = []
-            pendientes = list(generacion_actual)
-            
+
+        if consultantes:
+            focal = consultantes[0]
+
+            # Ancestors up to 2 levels (parents, grandparents)
+            ancestor_levels = []
+            current_level = [focal]
+            for _ in range(2):
+                parents = []
+                for pid in current_level:
+                    parents.extend(padres_de.get(pid, []))
+                parents = list(dict.fromkeys(parents))
+                if not parents:
+                    break
+                ancestor_levels.insert(0, parents)
+                current_level = parents
+
+            # Add ancestor_levels (may be empty) in top-down order
+            for anc in ancestor_levels:
+                generaciones_ids.append(anc)
+
+            # Build focal group (focal + pareja si aplica)
+            focal_group = [focal]
+            pareja = parejas.get(focal)
+            if pareja and pareja not in focal_group:
+                focal_group.append(pareja)
+
+            # Children generation (direct children of focal and pareja)
+            children = []
+            for pid in focal_group:
+                children.extend(hijos_de.get(pid, []))
+            children = list(dict.fromkeys(children))
+
+            # If focal has children, the desired order is: ancestors -> focal -> children
+            if children:
+                generaciones_ids.append(focal_group)
+                generaciones_ids.append(children)
+                # mark processed those we just added
+                for gen in generaciones_ids:
+                    for pid in gen:
+                        procesadas.add(pid)
+
+                # Append any remaining unconnected persons at the end
+                no_conectadas = [p['id'] for p in personas if p['id'] not in procesadas]
+                if no_conectadas:
+                    generaciones_ids.append(no_conectadas)
+
+            else:
+                # If focal has NO children, we want focal to be the last (bottom-most)
+                # generation. So first mark ancestors as processed, then append any
+                # unconnected people, and finally append focal as the last generation.
+                for gen in generaciones_ids:
+                    for pid in gen:
+                        procesadas.add(pid)
+
+                no_conectadas = [p['id'] for p in personas if p['id'] not in procesadas and p['id'] not in focal_group]
+                if no_conectadas:
+                    generaciones_ids.append(no_conectadas)
+
+                # Finally, append focal_group so it is bottom-most
+                generaciones_ids.append(focal_group)
+                for pid in focal_group:
+                    procesadas.add(pid)
+
+        else:
+            # Fallback: existing behavior (roots -> children BFS)
+            personas_con_padres = set(padres_de.keys())
+            raices = [p['id'] for p in personas if p['id'] not in personas_con_padres]
+            if not raices:
+                raices = [personas[0]['id']]
+
+            generacion_actual = raices
+            while generacion_actual:
+                generaciones_ids.append(list(generacion_actual))
+                for pid in generacion_actual:
+                    procesadas.add(pid)
+
+                siguiente = []
+                for persona_id in generacion_actual:
+                    if persona_id in hijos_de:
+                        for hijo_id in hijos_de[persona_id]:
+                            if hijo_id not in procesadas and hijo_id not in siguiente:
+                                siguiente.append(hijo_id)
+                generacion_actual = siguiente
+
+            no_procesadas = [p['id'] for p in personas if p['id'] not in procesadas]
+            if no_procesadas:
+                generaciones_ids.append(no_procesadas)
+
+        # Convert generaciones_ids (list of id lists) into grupos (parejas agrupadas)
+        # Before grouping, detect explicit or implied grandparents and move them
+        # to the top generation. We detect grandparents in two ways:
+        #  - personas referenced as parent-of-parent via `padres_de` (explicit)
+        #  - personas whose `nombre` or `notas` include keywords like 'abuelo'/'abuela'
+        generaciones_groups: List[List[List[str]]] = []
+
+        # detect grandparents by parent-of-parent
+        grandparents_set = set()
+        for child_id, parents in padres_de.items():
+            for parent_id in parents:
+                for grand in padres_de.get(parent_id, []):
+                    grandparents_set.add(grand)
+
+        # detect by keyword in nombre/notas
+        keywords = ('abuelo', 'abuela', 'abuelos', 'abuela paterna', 'abuelo paterno', 'abuela materna', 'abuelo materno')
+        for p in personas:
+            text = ((p.get('nombre') or '') + ' ' + (p.get('notas') or '')).lower()
+            if any(k in text for k in keywords):
+                grandparents_set.add(p['id'])
+
+        # If we have detected grandparents, ensure they appear in the first generation
+        if grandparents_set:
+            # remove grandparents from any existing generation lists
+            for gen in generaciones_ids:
+                for gid in list(gen):
+                    if gid in grandparents_set:
+                        gen.remove(gid)
+
+            # insert or prepend first generation
+            if generaciones_ids:
+                first = generaciones_ids[0]
+                # prepend unique grandparents
+                for gid in grandparents_set:
+                    if gid not in first:
+                        first.insert(0, gid)
+            else:
+                generaciones_ids.insert(0, list(grandparents_set))
+        for gen in generaciones_ids:
+            pendientes = list(gen)
+            grupos: List[List[str]] = []
             while pendientes:
-                persona_id = pendientes.pop(0)
-                if persona_id in procesadas:
-                    continue
-                    
-                # Verificar si tiene pareja
-                if persona_id in parejas:
-                    pareja_id = parejas[persona_id]
-                    if pareja_id in pendientes:
-                        pendientes.remove(pareja_id)
-                        gen_grupos.append([persona_id, pareja_id])
-                        procesadas.add(persona_id)
-                        procesadas.add(pareja_id)
-                    else:
-                        gen_grupos.append([persona_id])
-                        procesadas.add(persona_id)
+                pid = pendientes.pop(0)
+                if pid in parejas and parejas[pid] in pendientes:
+                    pareja_id = parejas[pid]
+                    pendientes.remove(pareja_id)
+                    grupos.append([pid, pareja_id])
                 else:
-                    gen_grupos.append([persona_id])
-                    procesadas.add(persona_id)
-            
-            generaciones.append(gen_grupos)
-            
-            # Encontrar siguiente generación (hijos)
-            siguiente = []
-            for persona_id in generacion_actual:
-                if persona_id in hijos_de:
-                    for hijo_id in hijos_de[persona_id]:
-                        if hijo_id not in procesadas and hijo_id not in siguiente:
-                            siguiente.append(hijo_id)
-            
-            generacion_actual = siguiente
-        
-        # Agregar personas no procesadas
-        no_procesadas = [p['id'] for p in personas if p['id'] not in procesadas]
-        if no_procesadas:
-            generaciones.append([[pid] for pid in no_procesadas])
-        
-        return {'generaciones': generaciones, 'parejas': parejas, 'hijos_de': hijos_de, 'padres_de': padres_de}
+                    grupos.append([pid])
+            generaciones_groups.append(grupos)
+
+        return {'generaciones': generaciones_groups, 'parejas': parejas, 'hijos_de': hijos_de, 'padres_de': padres_de}
     
     def _calculate_positions(self, estructura: Dict, icon_size: float, spacing_x: float, spacing_y: float, couple_spacing: float, start_x: float, start_y: float) -> Dict:
         """Calcula posiciones para cada persona basándose en la estructura familiar"""
         posiciones = {}
         generaciones = estructura['generaciones']
-        
-        for gen_idx, grupos in enumerate(generaciones):
-            y = start_y + (gen_idx * spacing_y)
-            
-            # Calcular ancho total de la generación
+        # First, compute each generation's width so we can center using the widest
+        gen_widths = []
+        gen_layouts = []  # store per-generation layout metrics
+        for grupos in generaciones:
             ancho_total = 0
+            elements = []
             for grupo in grupos:
                 if len(grupo) == 2:
-                    ancho_total += couple_spacing
+                    w = couple_spacing
                 else:
-                    ancho_total += icon_size
-                ancho_total += spacing_x  # Espacio entre grupos
-            
-            # Centrar la generación
-            x_actual = start_x + (800 - ancho_total) / 2  # 800 es un ancho aproximado del canvas
-            
-            for grupo in grupos:
+                    w = icon_size
+                elements.append({'grupo': grupo, 'width': w})
+                ancho_total += w
+                ancho_total += spacing_x
+            gen_widths.append(ancho_total)
+            gen_layouts.append({'elements': elements, 'ancho_total': ancho_total})
+
+        canvas_w = max(gen_widths) if gen_widths else 800
+
+        for gen_idx, layout in enumerate(gen_layouts):
+            grupos = layout['elements']
+            y = start_y + (gen_idx * spacing_y)
+
+            ancho_total = layout['ancho_total']
+            x_actual = start_x + max(0, (canvas_w - ancho_total) / 2)
+
+            for item in grupos:
+                grupo = item['grupo']
                 if len(grupo) == 2:
-                    # Pareja: colocar lado a lado
                     posiciones[grupo[0]] = {'x': x_actual, 'y': y}
                     posiciones[grupo[1]] = {'x': x_actual + couple_spacing, 'y': y}
                     x_actual += couple_spacing + spacing_x
                 else:
-                    # Persona sola
                     posiciones[grupo[0]] = {'x': x_actual, 'y': y}
                     x_actual += icon_size + spacing_x
         
         return posiciones
+
+    def _calculate_positions_simple(self, generaciones: List[List[str]], icon_size: float, spacing_x: float, spacing_y: float, start_x: float, start_y: float) -> Dict:
+        """
+        Calcula posiciones para una estructura clásica de genograma:
+        - Parejas (padre/madre) conectados por línea horizontal
+        - Línea vertical central hacia hijos
+        - Hijos alineados horizontalmente debajo de la pareja
+        """
+        posiciones = {}
+        pareja_y_offset = 30  # espacio entre pareja y línea horizontal
+        child_y_offset = 40   # espacio entre línea pareja y hijos
+        couple_spacing = icon_size + 40
+        # Solo soporta generaciones de padres e hijos (2 generaciones)
+        if len(generaciones) < 2:
+            # fallback a layout simple
+            gen_widths = [len(gen) * (icon_size + spacing_x) for gen in generaciones]
+            canvas_w = max(gen_widths) if gen_widths else 800
+            for gen_idx, gen in enumerate(generaciones):
+                y = start_y + gen_idx * spacing_y
+                total_w = len(gen) * (icon_size + spacing_x) - spacing_x if gen else 0
+                x_actual = start_x + max(0, (canvas_w - total_w) / 2)
+                for pid in gen:
+                    posiciones[pid] = {'x': x_actual, 'y': y}
+                    x_actual += icon_size + spacing_x
+            return posiciones
+
+        padres = generaciones[0]
+        hijos = generaciones[1]
+        # Agrupar padres en pareja si hay dos
+        if len(padres) == 2:
+            px1 = start_x
+            px2 = start_x + couple_spacing
+            py = start_y
+            posiciones[padres[0]] = {'x': px1, 'y': py}
+            posiciones[padres[1]] = {'x': px2, 'y': py}
+            pareja_cx = (px1 + px2) / 2 + icon_size / 2
+        else:
+            # solo un padre
+            px1 = start_x
+            py = start_y
+            posiciones[padres[0]] = {'x': px1, 'y': py}
+            pareja_cx = px1 + icon_size / 2
+
+        # Línea horizontal de pareja está a py + icon_size + pareja_y_offset
+        pareja_line_y = py + icon_size + pareja_y_offset
+        # Hijos alineados horizontalmente debajo de la pareja
+        n_hijos = len(hijos)
+        total_w = n_hijos * (icon_size + spacing_x) - spacing_x if n_hijos else 0
+        hijos_start_x = pareja_cx - total_w / 2
+        hijos_y = pareja_line_y + child_y_offset
+        for i, hid in enumerate(hijos):
+            x = hijos_start_x + i * (icon_size + spacing_x)
+            posiciones[hid] = {'x': x, 'y': hijos_y}
+
+        return posiciones
     
     def _render_all_relations(self, relaciones: List[Dict], posiciones: Dict, personas: List[Dict], icon_size: float) -> str:
-        """Renderiza todas las relaciones con líneas apropiadas según el tipo"""
-        svg = ''
-        parejas_procesadas = set()
+        """
+        Renderiza relaciones de manera robusta:
+        - Línea horizontal para cada pareja
+        - Línea T-junction hacia sus hijos comunes
+        - Línea directa para padres solteros/separados
+        """
+        svg = ""
+        procesadas = set()
         
-        # Agrupar información de relaciones
-        hijos_por_padre = {}   # {padre_id: [hijo_ids]}
-        parejas = {}           # {persona1_id: persona2_id}
+        # 1. Agrupar hijos por pareja (para el estilo T-junction clásico)
+        # parejas_info = { (p1_id, p2_id): { 'hijos': [], 'rel': rel } }
+        parejas_info = {}
+        hijos_para_solteros = {}  # padre_id -> [lista de hijos]
         
-        # Identificar parejas
+        # Primero identificar parejas
         for rel in relaciones:
             if rel.get('tipo') == 'pareja':
-                p1, p2 = rel['persona1_id'], rel['persona2_id']
-                parejas[p1] = p2
-                parejas[p2] = p1
+                p1 = rel.get('persona1_id')
+                p2 = rel.get('persona2_id')
+                if p1 in posiciones and p2 in posiciones:
+                    # Ordenar IDs para llave única
+                    key = tuple(sorted([p1, p2]))
+                    parejas_info[key] = { 'hijos': [], 'rel': rel }
         
-        # Agrupar hijos por padres
+        # Identificar hijos de cada pareja o de solteros
         for rel in relaciones:
             if rel.get('tipo') == 'padre-hijo':
-                padre_id = rel['persona1_id']
-                hijo_id = rel['persona2_id']
-                
-                if padre_id not in hijos_por_padre:
-                    hijos_por_padre[padre_id] = []
-                hijos_por_padre[padre_id].append(hijo_id)
-        
-        # Dibujar líneas de pareja (con líneas verticales desde cada uno)
-        for rel in relaciones:
-            if rel.get('tipo') == 'pareja':
-                p1_id = rel['persona1_id']
-                p2_id = rel['persona2_id']
-                
-                if p1_id not in posiciones or p2_id not in posiciones:
-                    continue
-                
-                key = tuple(sorted([p1_id, p2_id]))
-                if key in parejas_procesadas:
-                    continue
-                parejas_procesadas.add(key)
-                
-                p1_pos = posiciones[p1_id]
-                p2_pos = posiciones[p2_id]
-                
-                # Centros de las figuras (en la parte inferior)
-                x1 = p1_pos['x'] + icon_size / 2
-                y1 = p1_pos['y'] + icon_size  # Parte inferior de la figura
-                x2 = p2_pos['x'] + icon_size / 2
-                y2 = p2_pos['y'] + icon_size  # Parte inferior de la figura
-                
-                # Distancia de separación (líneas verticales desde cada padre)
-                separation = 20
-                linea_pareja_y = max(y1, y2) + separation
-                
-                # Línea vertical desde persona 1 hacia abajo
-                svg += f'  <line x1="{x1}" y1="{y1}" x2="{x1}" y2="{linea_pareja_y}" stroke="black" stroke-width="2"/>\n'
-                
-                # Línea vertical desde persona 2 hacia abajo
-                svg += f'  <line x1="{x2}" y1="{y2}" x2="{x2}" y2="{linea_pareja_y}" stroke="black" stroke-width="2"/>\n'
-                
-                # Línea horizontal conectando las dos líneas verticales
-                svg += f'  <line x1="{x1}" y1="{linea_pareja_y}" x2="{x2}" y2="{linea_pareja_y}" stroke="black" stroke-width="2"/>\n'
-                
-                # Si tienen hijos, dibujar conexiones
-                hijos = []
-                if p1_id in hijos_por_padre:
-                    hijos.extend(hijos_por_padre[p1_id])
-                if p2_id in hijos_por_padre:
-                    for hijo in hijos_por_padre[p2_id]:
-                        if hijo not in hijos:
-                            hijos.append(hijo)
-                
-                if hijos:
-                    hijos_validos = [h for h in hijos if h in posiciones]
+                padre = rel.get('persona1_id')
+                hijo = rel.get('persona2_id')
+                if padre and hijo and padre in posiciones and hijo in posiciones:
+                    encontrada_pareja = False
+                    # Buscar si el padre tiene una pareja en el genograma
+                    for pair_key in parejas_info:
+                        if padre in pair_key:
+                            # Verificar si el hijo es de ambos (buscando la otra relación)
+                            madre = pair_key[1] if pair_key[0] == padre else pair_key[0]
+                            # Buscamos si existe relación madre-hijo también
+                            # Pero para simplificar, asumimos que si hay pareja, 
+                            # el hijo mencionado de uno pertenece a la unidad familiar.
+                            parejas_info[pair_key]['hijos'].append(hijo)
+                            encontrada_pareja = True
+                            break
                     
-                    if hijos_validos:
-                        # Punto medio de la línea de pareja
-                        mid_x = (x1 + x2) / 2
-                        
-                        # Calcular la posición de la línea horizontal de hijos (arriba de los hijos)
-                        min_hijo_y = min([posiciones[h]['y'] for h in hijos_validos])
-                        linea_hijos_y = min_hijo_y - 30  # 30px arriba del hijo más alto
-                        
-                        # Línea vertical desde el punto medio de la pareja hasta la línea de hijos
-                        svg += f'  <line x1="{mid_x}" y1="{linea_pareja_y}" x2="{mid_x}" y2="{linea_hijos_y}" stroke="black" stroke-width="2"/>\n'
-                        
-                        # Si hay múltiples hijos, dibujar línea horizontal entre ellos
-                        if len(hijos_validos) > 1:
-                            hijo_xs = [posiciones[h]['x'] + icon_size/2 for h in hijos_validos]
-                            min_x = min(hijo_xs)
-                            max_x = max(hijo_xs)
-                            svg += f'  <line x1="{min_x}" y1="{linea_hijos_y}" x2="{max_x}" y2="{linea_hijos_y}" stroke="black" stroke-width="2"/>\n'
-                        else:
-                            # Si hay un solo hijo, dibujar una pequeña línea horizontal en el punto de conexión
-                            hijo_x = posiciones[hijos_validos[0]]['x'] + icon_size / 2
-                            svg += f'  <line x1="{mid_x}" y1="{linea_hijos_y}" x2="{hijo_x}" y2="{linea_hijos_y}" stroke="black" stroke-width="2"/>\n'
-                        
-                        # Líneas verticales desde cada hijo hacia arriba hasta la línea horizontal
-                        for hijo_id in hijos_validos:
-                            hijo_x = posiciones[hijo_id]['x'] + icon_size / 2
-                            hijo_y = posiciones[hijo_id]['y']
-                            svg += f'  <line x1="{hijo_x}" y1="{hijo_y}" x2="{hijo_x}" y2="{linea_hijos_y}" stroke="black" stroke-width="2"/>\n'
-        
-        # Dibujar líneas para padres solteros con hijos
-        padres_en_pareja = set(parejas.keys())
-        for padre_id, hijos in hijos_por_padre.items():
-            if padre_id in padres_en_pareja:
-                continue  # Ya procesado con la pareja
+                    if not encontrada_pareja:
+                        if padre not in hijos_para_solteros:
+                            hijos_para_solteros[padre] = []
+                        hijos_para_solteros[padre].append(hijo)
+
+        # 2. Renderizar Parejas e hijos comunes
+        for pair_key, info in parejas_info.items():
+            p1_id, p2_id = pair_key
+            rel = info['rel']
+            hijos = list(set(info['hijos'])) # evitar duplicados
             
-            if padre_id not in posiciones:
-                continue
+            pos1 = posiciones[p1_id]
+            pos2 = posiciones[p2_id]
             
-            padre_pos = posiciones[padre_id]
-            padre_x = padre_pos['x'] + icon_size / 2
-            padre_y = padre_pos['y'] + icon_size  # Parte inferior
+            # Puntos centrales de los símbolos
+            x1 = pos1['x'] + icon_size/2
+            x2 = pos2['x'] + icon_size/2
+            y1 = pos1['y'] + icon_size/2
+            y2 = pos2['y'] + icon_size/2
             
-            hijos_validos = [h for h in hijos if h in posiciones]
-            if not hijos_validos:
-                continue
+            # Línea de unión (debajo de los símbolos)
+            y_joint = max(pos1['y'], pos2['y']) + icon_size + 30
             
-            # Calcular la posición de la línea horizontal de hijos
-            min_hijo_y = min([posiciones[h]['y'] for h in hijos_validos])
-            linea_hijos_y = min_hijo_y - 30
+            # Líneas verticales desde cada miembro de la pareja
+            svg += f'  <line x1="{x1}" y1="{y1 + icon_size/2}" x2="{x1}" y2="{y_joint}" stroke="black" stroke-width="2"/>\n'
+            svg += f'  <line x1="{x2}" y1="{y2 + icon_size/2}" x2="{x2}" y2="{y_joint}" stroke="black" stroke-width="2"/>\n'
             
-            # Línea vertical desde el padre hacia la línea de hijos
-            svg += f'  <line x1="{padre_x}" y1="{padre_y}" x2="{padre_x}" y2="{linea_hijos_y}" stroke="black" stroke-width="2"/>\n'
+            # Línea horizontal que los une
+            svg += f'  <line x1="{x1}" y1="{y_joint}" x2="{x2}" y2="{y_joint}" stroke="black" stroke-width="2"/>\n'
             
-            # Si hay múltiples hijos, dibujar línea horizontal entre ellos
-            if len(hijos_validos) > 1:
-                hijo_xs = [posiciones[h]['x'] + icon_size/2 for h in hijos_validos]
-                min_x = min(hijo_xs)
-                max_x = max(hijo_xs)
-                svg += f'  <line x1="{min_x}" y1="{linea_hijos_y}" x2="{max_x}" y2="{linea_hijos_y}" stroke="black" stroke-width="2"/>\n'
-            else:
-                # Si hay un solo hijo, dibujar línea horizontal hasta el hijo
-                hijo_x = posiciones[hijos_validos[0]]['x'] + icon_size / 2
-                svg += f'  <line x1="{padre_x}" y1="{linea_hijos_y}" x2="{hijo_x}" y2="{linea_hijos_y}" stroke="black" stroke-width="2"/>\n'
+            # Mostrar fecha si existe
+            fecha = rel.get('fecha')
+            if fecha:
+                cx = (x1 + x2) / 2
+                svg += f'  <text x="{cx}" y="{y_joint - 5}" text-anchor="middle" font-size="11" font-family="Arial" fill="#555">m. {fecha}</text>\n'
+
+            # Conexión a hijos si existen
+            if hijos:
+                cx = (x1 + x2) / 2
+                # Nivel de los hijos (asumimos que están en la misma generación y tienen misma Y)
+                y_hijos = min([posiciones[h]['y'] for h in hijos if h in posiciones])
+                y_hijos_top = y_hijos - 20
+                
+                # Línea vertical principal hacia abajo del centro de la pareja
+                svg += f'  <line x1="{cx}" y1="{y_joint}" x2="{cx}" y2="{y_hijos_top}" stroke="black" stroke-width="2"/>\n'
+                
+                # Línea horizontal para distribuir a los hijos (si son más de 1)
+                if len(hijos) > 1:
+                    hx_min = min([posiciones[h]['x'] + icon_size/2 for h in hijos])
+                    hx_max = max([posiciones[h]['x'] + icon_size/2 for h in hijos])
+                    svg += f'  <line x1="{hx_min}" y1="{y_hijos_top}" x2="{hx_max}" y2="{y_hijos_top}" stroke="black" stroke-width="2"/>\n'
+                
+                # Líneas verticales finales a cada hijo
+                for h_id in hijos:
+                    h_pos = posiciones[h_id]
+                    hx = h_pos['x'] + icon_size/2
+                    hy = h_pos['y']
+                    svg += f'  <line x1="{hx}" y1="{y_hijos_top}" x2="{hx}" y2="{hy}" stroke="black" stroke-width="1.5"/>\n'
+
+        # 3. Renderizar Solteros
+        for padre_id, hijos in hijos_para_solteros.items():
+            pos_p = posiciones[padre_id]
+            px = pos_p['x'] + icon_size/2
+            py_exit = pos_p['y'] + icon_size
             
-            # Líneas verticales desde cada hijo hacia arriba
-            for hijo_id in hijos_validos:
-                hijo_x = posiciones[hijo_id]['x'] + icon_size / 2
-                hijo_y = posiciones[hijo_id]['y']
-                svg += f'  <line x1="{hijo_x}" y1="{hijo_y}" x2="{hijo_x}" y2="{linea_hijos_y}" stroke="black" stroke-width="2"/>\n'
-        
+            for h_id in hijos:
+                pos_h = posiciones[h_id]
+                hx = pos_h['x'] + icon_size/2
+                hy_entry = pos_h['y']
+                
+                # Línea simple (con un pequeño quiebre si no están alineados)
+                if px == hx:
+                    svg += f'  <line x1="{px}" y1="{py_exit}" x2="{hx}" y2="{hy_entry}" stroke="black" stroke-width="2"/>\n'
+                else:
+                    mid_y = (py_exit + hy_entry) / 2
+                    svg += f'  <path d="M {px} {py_exit} V {mid_y} H {hx} V {hy_entry}" fill="none" stroke="black" stroke-width="1.5"/>\n'
+                    
         return svg
     
     def _organize_generations(self, personas: List[Dict], relaciones: List[Dict]) -> List[List[str]]:
@@ -653,108 +913,634 @@ class GenogramGenerator:
             generaciones.append(no_procesadas)
         
         return generaciones
+
+    def _heuristic_extract_family_info(self, transcription: str) -> Dict:
+        """A very small heuristic extractor that finds simple patterns in the
+        concatenated transcription and returns a minimal `family_data` dict.
+
+        This is intentionally conservative — it extracts the consultante name,
+        explicit mentions of parents, partners and children lists using simple
+        regex patterns. It's a fallback for when the model API is unavailable.
+        """
+        personas = {}
+        relaciones = []
+
+        text = transcription.replace('\n', ' ')[:800000]  # trim huge inputs
+
+        # Find consultante: 'me llamo X' or 'mi nombre es X'
+        m = re.search(r"\b(?:me llamo|mi nombre es)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)", text, re.IGNORECASE)
+        consultante_name = None
+        if m:
+            consultante_name = m.group(1).strip()
+            cid = re.sub(r"\W+", '_', consultante_name.lower())
+            personas[cid] = {'id': cid, 'nombre': consultante_name, 'genero': 'femenino', 'condiciones': ['consultante']}
+
+        # Married/partner: 'estoy casado con X' / 'casada con X'
+        m2 = re.search(r"\b(?:estoy casad[oa]|casad[oa]? con)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)", text, re.IGNORECASE)
+        if m2 and consultante_name:
+            partner = m2.group(1).strip()
+            pid = re.sub(r"\W+", '_', partner.lower())
+            if pid not in personas:
+                personas[pid] = {'id': pid, 'nombre': partner, 'genero': 'masculino'}
+            # add pareja relation
+            relaciones.append({'tipo': 'pareja', 'persona1_id': re.sub(r"\W+", '_', consultante_name.lower()), 'persona2_id': pid})
+
+        # Parents: 'mi padre NAME' or 'mi madre NAME'
+        for m in re.finditer(r"\bmi\s+(padre|madre)\s+(?:se llama\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)", text, re.IGNORECASE):
+            role, name = m.groups()
+            name = name.strip()
+            pid = re.sub(r"\W+", '_', name.lower())
+            genero = 'masculino' if role.lower() == 'padre' else 'femenino'
+            if pid not in personas:
+                personas[pid] = {'id': pid, 'nombre': name, 'genero': genero}
+            # link to consultante if known
+            if consultante_name:
+                relaciones.append({'tipo': 'padre-hijo', 'persona1_id': pid, 'persona2_id': re.sub(r"\W+", '_', consultante_name.lower())})
+
+        # Children lists: 'tenemos dos hijos: Pedro y Ana' or 'tengo un hijo: Pedro'
+        m3 = re.search(r"\b(?:tenemos|tengo)\s+(?:[\w\s]+)?(?:hijos|hijo|hijas|hija)[:\s]+([A-Z][\w\s, y]+)", text, re.IGNORECASE)
+        if m3 and consultante_name:
+            kids_str = m3.group(1)
+            parts = re.split(r",| y | e ", kids_str)
+            for kraw in parts:
+                k = kraw.strip()
+                if not k:
+                    continue
+                kid_id = re.sub(r"\W+", '_', k.lower())
+                if kid_id not in personas:
+                    personas[kid_id] = {'id': kid_id, 'nombre': k, 'genero': 'masculino'}
+                # add padre-hijo between consultante (and partner if any) and kid
+                relaciones.append({'tipo': 'padre-hijo', 'persona1_id': re.sub(r"\W+", '_', consultante_name.lower()), 'persona2_id': kid_id})
+                # if partner exists, link partner too
+                partner_id = None
+                for rel in relaciones:
+                    if rel['tipo'] == 'pareja' and rel['persona1_id'] == re.sub(r"\W+", '_', consultante_name.lower()):
+                        partner_id = rel['persona2_id']
+                if partner_id:
+                    relaciones.append({'tipo': 'padre-hijo', 'persona1_id': partner_id, 'persona2_id': kid_id})
+
+        # Grandparents: look for 'mi abuelo' or 'mi abuela' mentions (we add as persons but may not link)
+        for m in re.finditer(r"\bmi\s+abuel[ao]\s+(?:se llama\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)", text, re.IGNORECASE):
+            name = m.group(1).strip()
+            gid = re.sub(r"\W+", '_', name.lower())
+            if gid not in personas:
+                personas[gid] = {'id': gid, 'nombre': name}
+
+        # Fallback: if no consultante found, try to detect any proper name as focal
+        if not consultante_name and personas:
+            # pick first person as consultante
+            any_id = next(iter(personas))
+            personas[any_id].setdefault('condiciones', []).append('consultante')
+
+        # Build arrays
+        person_list = list(personas.values())
+
+        # Ensure unique relaciones by ids
+        unique_rels = []
+        seen = set()
+        for r in relaciones:
+            key = (r.get('tipo'), r.get('persona1_id'), r.get('persona2_id'))
+            if key not in seen:
+                unique_rels.append(r)
+                seen.add(key)
+
+        return {'personas': person_list, 'relaciones': unique_rels}
     
     def _render_person(self, persona: Dict, x: float, y: float, size: float) -> str:
-        """Renderiza una persona con su icono SVG y datos"""
-        genero = persona.get('genero', 'masculino')
-        nombre = persona.get('nombre') or 'Sin nombre'
+        """Renderiza una persona en el genograma con diseño profesional y coordenadas relativas"""
+        nombre = persona.get('nombre', '???')
         edad = persona.get('edad')
+        ocupacion = persona.get('ocupacion', '')
+        genero = persona.get('genero', 'masculino')
         vivo = persona.get('vivo', True)
-        orientacion = str(persona.get('orientacion', 'heterosexual')).lower()
+        condiciones = persona.get('condiciones') or []
+        if not isinstance(condiciones, list):
+            condiciones = []
         
-        # Símbolo de orientación sexual (triángulo invertido para gay/homosexual)
-        orientation_mark = ''
-        if orientacion in ['gay', 'homosexual', 'lesbiana']:
-             # Triángulo invertido dentro de la figura
-             # Scaling relative to size (which is usually around 60)
-             p1 = f"{size*0.2},{size*0.25}" # Top-left
-             p2 = f"{size*0.8},{size*0.25}" # Top-right
-             p3 = f"{size*0.5},{size*0.85}" # Bottom-center
-             orientation_mark = f'<polygon points="{p1} {p2} {p3}" fill="none" stroke="black" stroke-width="1.5"/>'
+        # Coordenadas relativas (dentro del grupo transformado a x,y)
+        cx = size / 2
+        cy = size / 2
         
-        # Determinar forma base: círculo para mujer, cuadrado para hombre
+        # 1. Símbolo base (cuadrado o círculo)
         if genero == 'femenino':
-            shape = f'<circle cx="{size/2}" cy="{size/2}" r="{size/2}" fill="white" stroke="black" stroke-width="2"/>'
+            shape = f'<circle cx="{cx}" cy="{cy}" r="{size/2}" fill="white" stroke="black" stroke-width="2.5"/>'
         else:
-            shape = f'<rect width="{size}" height="{size}" fill="white" stroke="black" stroke-width="2"/>'
+            shape = f'<rect x="0" y="0" width="{size}" height="{size}" fill="white" stroke="black" stroke-width="2.5"/>'
         
-        # Si no está vivo, agregar X
+        # 2. Marca de muerte (X)
         death_mark = ''
         if not vivo:
-            death_mark = f'<line x1="0" y1="0" x2="{size}" y2="{size}" stroke="black" stroke-width="2"/><line x1="{size}" y1="0" x2="0" y2="{size}" stroke="black" stroke-width="2"/>'
+            if genero == 'femenino':
+                death_mark = f'<line x1="{cx - size/4}" y1="{cy - size/4}" x2="{cx + size/4}" y2="{cy + size/4}" stroke="black" stroke-width="2"/><line x1="{cx + size/4}" y1="{cy - size/4}" x2="{cx - size/4}" y2="{cy + size/4}" stroke="black" stroke-width="2"/>'
+            else:
+                death_mark = f'<line x1="{size/4}" y1="{size/4}" x2="{size*3/4}" y2="{size*3/4}" stroke="black" stroke-width="2"/><line x1="{size*3/4}" y1="{size/4}" x2="{size/4}" y2="{size*3/4}" stroke="black" stroke-width="2"/>'
         
-        # Texto del nombre (arriba de la figura)
-        text_y_nombre = y - 10
+        # 3. Etiquetas de texto (Nombres arriba)
+        nombre_svg = ""
         nombre_lines = []
-        # Dividir nombre si es muy largo
         if len(nombre) > 15:
             palabras = nombre.split()
-            nombre_lines = [' '.join(palabras[:len(palabras)//2]), ' '.join(palabras[len(palabras)//2:])]
+            mid = len(palabras) // 2
+            nombre_lines = [' '.join(palabras[:mid]), ' '.join(palabras[mid:])]
         else:
             nombre_lines = [nombre]
-        
-        nombre_svg = ''
+            
         for i, line in enumerate(nombre_lines):
-            line_y = text_y_nombre - (len(nombre_lines) - 1 - i) * 14
-            nombre_svg += f'<text x="{x + size/2}" y="{line_y}" text-anchor="middle" font-size="11" font-family="Arial" font-weight="bold">{line}</text>\n'
-        
-        # Edad y otros datos (debajo de la figura)
-        text_y_edad = y + size + 15
-        edad_svg = ''
+            # Posicionamiento relativo: arriba del símbolo (y < 0)
+            line_y = -10 - (len(nombre_lines) - 1 - i) * 15
+            nombre_svg += f'<text x="{cx}" y="{line_y}" text-anchor="middle" font-size="14" font-family="Arial, sans-serif" font-weight="bold" fill="#000">{line}</text>\n'
+            
+        # 4. Edad DENTRO del símbolo
+        edad_svg = ""
         if edad:
-            edad_svg = f'<text x="{x + size/2}" y="{text_y_edad}" text-anchor="middle" font-size="10" font-family="Arial">{edad} años</text>\n'
-        
-        # Información adicional (ocupación, estado)
-        info_lines = []
-        notas = persona.get('notas', '')
-        if notas and len(notas) < 30:
-            info_lines.append(notas[:25])
-        
-        info_svg = ''
-        for i, line in enumerate(info_lines):
-            line_y = text_y_edad + 14 * (i + 1)
-            info_svg += f'<text x="{x + size/2}" y="{line_y}" text-anchor="middle" font-size="9" font-family="Arial" fill="#666">{line}</text>\n'
-        
-        # Marcadores de condiciones especiales
-        condiciones = persona.get('condiciones', [])
-        markers_svg = ''
+             # Centrado verticalmente dentro de la figura
+             edad_svg = f'<text x="{cx}" y="{cy + 7}" text-anchor="middle" font-size="18" font-family="Arial, sans-serif" font-weight="bold" fill="#000">{edad}</text>\n'
+             
+        # 5. Ocupación debajo
+        ocupacion_svg = ""
+        if not ocupacion:
+            notas = persona.get('notas', '')
+            if notas and len(notas) < 25:
+                ocupacion = notas
+                
+        if ocupacion:
+            ocupacion_text = ocupacion[:25] + ('...' if len(ocupacion) > 25 else '')
+            ocupacion_svg = f'<text x="{cx}" y="{size + 18}" text-anchor="middle" font-size="11" font-family="Arial, sans-serif" fill="#666">{ocupacion_text}</text>\n'
+            
+        # 6. Marca de consultante (doble borde)
+        consultante_mark = ""
         if 'consultante' in condiciones:
-            # Doble borde para consultante
             if genero == 'femenino':
-                markers_svg += f'<circle cx="{size/2}" cy="{size/2}" r="{size/2 + 4}" fill="none" stroke="black" stroke-width="2"/>'
+                consultante_mark = f'<circle cx="{cx}" cy="{cy}" r="{size/2 + 5}" fill="none" stroke="black" stroke-width="2.5"/>'
             else:
-                markers_svg += f'<rect x="-4" y="-4" width="{size + 8}" height="{size + 8}" fill="none" stroke="black" stroke-width="2"/>'
-        
-        return f'''  <g id="person-{persona["id"]}">
-    {nombre_svg}
-    <g transform="translate({x},{y})">
-      {shape}
-      {death_mark}
-      {markers_svg}
-    </g>
-    {edad_svg}
-    {info_svg}
-  </g>
+                consultante_mark = f'<rect x="-5" y="-5" width="{size + 10}" height="{size + 10}" fill="none" stroke="black" stroke-width="2.5"/>'
+                
+        # 7. Unir todo en un solo grupo transformado
+        return f'''<g id="person-{persona["id"]}" transform="translate({x},{y})">
+{shape}
+{death_mark}
+{nombre_svg}
+{edad_svg}
+{ocupacion_svg}
+{consultante_mark}
+</g>
 '''
     
     def process_transcription(self, transcription: str, output_file: str = "genograma") -> str:
         """Procesa una transcripción y genera el genograma completo"""
+        # Save the concatenated transcription to outputs for inspection/debug
+        try:
+            project_root = Path(__file__).resolve().parents[1]
+            out_dir = project_root / 'outputs'
+            out_dir.mkdir(parents=True, exist_ok=True)
+            concat_path = out_dir / f"{Path(output_file).stem}_transcription_concat.txt"
+            with open(concat_path, 'w', encoding='utf-8') as cf:
+                cf.write(transcription)
+            print(f"DEBUG: transcription concatenated saved to {concat_path} (size={os.path.getsize(concat_path)} bytes)")
+        except Exception:
+            pass
+
         print("Extrayendo información con Gemini...")
         family_data = self.extract_family_info(transcription)
         print(f"Generando genograma para {len(family_data['personas'])} personas...")
         return self.create_genogram(family_data, output_file)
 
-# Ejemplo de uso
+    def collect_transcriptions(self, patient_folder: str, base_paths: Optional[List[str]] = None) -> str:
+        """Busca y concatena transcripciones de un paciente en `outputs/` y `recordings/`.
+
+        - `patient_folder` es el nombre de la carpeta del paciente (ej: 'patient_elisa').
+        - `base_paths` lista de carpetas raíz donde buscar (por defecto ['outputs','recordings']).
+        Retorna una sola cadena con todo el texto concatenado.
+        """
+        if base_paths is None:
+            base_paths = ['outputs', 'recordings']
+
+        project_root = Path(__file__).resolve().parents[1]
+        collected = []
+        found_files = []
+
+        for base in base_paths:
+            candidate_dir = project_root / base / patient_folder
+            if not candidate_dir.exists():
+                continue
+
+            for root, _, files in os.walk(candidate_dir):
+                for fname in sorted(files):
+                    if not fname.lower().endswith(('.txt', '.json', '.md')):
+                        continue
+                    fpath = Path(root) / fname
+                    try:
+                        with open(fpath, 'r', encoding='utf-8') as fh:
+                            text = fh.read().strip()
+                            if text:
+                                header = f"\n\n--- SESSION: {fpath.relative_to(project_root)} ---\n\n"
+                                collected.append(header + text)
+                                found_files.append(str(fpath))
+                    except Exception as e:
+                        print(f"No se pudo leer {fpath}: {e}")
+
+        if not collected:
+            raise FileNotFoundError(f"No se encontraron transcripciones para '{patient_folder}' en {base_paths}")
+
+        # Loguear qué archivos se tomaron (rutas y tamaños)
+        try:
+            print(f"DEBUG: collect_transcriptions patient_folder={patient_folder} base_paths={base_paths}")
+            print(f"DEBUG: archivos encontrados: {len(found_files)}")
+            for f in found_files:
+                try:
+                    sz = os.path.getsize(f)
+                except Exception:
+                    sz = 'unknown'
+                print(f"  - {f} (size={sz} bytes)")
+        except Exception as e:
+            print(f"DEBUG: error al imprimir detalles de transcripciones: {e}")
+
+        # Concatenar en orden cronológico si fuera necesario (ya usamos sorted filenames)
+        return '\n'.join(collected)
+
+    def process_patient_sessions(self, patient_folder: str, output_file: str = "genograma") -> str:
+        """Genera el genograma usando todas las transcripciones encontradas para `patient_folder`.
+
+        Busca en `outputs/` y `recordings/` por defecto. Devuelve la ruta del HTML generado.
+        """
+        print(f"Buscando transcripciones para paciente: {patient_folder}")
+        transcription = self.collect_transcriptions(patient_folder)
+        print(f"Se encontraron y concatenaron transcripciones. Longitud total: {len(transcription)} caracteres")
+        return self.process_transcription(transcription, output_file)
+
+    def build_family_from_transcriptions(self, patient_folder: str, base_paths: Optional[List[str]] = None) -> Dict:
+        """Recoge todas las transcripciones de `patient_folder`, llama a Gemini
+        para extraer información familiar y devuelve un dict con solo las
+        personas y relaciones padre-hijo (filtrando abuelos/abuelas).
+
+        Retorna: { 'personas': [...], 'relaciones': [...] }
+        """
+        # Concatenar transcripciones
+        transcription = self.collect_transcriptions(patient_folder, base_paths)
+
+        # Extraer con Gemini (se lanzará RuntimeError si la API falla)
+        family_data = self.extract_family_info(transcription)
+
+        personas = family_data.get('personas', [])
+        relaciones = family_data.get('relaciones', [])
+
+        # Filtrar: eliminar personas cuyo nombre o notas indiquen 'abuelo/abuela'
+        gp_keywords = ('abuelo', 'abuela', 'abuelos')
+        removed_ids = set()
+        for p in personas:
+            text = ((p.get('nombre') or '') + ' ' + (p.get('notas') or '')).lower()
+            if any(k in text for k in gp_keywords):
+                removed_ids.add(p['id'])
+
+        personas_filtered = [p for p in personas if p['id'] not in removed_ids]
+
+        # Mantener sólo relaciones tipo padre-hijo y que no involucren ids removidos
+        relaciones_filtered = [r for r in relaciones if r.get('tipo') == 'padre-hijo' and r.get('persona1_id') not in removed_ids and r.get('persona2_id') not in removed_ids]
+
+        # Asegurar que todas las personas referenciadas en relaciones estén en la lista
+        ids_in_rels = set()
+        for r in relaciones_filtered:
+            ids_in_rels.add(r.get('persona1_id'))
+            ids_in_rels.add(r.get('persona2_id'))
+
+        existing_ids = {p['id'] for p in personas_filtered}
+        for mid in ids_in_rels - existing_ids:
+            # crear persona placeholder mínima
+            personas_filtered.append({'id': mid, 'nombre': mid, 'genero': 'masculino'})
+
+        return {'personas': personas_filtered, 'relaciones': relaciones_filtered}
+
+    def generate_genogram_from_patient(self, patient_folder: str, output_file: str = "genograma_from_patient") -> str:
+        """Pipeline: toma todas las transcripciones de `patient_folder`, extrae
+        la familia (solo padres/hijos) y genera el genograma.
+        Devuelve la ruta al HTML generado.
+        """
+        family = self.build_family_from_transcriptions(patient_folder)
+        return self.create_genogram(family, output_file)
+
+    def list_transcription_files(self, patient_folder: str, base_paths: Optional[List[str]] = None) -> List[Path]:
+        """Devuelve la lista de paths a archivos de transcripción para un paciente."""
+        if base_paths is None:
+            base_paths = ['outputs', 'recordings']
+
+        project_root = Path(__file__).resolve().parents[1]
+        found_files: List[Path] = []
+
+        for base in base_paths:
+            candidate_dir = project_root / base / patient_folder
+            if not candidate_dir.exists():
+                continue
+
+            for root, _, files in os.walk(candidate_dir):
+                for fname in sorted(files):
+                    if not fname.lower().endswith(('.txt', '.json', '.md')):
+                        continue
+                    found_files.append(Path(root) / fname)
+
+        return found_files
+
+    def build_family_from_transcriptions_chunked(self, patient_folder: str, base_paths: Optional[List[str]] = None) -> Dict:
+        """Similar a `build_family_from_transcriptions` pero procesa cada sesión
+        por separado (evita enviar todo el texto en una sola llamada a Gemini).
+
+        Esto ayuda a no exceder cuotas/token limits; aún usa Gemini para cada
+        sesión y agrega resultados deduplicando.
+        """
+        files = self.list_transcription_files(patient_folder, base_paths)
+        if not files:
+            raise FileNotFoundError(f"No se encontraron transcripciones para '{patient_folder}'")
+
+        personas_map: Dict[str, Dict] = {}
+        relaciones_set = set()
+        # Process sessions in small batches with retry/backoff on quota errors
+        batch_size = 3
+        max_retries = 4
+        base_delay = 10
+
+        for i in range(0, len(files), batch_size):
+            batch = files[i:i+batch_size]
+            for fpath in batch:
+                try:
+                    with open(fpath, 'r', encoding='utf-8') as fh:
+                        text = fh.read().strip()
+                    if not text:
+                        continue
+
+                    attempts = 0
+                    while True:
+                        try:
+                            session_family = self.extract_family_info(text)
+                            for p in session_family.get('personas', []):
+                                personas_map[p['id']] = p
+                            for r in session_family.get('relaciones', []):
+                                if r.get('tipo') == 'padre-hijo':
+                                    relaciones_set.add((r.get('tipo'), r.get('persona1_id'), r.get('persona2_id')))
+                            break
+                        except Exception as e:
+                            msg = str(e)
+                            # Detect quota errors and retry with backoff
+                            if 'RESOURCE_EXHAUSTED' in msg or 'quota' in msg.lower():
+                                # Try to parse retry seconds from message
+                                m = re.search(r"retry.*?(\d+\.?\d*)s", msg, re.IGNORECASE)
+                                if m:
+                                    delay = float(m.group(1)) + 1.0
+                                else:
+                                    delay = base_delay * (2 ** attempts)
+                                attempts += 1
+                                if attempts > max_retries:
+                                    # Save failing transcription for inspection and continue
+                                    ts = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+                                    outpath = Path(__file__).resolve().parents[1] / 'outputs' / f'failed_extraction_{ts}.txt'
+                                    outpath.parent.mkdir(parents=True, exist_ok=True)
+                                    with open(outpath, 'w', encoding='utf-8') as of:
+                                        of.write(f"ERROR: {msg}\n\nFILE: {fpath}\n\n{text[:1000]}")
+                                    raise RuntimeError(f"Gemini quota exhausted repeatedly; saved failing transcription to {outpath}")
+                                time.sleep(delay)
+                                continue
+                            else:
+                                # Non-quota error: save transcription and continue
+                                ts = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+                                outpath = Path(__file__).resolve().parents[1] / 'outputs' / f'failed_extraction_{ts}.txt'
+                                outpath.parent.mkdir(parents=True, exist_ok=True)
+                                with open(outpath, 'w', encoding='utf-8') as of:
+                                    of.write(f"ERROR: {msg}\n\nFILE: {fpath}\n\n{text[:1000]}")
+                                break
+                except Exception:
+                    # If the outer read/open fails, continue to next file
+                    continue
+
+        personas = list(personas_map.values())
+        relaciones = [{'tipo': t, 'persona1_id': a, 'persona2_id': b} for (t, a, b) in relaciones_set]
+
+        # Filter out grandparents like before
+        gp_keywords = ('abuelo', 'abuela', 'abuelos')
+        removed_ids = set()
+        for p in personas:
+            text = ((p.get('nombre') or '') + ' ' + (p.get('notas') or '')).lower()
+            if any(k in text for k in gp_keywords):
+                removed_ids.add(p['id'])
+
+        personas_filtered = [p for p in personas if p['id'] not in removed_ids]
+        relaciones_filtered = [r for r in relaciones if r.get('persona1_id') not in removed_ids and r.get('persona2_id') not in removed_ids]
+
+        # Add placeholders for referenced ids not present
+        ids_in_rels = set()
+        for r in relaciones_filtered:
+            ids_in_rels.add(r['persona1_id'])
+            ids_in_rels.add(r['persona2_id'])
+        existing_ids = {p['id'] for p in personas_filtered}
+        for mid in ids_in_rels - existing_ids:
+            personas_filtered.append({'id': mid, 'nombre': mid, 'genero': 'masculino'})
+
+        return {'personas': personas_filtered, 'relaciones': relaciones_filtered}
+
+    def generate_genogram_from_patient_chunked(self, patient_folder: str, output_file: str = "genograma_from_patient_chunked") -> str:
+        """Pipeline que usa extracción por sesión y genera genograma."""
+        family = self.build_family_from_transcriptions_chunked(patient_folder)
+        return self.create_genogram(family, output_file)
+
+    def _find_session_with_note(self, patient_folder: str, note_keyword: str = 'árbol') -> Optional[Path]:
+        """Recorre las sesiones del paciente y devuelve la path a la transcripción
+        de la sesión cuya información contenga `note_keyword` (case-insensitive).
+        Revisa `*_labeled.txt`, `*_transcription.txt` y `process_*.log` dentro de
+        cada carpeta de sesión.
+        """
+        files = self.list_transcription_files(patient_folder)
+        if not files:
+            return None
+
+        # Group by session folder
+        sessions = {}
+        for p in files:
+            sess_dir = p.parent
+            sessions.setdefault(str(sess_dir).lower(), []).append(p)
+
+        for sess_dir, file_list in sessions.items():
+            for p in file_list:
+                try:
+                    with open(p, 'r', encoding='utf-8') as fh:
+                        sample = fh.read(4096).lower()
+                    if note_keyword.lower() in sample:
+                        # Prefer a full transcription file if available
+                        # Search for *_transcription.txt in same dir
+                        sd = Path(sess_dir)
+                        for candidate in sd.iterdir():
+                            if candidate.name.lower().endswith('transcription.txt'):
+                                return candidate
+                        return p
+                except Exception:
+                    continue
+
+        return None
+
+    def _extract_patient_info_from_text(self, text: str, patient_id_hint: Optional[str] = None) -> Dict:
+        """Intenta extraer nombre/id del consultante desde el texto usando heurísticas.
+        Devuelve un dict mínimo: {'id': id, 'nombre': nombre, 'condiciones': ['consultante']}
+        """
+        # Look for patterns like "Mi nombre es X" or "Paciente: X" or "Paciente es X"
+        m = re.search(r"mi nombre es\s+([A-Z][a-zA-ZñÑáéíóúÁÉÍÓÚ\s'-]+)", text, re.IGNORECASE)
+        if not m:
+            m = re.search(r"paciente[:\-]\s*([A-Z][a-zA-ZñÑáéíóúÁÉÍÓÚ\s'-]+)", text, re.IGNORECASE)
+        if not m:
+            # fallback: look for a capitalized single token near start
+            m = re.search(r"^\s*([A-Z][a-z]{2,})(?:\s|$)", text)
+
+        if m:
+            name = m.group(1).strip()
+            pid = (patient_id_hint or name).lower().replace(' ', '_')
+            return {'id': pid, 'nombre': name, 'genero': None, 'edad': None, 'vivo': True, 'orientacion': None, 'condiciones': ['consultante'], 'notas': ''}
+        # If nothing found, use hint or default
+        pid = (patient_id_hint or 'consultante').lower()
+        return {'id': pid, 'nombre': None, 'genero': None, 'edad': None, 'vivo': True, 'orientacion': None, 'condiciones': ['consultante'], 'notas': ''}
+
+    def generate_genogram_from_patient_by_note(self, patient_folder: str, note_keyword: str = 'árbol', output_file: str = 'genograma_by_note') -> Optional[str]:
+        """Genera genograma sólo si existe una sesión del paciente que contenga
+        `note_keyword` en su información. Recupera la transcripción de esa sesión
+        y añade información mínima del consultante extraída del paciente o de la sesión.
+        Devuelve la ruta al HTML generado o None si no se encontró la sesión.
+        """
+        sess_path = self._find_session_with_note(patient_folder, note_keyword)
+        if not sess_path:
+            return None
+
+        # Read full transcription text (prefer labeled or transcription files)
+        try:
+            with open(sess_path, 'r', encoding='utf-8') as fh:
+                session_text = fh.read()
+        except Exception:
+            session_text = ''
+
+        # Try to recover patient info from files in the patient folder
+        project_root = Path(__file__).resolve().parents[1]
+        patient_dir = project_root / 'outputs' / patient_folder
+        patient_info = None
+        # look for explicit patient info files
+        for fname in ('patient_info.json', f'{patient_folder}_info.json', f'{patient_folder}_profile.json'):
+            fpath = patient_dir / fname
+            if fpath.exists():
+                try:
+                    with open(fpath, 'r', encoding='utf-8') as pf:
+                        patient_info = json.load(pf)
+                        break
+                except Exception:
+                    patient_info = None
+
+        if not patient_info:
+            # fallback: extract from session_text heuristically
+            patient_info = self._extract_patient_info_from_text(session_text, patient_id_hint=patient_folder)
+
+        # Build a combined prompt so model knows the patient identity
+        combined_text = f"PACIENTE_INFO:\n{json.dumps(patient_info)}\n\nSESION_TRANSCRIPCION:\n{session_text}"
+
+        family = self.extract_family_info(combined_text)
+        # Ensure consultante info present: merge patient_info into personas if missing
+        personas = {p['id']: p for p in family.get('personas', [])}
+        if patient_info.get('id') and patient_info['id'] not in personas:
+            personas[patient_info['id']] = patient_info
+
+        relaciones = [r for r in family.get('relaciones', []) if r.get('tipo') == 'padre-hijo']
+
+        return self.create_genogram({'personas': list(personas.values()), 'relaciones': relaciones}, output_file)
+    
+    def generate_genogram_from_specific_session(self, patient_folder: str, session_number: str, output_file: str = 'genograma_by_session') -> Optional[str]:
+        """Genera genograma usando la transcripción de una sesión específica.
+        
+        Args:
+            patient_folder: Nombre de la carpeta del paciente (ej: 'patient_elisa')
+            session_number: Número de sesión (ej: '1', '2', '3')
+            output_file: Nombre del archivo de salida
+            
+        Returns:
+            Ruta al HTML generado o None si no se encontró la transcripción
+        """
+        project_root = Path(__file__).resolve().parents[1]
+        
+        # Buscar carpeta de la sesión específica
+        session_dir = project_root / 'outputs' / patient_folder / f'sesion_{session_number}'
+        
+        if not session_dir.exists():
+            print(f"ERROR: No existe la carpeta de sesión: {session_dir}")
+            return None
+        
+        # Buscar archivo de transcripción en la carpeta de sesión
+        transcription_file = None
+        for pattern in ['*_labeled.txt', '*_transcription.txt', '*.txt']:
+            matches = list(session_dir.glob(pattern))
+            if matches:
+                transcription_file = matches[0]
+                break
+        
+        if not transcription_file:
+            print(f"ERROR: No se encontró archivo de transcripción en {session_dir}")
+            return None
+        
+        # Leer transcripción
+        try:
+            with open(transcription_file, 'r', encoding='utf-8') as fh:
+                session_text = fh.read()
+        except Exception as e:
+            print(f"ERROR leyendo transcripción: {e}")
+            return None
+        
+        # Extraer información del paciente (similar al método anterior)
+        patient_info = None
+        patient_dir = project_root / 'outputs' / patient_folder
+        for fname in ('patient_info.json', f'{patient_folder}_info.json', f'{patient_folder}_profile.json'):
+            fpath = patient_dir / fname
+            if fpath.exists():
+                try:
+                    with open(fpath, 'r', encoding='utf-8') as pf:
+                        patient_info = json.load(pf)
+                        break
+                except Exception:
+                    patient_info = None
+        
+        if not patient_info:
+            patient_info = self._extract_patient_info_from_text(session_text, patient_id_hint=patient_folder)
+        
+        # Asegurar que patient_info tiene condición de consultante
+        if patient_info and 'condiciones' not in patient_info:
+            patient_info['condiciones'] = ['consultante']
+        elif patient_info and 'consultante' not in patient_info.get('condiciones', []):
+            patient_info['condiciones'].append('consultante')
+        
+        # Construir prompt combinado con información del paciente
+        combined_text = f"PACIENTE_INFO:\n{json.dumps(patient_info, ensure_ascii=False)}\n\nSESION_TRANSCRIPCION:\n{session_text}"
+        
+        # Extraer información familiar
+        family = self.extract_family_info(combined_text)
+        
+        # Asegurar que la información del consultante esté presente en personas
+        personas = {p['id']: p for p in family.get('personas', [])}
+        
+        # Si el consultante no está en las personas extraídas, agregarlo desde patient_info
+        consultante_exists = any('consultante' in p.get('condiciones', []) for p in personas.values())
+        if not consultante_exists and patient_info and patient_info.get('id'):
+            # Agregar patient_info como consultante
+            personas[patient_info['id']] = patient_info
+            print(f"DEBUG: Agregando consultante desde patient_info: {patient_info.get('nombre', 'sin nombre')}")
+        
+        # Extraer relaciones
+        relaciones = family.get('relaciones', [])
+        
+        # Definir ruta de salida persistente
+        output_dir = project_root / 'outputs' / patient_folder
+        final_output_path = output_dir / 'genograma'
+        
+        return self.create_genogram({'personas': list(personas.values()), 'relaciones': relaciones}, str(final_output_path))
+
+
+# Ejemplo de uso (requiere variable de entorno GEMINI_API_KEY válida)
 if __name__ == "__main__":
     transcripcion_ejemplo = """
     Mi nombre es Juan García de 45 años. Estoy casado con María López de 42. 
     Tenemos dos hijos: Pedro de 15 y Ana de 12. Mi padre Roberto tiene 70 años.
     Mi relación con María es muy buena. Pedro está en tratamiento por ansiedad.
     """
-    
-    API_KEY = "AIzaSyBpC1JV-hGJdBqXSBrY6SYksnAiz9uUreY" 
-    
-    generator = GenogramGenerator(api_key=API_KEY)
+
+    # Do not hardcode API keys here. Set GEMINI_API_KEY in the environment
+    # or pass it to GenogramGenerator explicitly when instantiating.
+    generator = GenogramGenerator()
     try:
         output = generator.process_transcription(transcripcion_ejemplo, "genograma_test")
         print(f"✅ Genograma generado exitosamente: {output}")

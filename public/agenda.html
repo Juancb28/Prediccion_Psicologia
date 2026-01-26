@@ -76,125 +76,219 @@
 <div id="modalRoot"></div>
 
 <script>
-// Código específico de Agenda
+// Agenda: conectar con /api/pacientes y /api/citas
 (function() {
     'use strict';
 
-    // Inicializar datos de prueba si no existen
-    async function initializeData() {
+    let appointmentsCache = [];
+    let patientsCache = [];
+
+    async function fetchPatients() {
         try {
-            // Si no hay datos en localStorage, cargar desde data.json
-            if (!localStorage.getItem('pp_patients') || !localStorage.getItem('pp_agenda')) {
-                const response = await fetch('/data.json');
-                const data = await response.json();
-                
-                if (data.pacientes && data.pacientes.length > 0) {
-                    localStorage.setItem('pp_patients', JSON.stringify(data.pacientes));
-                }
-                if (data.agenda && data.agenda.length > 0) {
-                    localStorage.setItem('pp_agenda', JSON.stringify(data.agenda));
-                }
+            const res = await fetch('/api/pacientes');
+            if (res.ok) {
+                const j = await res.json();
+                patientsCache = (j && j.pacientes) || [];
+                return patientsCache;
             }
-        } catch (error) {
-            console.error('Error al cargar datos:', error);
-        }
+        } catch (e) { /* ignore */ }
+        // fallback to localStorage/data.json
+        try { patientsCache = JSON.parse(localStorage.getItem('pp_patients') || '[]'); } catch (e) { patientsCache = []; }
+        return patientsCache;
     }
 
-    // Cargar datos
-    function loadAppointments() {
-        return JSON.parse(localStorage.getItem('pp_agenda') || '[]');
+    async function fetchAppointments() {
+        try {
+            const res = await fetch('/api/citas');
+            if (res.ok) {
+                const j = await res.json();
+                appointmentsCache = (j && j.citas) || [];
+                return appointmentsCache;
+            }
+        } catch (e) { /* ignore */ }
+        try { appointmentsCache = JSON.parse(localStorage.getItem('pp_agenda') || '[]'); } catch (e) { appointmentsCache = []; }
+        return appointmentsCache;
     }
 
-    function loadPatients() {
-        return JSON.parse(localStorage.getItem('pp_patients') || '[]');
-    }
-
-    function saveAppointments(appointments) {
+    function saveAppointmentsLocal(appointments) {
         localStorage.setItem('pp_agenda', JSON.stringify(appointments));
     }
 
-    // Renderizar lista de citas
-    function renderAppointments() {
-        const appointments = loadAppointments();
-        const patients = loadPatients();
-        const listContainer = document.getElementById('appointmentsList');
+    function formatStatusClass(estado) {
+        if (!estado) return 'pending';
+        const s = String(estado).toLowerCase();
+        if (s.includes('confirm')) return 'confirmed';
+        if (s.includes('pend')) return 'pending';
+        if (s.includes('finaliz')) return 'finished';
+        return 'cancelled';
+    }
 
-        if (appointments.length === 0) {
+    async function renderAppointments() {
+        await fetchPatients();
+        await fetchAppointments();
+
+        const listContainer = document.getElementById('appointmentsList');
+        const appointments = appointmentsCache || [];
+        const patients = patientsCache || [];
+
+        if (!appointments.length) {
             listContainer.innerHTML = '<div class="empty-state">📭 No hay citas programadas</div>';
             return;
         }
 
         listContainer.innerHTML = appointments.map((apt, index) => {
-            const patient = patients.find(p => p.id === apt.pacienteId);
-            const statusClass = apt.estado === 'Confirmada' ? 'confirmed' : 
-                               apt.estado === 'Pendiente' ? 'pending' : 
-                               apt.estado === 'Finalizada' ? 'finished' : 'cancelled';
-            
+            const patient = patients.find(p => String(p.id) === String(apt.paciente_id || apt.pacienteId || apt.pacienteId));
+            const statusClass = formatStatusClass(apt.estado || apt.status);
+            const patientName = patient ? patient.nombre : (apt.paciente_name || '—');
+
             return `
                 <div class="appointment-item ${statusClass}">
-                    <div onclick="editAppointment(${index})" style="flex: 1; cursor: pointer;">
+                    <div onclick="window.__agenda.editAppointmentByIndex(${index})" style="flex: 1; cursor: pointer;">
                         <div class="appointment-header">
                             <div class="appointment-datetime">
                                 <span class="appointment-icon">🕐</span>
-                                <span class="appointment-date">${apt.fecha}</span>
-                                <span class="appointment-time">${apt.hora}</span>
+                                <span class="appointment-date">${apt.fecha || apt.date || ''}</span>
+                                <span class="appointment-time">${apt.hora || apt.time || ''}</span>
                             </div>
-                            <span class="appointment-status status-${statusClass}">${apt.estado}</span>
+                            <span class="appointment-status status-${statusClass}">${apt.estado || apt.status || ''}</span>
                         </div>
                         <div class="appointment-patient">
                             <span class="patient-icon">👤</span>
-                            <span class="patient-name">${patient ? patient.nombre : '—'}</span>
+                            <span class="patient-name">${patientName}</span>
                         </div>
                     </div>
-                    <button class="delete-btn-small" onclick="event.stopPropagation(); deleteCita(${index})" title="Eliminar cita">
-                        🗑️
-                    </button>
+                    <button class="delete-btn-small" onclick="event.stopPropagation(); window.__agenda.deleteCitaByIndex(${index})" title="Eliminar cita">🗑️</button>
                 </div>
             `;
         }).join('');
     }
 
-    // Mostrar modal de nueva cita
-    window.showCreateCitaModal = function() {
-        const patients = loadPatients();
-        
-        const modalHTML = `
-            <div class="modal-backdrop" onclick="event.target === this && closeModal()">
-                <div class="modal">
-                    <div class="modern-modal-header">
-                        <h3 class="modal-title">Nueva Cita</h3>
+    // Expose an object for modal callbacks
+    window.__agenda = {
+        editAppointmentByIndex: async function(index) {
+            const apt = appointmentsCache[index];
+            if (!apt) { alert('❌ No se encontró la cita'); return; }
+            const patients = patientsCache;
+
+            const patient = patients.find(p => String(p.id) === String(apt.paciente_id || apt.pacienteId)) || null;
+
+            const modalHTML = `
+                <div class="modal-backdrop" onclick="event.target === this && window.__agenda.closeModal()">
+                    <div class="modal">
+                        <div class="modern-modal-header"><h3 class="modal-title">Editar cita</h3></div>
+                        <div class="modern-modal-body">
+                            <form id="editCitaForm">
+                                <div class="modern-form-group">
+                                    <label class="modern-label"><span class="label-icon">👤</span><span>Paciente</span></label>
+                                    <select name="paciente_id" class="modern-select" required>
+                                        ${patients.map(p => `<option value="${p.id}" ${patient && String(p.id)===String(patient.id) ? 'selected' : ''}>${p.nombre}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="modern-form-group">
+                                    <label class="modern-label"><span class="label-icon">📅</span><span>Fecha</span></label>
+                                    <input name="fecha" type="date" class="modern-input" value="${apt.fecha || apt.date || ''}" required>
+                                </div>
+                                <div class="modern-form-group">
+                                    <label class="modern-label"><span class="label-icon">🕐</span><span>Hora</span></label>
+                                    <input name="hora" type="time" class="modern-input" value="${apt.hora || apt.time || ''}" required>
+                                </div>
+                                <div class="modern-form-group">
+                                    <label class="modern-label"><span class="label-icon">📊</span><span>Estado</span></label>
+                                    <select name="estado" class="modern-select">
+                                        <option ${apt.estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                                        <option ${apt.estado === 'Confirmada' ? 'selected' : ''}>Confirmada</option>
+                                        <option ${apt.estado === 'Finalizada' ? 'selected' : ''}>Finalizada</option>
+                                        <option ${apt.estado === 'Anulada' ? 'selected' : ''}>Anulada</option>
+                                    </select>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modern-modal-footer">
+                            <button class="modern-btn delete-btn" onclick="window.__agenda.confirmDeleteByIndex(${index})" style="margin-right: auto;">🗑️ Eliminar</button>
+                            <button class="modern-btn cancel-btn" onclick="window.__agenda.closeModal()">Cancelar</button>
+                            <button class="modern-btn save-btn" onclick="window.__agenda.saveEditedCita(${index})">💾 Guardar</button>
+                        </div>
                     </div>
+                </div>
+            `;
+            document.getElementById('modalRoot').innerHTML = modalHTML;
+        },
+
+        deleteCitaByIndex: async function(index) {
+            const apt = appointmentsCache[index];
+            if (!apt) { alert('❌ No se encontró la cita'); return; }
+            const patient = patientsCache.find(p => String(p.id) === String(apt.paciente_id || apt.pacienteId)) || null;
+            const patientName = patient ? patient.nombre : 'Desconocido';
+            if (!confirm(`¿Eliminar cita?\nPaciente: ${patientName}\nFecha: ${apt.fecha || apt.date}\nHora: ${apt.hora || apt.time}`)) return;
+
+            if (apt.id) {
+                try {
+                    const res = await fetch(`/api/citas/${apt.id}`, { method: 'DELETE' });
+                    if (!res.ok) throw new Error('delete_failed');
+                } catch (e) { alert('Error eliminando cita en servidor'); }
+            } else {
+                // fallback: remove from localStorage
+                appointmentsCache.splice(index,1);
+                saveAppointmentsLocal(appointmentsCache);
+            }
+            window.__agenda.closeModal();
+            await renderAppointments();
+            alert('✅ Cita eliminada correctamente');
+        },
+
+        confirmDeleteByIndex: function(index) { window.__agenda.deleteCitaByIndex(index); },
+
+        saveEditedCita: async function(index) {
+            const form = document.getElementById('editCitaForm');
+            if (!form.checkValidity()) { form.reportValidity(); return; }
+            const fd = new FormData(form);
+            const payload = { paciente_id: fd.get('paciente_id'), fecha: fd.get('fecha'), hora: fd.get('hora'), estado: fd.get('estado') };
+            const apt = appointmentsCache[index];
+
+            try {
+                // If appointment exists on server, delete it and recreate (simple update)
+                if (apt && apt.id) {
+                    await fetch(`/api/citas/${apt.id}`, { method: 'DELETE' });
+                }
+                const res = await fetch('/api/citas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!res.ok) throw new Error('create_failed');
+            } catch (e) { alert('Error guardando cita en servidor'); }
+
+            window.__agenda.closeModal();
+            await renderAppointments();
+            alert('✅ Cita actualizada correctamente');
+        },
+
+        closeModal: function() { document.getElementById('modalRoot').innerHTML = ''; }
+    };
+
+    // Mostrar modal de nueva cita (usa API para pacientes)
+    window.showCreateCitaModal = async function() {
+        await fetchPatients();
+        const patients = patientsCache || [];
+        const modalHTML = `
+            <div class="modal-backdrop" onclick="event.target === this && window.__agenda.closeModal()">
+                <div class="modal">
+                    <div class="modern-modal-header"><h3 class="modal-title">Nueva Cita</h3></div>
                     <div class="modern-modal-body">
                         <form id="newCitaForm">
                             <div class="modern-form-group">
-                                <label class="modern-label">
-                                    <span class="label-icon">👤</span>
-                                    <span>Paciente</span>
-                                </label>
-                                <select name="pacienteId" class="modern-select" required>
+                                <label class="modern-label"><span class="label-icon">👤</span><span>Paciente</span></label>
+                                <select name="paciente_id" class="modern-select" required>
                                     <option value="">Seleccionar paciente...</option>
                                     ${patients.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('')}
                                 </select>
                             </div>
                             <div class="modern-form-group">
-                                <label class="modern-label">
-                                    <span class="label-icon">📅</span>
-                                    <span>Fecha</span>
-                                </label>
-                                <input name="fecha" type="date" class="modern-input" value="${new Date().toISOString().slice(0, 10)}" required>
+                                <label class="modern-label"><span class="label-icon">📅</span><span>Fecha</span></label>
+                                <input name="fecha" type="date" class="modern-input" value="${new Date().toISOString().slice(0,10)}" required>
                             </div>
                             <div class="modern-form-group">
-                                <label class="modern-label">
-                                    <span class="label-icon">🕐</span>
-                                    <span>Hora</span>
-                                </label>
+                                <label class="modern-label"><span class="label-icon">🕐</span><span>Hora</span></label>
                                 <input name="hora" type="time" class="modern-input" value="09:00" required>
                             </div>
                             <div class="modern-form-group">
-                                <label class="modern-label">
-                                    <span class="label-icon">📊</span>
-                                    <span>Estado</span>
-                                </label>
+                                <label class="modern-label"><span class="label-icon">📊</span><span>Estado</span></label>
                                 <select name="estado" class="modern-select">
                                     <option>Pendiente</option>
                                     <option>Confirmada</option>
@@ -205,181 +299,22 @@
                         </form>
                     </div>
                     <div class="modern-modal-footer">
-                        <button class="modern-btn cancel-btn" onclick="closeModal()">Cancelar</button>
-                        <button class="modern-btn save-btn" onclick="saveNewCita()">
-                            <span>💾</span>
-                            <span>Guardar</span>
-                        </button>
+                        <button class="modern-btn cancel-btn" onclick="window.__agenda.closeModal()">Cancelar</button>
+                        <button class="modern-btn save-btn" onclick="(async function(){ const form=document.getElementById('newCitaForm'); if(!form.checkValidity()){ form.reportValidity(); return;} const fd=new FormData(form); const payload={ paciente_id: fd.get('paciente_id'), fecha: fd.get('fecha'), hora: fd.get('hora'), estado: fd.get('estado') }; try{ const r=await fetch('/api/citas',{ method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) }); if(!r.ok) throw new Error('create_failed'); }catch(e){ alert('Error creando cita en servidor'); return; } window.__agenda.closeModal(); await renderAppointments(); alert('✅ Cita creada correctamente'); })()">💾 Guardar</button>
                     </div>
                 </div>
             </div>
         `;
         document.getElementById('modalRoot').innerHTML = modalHTML;
-    };
-
-    // Guardar nueva cita
-    window.saveNewCita = function() {
-        const form = document.getElementById('newCitaForm');
-        if (!form.checkValidity()) {
-            form.reportValidity();
-            return;
-        }
-        
-        const formData = new FormData(form);
-        const appointments = loadAppointments();
-        appointments.push({
-            pacienteId: parseInt(formData.get('pacienteId')),
-            fecha: formData.get('fecha'),
-            hora: formData.get('hora'),
-            estado: formData.get('estado')
-        });
-        
-        saveAppointments(appointments);
-        closeModal();
-        renderAppointments();
-        alert('✅ Cita creada correctamente');
-    };
-
-    // Editar cita
-    window.editAppointment = function(index) {
-        const appointments = loadAppointments();
-        const patients = loadPatients();
-        const apt = appointments[index];
-        
-        if (!apt) {
-            alert('❌ No se encontró la cita');
-            return;
-        }
-
-        const patient = patients.find(p => p.id === apt.pacienteId);
-        
-        const modalHTML = `
-            <div class="modal-backdrop" onclick="event.target === this && closeModal()">
-                <div class="modal">
-                    <div class="modern-modal-header">
-                        <h3 class="modal-title">Editar cita</h3>
-                    </div>
-                    <div class="modern-modal-body">
-                        <form id="editCitaForm">
-                            <div class="modern-form-group">
-                                <label class="modern-label">
-                                    <span class="label-icon">👤</span>
-                                    <span>Paciente ID</span>
-                                </label>
-                                <input type="text" class="modern-input" value="${apt.pacienteId}" disabled style="background: #f5f5f5;">
-                                <small style="color: #666; margin-top: 4px; display: block;">Paciente: ${patient ? patient.nombre : 'Desconocido'}</small>
-                            </div>
-                            <div class="modern-form-group">
-                                <label class="modern-label">
-                                    <span class="label-icon">📅</span>
-                                    <span>Fecha</span>
-                                </label>
-                                <input name="fecha" type="date" class="modern-input" value="${apt.fecha}" required>
-                            </div>
-                            <div class="modern-form-group">
-                                <label class="modern-label">
-                                    <span class="label-icon">🕐</span>
-                                    <span>Hora</span>
-                                </label>
-                                <input name="hora" type="time" class="modern-input" value="${apt.hora}" required>
-                            </div>
-                            <div class="modern-form-group">
-                                <label class="modern-label">
-                                    <span class="label-icon">📊</span>
-                                    <span>Estado</span>
-                                </label>
-                                <select name="estado" class="modern-select">
-                                    <option ${apt.estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-                                    <option ${apt.estado === 'Confirmada' ? 'selected' : ''}>Confirmada</option>
-                                    <option ${apt.estado === 'Finalizada' ? 'selected' : ''}>Finalizada</option>
-                                    <option ${apt.estado === 'Anulada' ? 'selected' : ''}>Anulada</option>
-                                </select>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="modern-modal-footer">
-                        <button class="modern-btn delete-btn" onclick="deleteCita(${index})" style="margin-right: auto;">
-                            <span>🗑️</span>
-                            <span>Eliminar</span>
-                        </button>
-                        <button class="modern-btn cancel-btn" onclick="closeModal()">Cancelar</button>
-                        <button class="modern-btn save-btn" onclick="saveEditedCita(${index})">
-                            <span>💾</span>
-                            <span>Guardar</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-        document.getElementById('modalRoot').innerHTML = modalHTML;
-    };
-
-    // Guardar cita editada
-    window.saveEditedCita = function(index) {
-        const form = document.getElementById('editCitaForm');
-        if (!form.checkValidity()) {
-            form.reportValidity();
-            return;
-        }
-        
-        const formData = new FormData(form);
-        const appointments = loadAppointments();
-        
-        if (appointments[index]) {
-            appointments[index].fecha = formData.get('fecha');
-            appointments[index].hora = formData.get('hora');
-            appointments[index].estado = formData.get('estado');
-            
-            saveAppointments(appointments);
-            closeModal();
-            renderAppointments();
-            alert('✅ Cita actualizada correctamente');
-        } else {
-            alert('❌ Error al actualizar la cita');
-        }
-    };
-
-    // Eliminar cita
-    window.deleteCita = function(index) {
-        const appointments = loadAppointments();
-        const patients = loadPatients();
-        const apt = appointments[index];
-        
-        if (!apt) {
-            alert('❌ No se encontró la cita');
-            return;
-        }
-        
-        const patient = patients.find(p => p.id === apt.pacienteId);
-        const patientName = patient ? patient.nombre : 'Desconocido';
-        
-        const confirmDelete = confirm(
-            `¿Estás seguro de eliminar la cita?\n\n` +
-            `Paciente: ${patientName}\n` +
-            `Fecha: ${apt.fecha}\n` +
-            `Hora: ${apt.hora}\n` +
-            `Estado: ${apt.estado}`
-        );
-        
-        if (confirmDelete) {
-            appointments.splice(index, 1);
-            saveAppointments(appointments);
-            closeModal();
-            renderAppointments();
-            alert('✅ Cita eliminada correctamente');
-        }
-    };
-
-    // Cerrar modal
-    window.closeModal = function() {
-        document.getElementById('modalRoot').innerHTML = '';
     };
 
     // Inicializar
     document.addEventListener('DOMContentLoaded', async function() {
-        await initializeData();
+        await fetchPatients();
+        await fetchAppointments();
         renderAppointments();
     });
+
 })();
 </script>
 

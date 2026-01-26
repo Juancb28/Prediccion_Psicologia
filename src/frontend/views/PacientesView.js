@@ -28,59 +28,7 @@ class PacientesView {
     }
 
     async addNewPatient() {
-        const form = `
-            <div class="modern-form-group">
-                <label class="modern-label">
-                    <span class="label-icon">👤</span>
-                    <span>Nombre completo</span>
-                </label>
-                <input name="nombre" class="modern-input" required>
-            </div>
-            <div class="modern-form-row">
-                <div class="modern-form-group">
-                    <label class="modern-label">
-                        <span class="label-icon">🎂</span>
-                        <span>Edad</span>
-                    </label>
-                    <input name="edad" type="number" class="modern-input" required>
-                </div>
-                <div class="modern-form-group">
-                    <label class="modern-label">
-                        <span class="label-icon">📞</span>
-                        <span>Contacto</span>
-                    </label>
-                    <input name="contacto" class="modern-input" required>
-                </div>
-            </div>
-            <div class="modern-form-group">
-                <label class="modern-label">
-                    <span class="label-icon">📍</span>
-                    <span>Dirección</span>
-                </label>
-                <input name="direccion" class="modern-input" required>
-            </div>
-            <div class="modern-form-group">
-                <label class="modern-label">
-                    <span class="label-icon">📝</span>
-                    <span>Motivo de consulta</span>
-                </label>
-                <input name="motivo" class="modern-input" required>
-            </div>
-            <div class="modern-form-group">
-                <label class="modern-label">
-                    <span class="label-icon">📚</span>
-                    <span>Antecedentes</span>
-                </label>
-                <textarea name="antecedentes" class="modern-input" rows="4"></textarea>
-            </div>
-        `;
-
-        const data = await UIComponents.modalForm('Nuevo Paciente', form);
-        if (!data) return;
-
-        patientManager.create(data);
-        UIComponents.showAlert('✅ Paciente creado correctamente', 'success');
-        this.render();
+        await UIComponents.openNewPatientModal();
     }
 
     updateActiveMenuItem(route) {

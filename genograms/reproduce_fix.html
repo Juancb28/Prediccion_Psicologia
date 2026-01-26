@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genograma Familiar</title>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        #genogram-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            max-width: 100%;
+            overflow: hidden;
+        }
+        #genogram-svg {
+            border: 1px solid #ddd;
+            cursor: move;
+        }
+        .controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        h1 {
+            margin-top: 0;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div id="genogram-container">
+        <h1>📊 Genograma Familiar</h1>
+        <div class="controls">
+            <button onclick="panZoom.zoomIn()">🔍 Zoom In</button>
+            <button onclick="panZoom.zoomOut()">🔍 Zoom Out</button>
+            <button onclick="panZoom.reset()">🔄 Reset</button>
+            <button onclick="panZoom.fit()">📐 Ajustar</button>
+        </div>
+        <svg id="genogram-svg" width="810.0" height="530" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <!-- Relaciones -->
+  <line x1="355.0" y1="150" x2="355.0" y2="180" stroke="black" stroke-width="2"/>
+  <line x1="125.0" y1="150" x2="125.0" y2="180" stroke="black" stroke-width="2"/>
+  <line x1="355.0" y1="180" x2="125.0" y2="180" stroke="black" stroke-width="2"/>
+  <line x1="240.0" y1="180" x2="240.0" y2="250" stroke="black" stroke-width="2"/>
+  <line x1="125.0" y1="250" x2="125.0" y2="280" stroke="black" stroke-width="1.5"/>
+  <line x1="585.0" y1="150" x2="585.0" y2="370" stroke="black" stroke-width="2"/>
+  <line x1="125.0" y1="330" x2="125.0" y2="370" stroke="black" stroke-width="2"/>
+  <line x1="585.0" y1="370" x2="125.0" y2="370" stroke="black" stroke-width="2"/>
+  <g transform="translate(340.0, 355) scale(0.6)"><?xml version="1.0" encoding="UTF-8"?>
+<!-- Fondo transparente; una línea horizontal continua -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+     width="1152" height="720" viewBox="0 0 1152 720" style="background:none">
+  
+  <line x1="100" y1="360" x2="1052" y2="360" 
+        stroke="#000000" 
+        stroke-width="6" 
+        stroke-linecap="round"/>
+
+</svg></g>
+  <!-- Personas -->
+<g id="person-ana" transform="translate(330.0,280)">
+<circle cx="25.0" cy="25.0" r="25.0" fill="white" stroke="black" stroke-width="2.5"/>
+
+<text x="25.0" y="-10" text-anchor="middle" font-size="14" font-family="Arial, sans-serif" font-weight="bold" fill="#000">Ana</text>
+
+
+
+<circle cx="25.0" cy="25.0" r="30.0" fill="none" stroke="black" stroke-width="2.5"/>
+</g>
+<g id="person-roberto" transform="translate(100.0,100)">
+<rect x="0" y="0" width="50" height="50" fill="white" stroke="black" stroke-width="2.5"/>
+<line x1="12.5" y1="12.5" x2="37.5" y2="37.5" stroke="black" stroke-width="2"/><line x1="37.5" y1="12.5" x2="12.5" y2="37.5" stroke="black" stroke-width="2"/>
+<text x="25.0" y="-10" text-anchor="middle" font-size="14" font-family="Arial, sans-serif" font-weight="bold" fill="#000">Roberto</text>
+
+
+<text x="25.0" y="68" text-anchor="middle" font-size="11" font-family="Arial, sans-serif" fill="#666">falleció hace 5 años</text>
+
+
+</g>
+<g id="person-carmen" transform="translate(330.0,100)">
+<circle cx="25.0" cy="25.0" r="25.0" fill="white" stroke="black" stroke-width="2.5"/>
+
+<text x="25.0" y="-10" text-anchor="middle" font-size="14" font-family="Arial, sans-serif" font-weight="bold" fill="#000">Carmen</text>
+
+
+
+
+</g>
+<g id="person-elena" transform="translate(100.0,280)">
+<circle cx="25.0" cy="25.0" r="25.0" fill="white" stroke="black" stroke-width="2.5"/>
+
+<text x="25.0" y="-10" text-anchor="middle" font-size="14" font-family="Arial, sans-serif" font-weight="bold" fill="#000">Elena</text>
+
+
+
+
+</g>
+<g id="person-carlos" transform="translate(560.0,100)">
+<rect x="0" y="0" width="50" height="50" fill="white" stroke="black" stroke-width="2.5"/>
+
+<text x="25.0" y="-10" text-anchor="middle" font-size="14" font-family="Arial, sans-serif" font-weight="bold" fill="#000">Carlos</text>
+
+
+
+
+</g>
+<g id="person-lucas" transform="translate(560.0,280)">
+<rect x="0" y="0" width="50" height="50" fill="white" stroke="black" stroke-width="2.5"/>
+
+<text x="25.0" y="-10" text-anchor="middle" font-size="14" font-family="Arial, sans-serif" font-weight="bold" fill="#000">Lucas</text>
+
+
+
+
+</g>
+</svg>
+
+    </div>
+    <script>
+        var panZoom = svgPanZoom('#genogram-svg', {
+            zoomEnabled: true,
+            controlIconsEnabled: false,
+            fit: true,
+            center: true,
+            minZoom: 0.5,
+            maxZoom: 10
+        });
+    </script>
+</body>
+</html>

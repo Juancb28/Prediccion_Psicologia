@@ -1,4 +1,4 @@
-from google import genai
+import google.genai as genai
 import json
 import ast
 import re
@@ -60,49 +60,52 @@ class GenogramGenerator:
     
     def extract_family_info(self, transcription: str) -> Dict:
         prompt = f"""
-        Analiza la siguiente transcripción (que puede incluir múltiples sesiones de terapia) y extrae la información familiar completa para un genograma profesional.
+        Analiza la siguiente transcripción (que puede incluir múltiples sesiones de terapia o información previa del paciente) y extrae la información familiar COMPLETA para un genograma profesional.
         
         REGLAS DE EXTRACCIÓN:
-        - EXTRAE a todas las personas mencionadas con un rol familiar (padres, hijos, abuelos, tíos, primos, hermanos, etc.)
-        - NO inventes conexiones. Solo registra lo que se menciona.
-        - RELACIONES DE PAREJA: Usa tipo "pareja". Solo si se dice que están casados, son novios o viven juntos.
-        - RELACIONES PADRE-HIJO: Usa tipo "padre-hijo". Persona1 es el padre/madre, Persona2 es el hijo/hija.
+        - EXTRAE a todas las personas mencionadas con un rol familiar o relacional (padres, hijos, abuelos, tíos, primos, hermanos, parejas actuales o anteriores, etc.)
+        - ABUELOS: Es fundamental incluir a los abuelos (paternos y maternos) si se mencionan.
+        - RELACIONES DE PAREJA: Usa tipo "pareja". Incluye matrimonios, uniones libres, novios, divorcios o separaciones.
+        - RELACIONES PADRE-HIJO: Usa tipo "padre-hijo". IMPORTANTE: Si un hijo es de una pareja (ej: "tienen un hijo"), crea DOS relaciones "padre-hijo", una para cada progenitor.
+        - CALIDAD DE RELACIÓN: Sé preciso. Si se menciona "buena relación", usa "alianza_buena".
         - Si no se menciona la edad o ocupación, usa null.
+        - Sé muy preciso con los nombres y los géneros.
         
-        Transcripciones:
+        Transcripciones e Información:
         {transcription}
         
         Extrae la siguiente información estrictamente en formato JSON:
         {{
             "personas": [
                 {{
-                    "id": "identificador_único",
+                    "id": "identificador_único_basado_en_nombre",
                     "nombre": "nombre completo",
                     "genero": "masculino/femenino",
                     "edad": edad_o_null,
                     "ocupacion": "ocupación/profesión si se menciona" o null,
                     "vivo": true/false,
                     "orientacion": "heterosexual/gay/lesbiana/bisexual/trans/otro" (si se menciona),
-                    "condiciones": ["consultante", "enfermedad", "consumo", "tratamiento", "diagnostico_fijo", "muerte", "padre_soltero", "madre_soltera"],
-                    "notas": "información adicional relevante"
+                    "condiciones": ["consultante", "enfermedad", "consumo", "tratamiento", "diagnostico_fijo", "muerte", "padre_soltero", "madre_soltera", "embarazada"],
+                    "notas": "información adicional relevante (personalidad, rol, etc.)"
                 }}
             ],
             "relaciones": [
                 {{
-                    "tipo": "pareja" o "padre-hijo" (IMPORTANTE: Usa solo estos términos),
-                    "persona1_id": "id_parent_o_partner1",
-                    "persona2_id": "id_child_o_partner2",
-                    "estado_civil": "casados/union_libre/novios/divorciado/separado",
-                    "fecha": "año de matrimonio o unión" o null,
-                    "calidad_relacion": "alianza_buena/conflictiva/distante/toxica" (si se menciona)
+                    "tipo": "pareja" o "padre-hijo" o "gemelos",
+                    "persona1_id": "id_progenitor_o_pareja1",
+                    "persona2_id": "id_descendiente_o_pareja2",
+                    "estado_civil": "casados/union_libre/novios/divorciado/separado/union_libre_legalizado",
+                    "fecha": "año de inicio o evento" o null,
+                    "calidad_relacion": "alianza_buena/conflictiva/distante/toxica/abuso_sexual_violacion/nibuena_nimala/conflictiva_violenta/toxica_simbiotica"
                 }}
             ]
         }}
         
         Reglas importantes:
-        - Responde UNICAMENTE con el objeto JSON.
+        - Responde UNICAMENTE con el objeto JSON válido.
         - Los IDs deben coincidir exactamente entre la lista de personas y la lista de relaciones.
-        - Identifica claramente al "consultante" (el paciente que habla).
+        - El "consultante" es el paciente principal. Identifícalo en "condiciones".
+        - No omitas a nadie por ser de una generación lejana (como abuelos).
         """
 
         # 3. Call the SDK
@@ -344,19 +347,30 @@ class GenogramGenerator:
             if 'persona2_id' in r:
                 r['persona2_id'] = id_map.get(r['persona2_id'], _norm_id(r.get('persona2_id')))
 
-        # FILTER: keep only padre-hijo relations and remove any person that is
-        # mentioned as 'abuelo'/'abuela' in their nombre/notas. We also remove
-        # any relations that reference filtered-out persons.
-        gp_keywords = ('abuelo', 'abuela', 'abuelos', 'abuela paterna', 'abuelo paterno', 'abuela materna', 'abuelo materno')
-        removed_ids = set()
-        for p in personas:
-            text = ((p.get('nombre') or '') + ' ' + (p.get('notas') or '')).lower()
-            if any(k in text for k in gp_keywords):
-                removed_ids.add(p['id'])
-
-        personas = [p for p in personas if p['id'] not in removed_ids]
-        relaciones = [r for r in relaciones if r.get('tipo') == 'padre-hijo' and r.get('persona1_id') not in removed_ids and r.get('persona2_id') not in removed_ids]
+        # FILTER: KEEP ALL relationships for processing (do not filter here)
+        # 1. Inferir parejas faltantes si comparten el mismo hijo
+        hijos_map = {} # hijo_id -> set(padres_ids)
+        for r in relaciones:
+            if r.get('tipo', 'padre-hijo') == 'padre-hijo':
+                p, h = r.get('persona1_id'), r.get('persona2_id')
+                if p and h:
+                    if h not in hijos_map: hijos_map[h] = set()
+                    hijos_map[h].add(p)
         
+        # Si dos personas comparten un hijo, crear relación de pareja implícita si no existe
+        parejas_existentes = set()
+        for r in relaciones:
+            if r.get('tipo') == 'pareja':
+                parejas_existentes.add(tuple(sorted([r['persona1_id'], r['persona2_id']])))
+        
+        for h, padres in hijos_map.items():
+            if len(padres) == 2:
+                p_list = sorted(list(padres))
+                pair = tuple(p_list)
+                if pair not in parejas_existentes:
+                    relaciones.append({'tipo': 'pareja', 'persona1_id': p_list[0], 'persona2_id': p_list[1], 'estado_civil': 'union_libre'})
+                    parejas_existentes.add(pair)
+
         if not personas:
             raise ValueError("No hay personas en los datos familiares")
         
@@ -697,57 +711,30 @@ class GenogramGenerator:
 
     def _calculate_positions_simple(self, generaciones: List[List[str]], icon_size: float, spacing_x: float, spacing_y: float, start_x: float, start_y: float) -> Dict:
         """
-        Calcula posiciones para una estructura clásica de genograma:
-        - Parejas (padre/madre) conectados por línea horizontal
-        - Línea vertical central hacia hijos
-        - Hijos alineados horizontalmente debajo de la pareja
+        Calcula posiciones para una estructura de genograma multigeracional básica:
+        - Cada generación en su propio nivel Y
+        - Intenta centrar las personas horizontalmente
         """
         posiciones = {}
-        pareja_y_offset = 30  # espacio entre pareja y línea horizontal
-        child_y_offset = 40   # espacio entre línea pareja y hijos
-        couple_spacing = icon_size + 40
-        # Solo soporta generaciones de padres e hijos (2 generaciones)
-        if len(generaciones) < 2:
-            # fallback a layout simple
-            gen_widths = [len(gen) * (icon_size + spacing_x) for gen in generaciones]
-            canvas_w = max(gen_widths) if gen_widths else 800
-            for gen_idx, gen in enumerate(generaciones):
-                y = start_y + gen_idx * spacing_y
-                total_w = len(gen) * (icon_size + spacing_x) - spacing_x if gen else 0
-                x_actual = start_x + max(0, (canvas_w - total_w) / 2)
-                for pid in gen:
-                    posiciones[pid] = {'x': x_actual, 'y': y}
-                    x_actual += icon_size + spacing_x
-            return posiciones
-
-        padres = generaciones[0]
-        hijos = generaciones[1]
-        # Agrupar padres en pareja si hay dos
-        if len(padres) == 2:
-            px1 = start_x
-            px2 = start_x + couple_spacing
-            py = start_y
-            posiciones[padres[0]] = {'x': px1, 'y': py}
-            posiciones[padres[1]] = {'x': px2, 'y': py}
-            pareja_cx = (px1 + px2) / 2 + icon_size / 2
-        else:
-            # solo un padre
-            px1 = start_x
-            py = start_y
-            posiciones[padres[0]] = {'x': px1, 'y': py}
-            pareja_cx = px1 + icon_size / 2
-
-        # Línea horizontal de pareja está a py + icon_size + pareja_y_offset
-        pareja_line_y = py + icon_size + pareja_y_offset
-        # Hijos alineados horizontalmente debajo de la pareja
-        n_hijos = len(hijos)
-        total_w = n_hijos * (icon_size + spacing_x) - spacing_x if n_hijos else 0
-        hijos_start_x = pareja_cx - total_w / 2
-        hijos_y = pareja_line_y + child_y_offset
-        for i, hid in enumerate(hijos):
-            x = hijos_start_x + i * (icon_size + spacing_x)
-            posiciones[hid] = {'x': x, 'y': hijos_y}
-
+        
+        # Encontrar el ancho máximo de generación para centrar
+        max_gen_width = 0
+        for gen in generaciones:
+            width = len(gen) * (icon_size + spacing_x) - spacing_x
+            if width > max_gen_width:
+                max_gen_width = width
+        
+        canvas_center_x = start_x + max_gen_width / 2
+        
+        for gen_idx, gen in enumerate(generaciones):
+            y = start_y + gen_idx * spacing_y
+            gen_width = len(gen) * (icon_size + spacing_x) - spacing_x
+            current_x = canvas_center_x - gen_width / 2
+            
+            for pid in gen:
+                posiciones[pid] = {'x': current_x, 'y': y}
+                current_x += icon_size + spacing_x
+                
         return posiciones
     
     def _render_all_relations(self, relaciones: List[Dict], posiciones: Dict, personas: List[Dict], icon_size: float) -> str:
@@ -755,121 +742,112 @@ class GenogramGenerator:
         Renderiza relaciones de manera robusta:
         - Línea horizontal para cada pareja
         - Línea T-junction hacia sus hijos comunes
-        - Línea directa para padres solteros/separados
+        - Línea directa para padres solteros
         """
         svg = ""
-        procesadas = set()
         
-        # 1. Agrupar hijos por pareja (para el estilo T-junction clásico)
-        # parejas_info = { (p1_id, p2_id): { 'hijos': [], 'rel': rel } }
-        parejas_info = {}
-        hijos_para_solteros = {}  # padre_id -> [lista de hijos]
+        # 1. Identificar parejas y agrupar hijos por unidad familiar
+        unidades_familiares = {}
+        hijos_para_solteros = {}  # padre_id -> set([hijos])
         
-        # Primero identificar parejas
+        # Primero buscar relaciones de pareja explícitas
         for rel in relaciones:
-            if rel.get('tipo') == 'pareja':
-                p1 = rel.get('persona1_id')
-                p2 = rel.get('persona2_id')
+            if rel.get('tipo', 'pareja') == 'pareja':
+                p1, p2 = rel.get('persona1_id'), rel.get('persona2_id')
                 if p1 in posiciones and p2 in posiciones:
-                    # Ordenar IDs para llave única
                     key = tuple(sorted([p1, p2]))
-                    parejas_info[key] = { 'hijos': [], 'rel': rel }
-        
-        # Identificar hijos de cada pareja o de solteros
-        for rel in relaciones:
-            if rel.get('tipo') == 'padre-hijo':
-                padre = rel.get('persona1_id')
-                hijo = rel.get('persona2_id')
-                if padre and hijo and padre in posiciones and hijo in posiciones:
-                    encontrada_pareja = False
-                    # Buscar si el padre tiene una pareja en el genograma
-                    for pair_key in parejas_info:
-                        if padre in pair_key:
-                            # Verificar si el hijo es de ambos (buscando la otra relación)
-                            madre = pair_key[1] if pair_key[0] == padre else pair_key[0]
-                            # Buscamos si existe relación madre-hijo también
-                            # Pero para simplificar, asumimos que si hay pareja, 
-                            # el hijo mencionado de uno pertenece a la unidad familiar.
-                            parejas_info[pair_key]['hijos'].append(hijo)
-                            encontrada_pareja = True
-                            break
-                    
-                    if not encontrada_pareja:
-                        if padre not in hijos_para_solteros:
-                            hijos_para_solteros[padre] = []
-                        hijos_para_solteros[padre].append(hijo)
+                    if key not in unidades_familiares:
+                        unidades_familiares[key] = {'hijos': set(), 'rel_pareja': rel}
 
-        # 2. Renderizar Parejas e hijos comunes
-        for pair_key, info in parejas_info.items():
+        # Asociar hijos a parejas (si ambos son padres) o a solteros
+        for rel in relaciones:
+            if rel.get('tipo', 'padre-hijo') == 'padre-hijo':
+                padre, hijo = rel.get('persona1_id'), rel.get('persona2_id')
+                if padre in posiciones and hijo in posiciones:
+                    encontrada_unidad = False
+                    for key in unidades_familiares:
+                        if padre in key:
+                            # Strict association: only if both members of the unit are parents of the same child
+                            other_parent = key[1] if key[0] == padre else key[0]
+                            is_shared = any(r.get('tipo', 'padre-hijo') == 'padre-hijo' and 
+                                           r.get('persona1_id') == other_parent and 
+                                           r.get('persona2_id') == hijo for r in relaciones)
+                            if is_shared:
+                                unidades_familiares[key]['hijos'].add(hijo)
+                                encontrada_unidad = True
+                                break # avoid adding to other pairs the parent might have
+                    
+                    if not encontrada_unidad:
+                        if padre not in hijos_para_solteros:
+                            hijos_para_solteros[padre] = set()
+                        hijos_para_solteros[padre].add(hijo)
+
+        # 2. Renderizar Unidades Familiares (Parejas + Hijos comunes)
+        for i, (pair_key, info) in enumerate(unidades_familiares.items()):
             p1_id, p2_id = pair_key
-            rel = info['rel']
-            hijos = list(set(info['hijos'])) # evitar duplicados
+            rel_pareja = info['rel_pareja']
+            hijos = sorted([h for h in info['hijos'] if h in posiciones])
             
-            pos1 = posiciones[p1_id]
-            pos2 = posiciones[p2_id]
+            p1_pos, p2_pos = posiciones[p1_id], posiciones[p2_id]
+            x1, x2 = p1_pos['x'] + icon_size/2, p2_pos['x'] + icon_size/2
+            y1, y2 = p1_pos['y'] + icon_size/2, p2_pos['y'] + icon_size/2
             
-            # Puntos centrales de los símbolos
-            x1 = pos1['x'] + icon_size/2
-            x2 = pos2['x'] + icon_size/2
-            y1 = pos1['y'] + icon_size/2
-            y2 = pos2['y'] + icon_size/2
+            # Altura de la línea de pareja
+            offset_y = 30 + (i % 3 * 10) # Stagger slightly
+            y_joint = max(p1_pos['y'], p2_pos['y']) + icon_size + offset_y
             
-            # Línea de unión (debajo de los símbolos)
-            y_joint = max(pos1['y'], pos2['y']) + icon_size + 30
-            
-            # Líneas verticales desde cada miembro de la pareja
-            svg += f'  <line x1="{x1}" y1="{y1 + icon_size/2}" x2="{x1}" y2="{y_joint}" stroke="black" stroke-width="2"/>\n'
-            svg += f'  <line x1="{x2}" y1="{y2 + icon_size/2}" x2="{x2}" y2="{y_joint}" stroke="black" stroke-width="2"/>\n'
-            
-            # Línea horizontal que los une
+            # Dibujar conexión de pareja
+            svg += f'  <line x1="{x1}" y1="{p1_pos["y"] + icon_size}" x2="{x1}" y2="{y_joint}" stroke="black" stroke-width="2"/>\n'
+            svg += f'  <line x1="{x2}" y1="{p2_pos["y"] + icon_size}" x2="{x2}" y2="{y_joint}" stroke="black" stroke-width="2"/>\n'
             svg += f'  <line x1="{x1}" y1="{y_joint}" x2="{x2}" y2="{y_joint}" stroke="black" stroke-width="2"/>\n'
             
-            # Mostrar fecha si existe
-            fecha = rel.get('fecha')
-            if fecha:
-                cx = (x1 + x2) / 2
-                svg += f'  <text x="{cx}" y="{y_joint - 5}" text-anchor="middle" font-size="11" font-family="Arial" fill="#555">m. {fecha}</text>\n'
+            # Icono estado civil centrado
+            cx = (x1 + x2) / 2
+            estado_icon = self.get_relation_icon_path(rel_pareja)
+            if estado_icon:
+                icon_svg = self.load_svg(estado_icon)
+                if icon_svg:
+                    svg += f'  <g transform="translate({cx - 15}, {y_joint - 15}) scale(0.6)">{icon_svg}</g>\n'
 
-            # Conexión a hijos si existen
-            if hijos:
-                cx = (x1 + x2) / 2
-                # Nivel de los hijos (asumimos que están en la misma generación y tienen misma Y)
-                y_hijos = min([posiciones[h]['y'] for h in hijos if h in posiciones])
-                y_hijos_top = y_hijos - 20
+            # Dibujar conexión a hijos (solo si están ABAJO de los padres)
+            hijos_descendientes = [h for h in hijos if posiciones[h]['y'] > max(p1_pos['y'], p2_pos['y'])]
+            if hijos_descendientes:
+                y_min_hijos = min([posiciones[h]['y'] for h in hijos_descendientes])
+                y_hijos_dist = y_min_hijos - 30 
                 
-                # Línea vertical principal hacia abajo del centro de la pareja
-                svg += f'  <line x1="{cx}" y1="{y_joint}" x2="{cx}" y2="{y_hijos_top}" stroke="black" stroke-width="2"/>\n'
+                # Center vertical line to distribution
+                svg += f'  <line x1="{cx}" y1="{y_joint}" x2="{cx}" y2="{y_hijos_dist}" stroke="black" stroke-width="2"/>\n'
                 
-                # Línea horizontal para distribuir a los hijos (si son más de 1)
-                if len(hijos) > 1:
-                    hx_min = min([posiciones[h]['x'] + icon_size/2 for h in hijos])
-                    hx_max = max([posiciones[h]['x'] + icon_size/2 for h in hijos])
-                    svg += f'  <line x1="{hx_min}" y1="{y_hijos_top}" x2="{hx_max}" y2="{y_hijos_top}" stroke="black" stroke-width="2"/>\n'
+                hx_coords = [posiciones[h]['x'] + icon_size/2 for h in hijos_descendientes]
+                if len(hijos_descendientes) > 1:
+                    svg += f'  <line x1="{min(hx_coords)}" y1="{y_hijos_dist}" x2="{max(hx_coords)}" y2="{y_hijos_dist}" stroke="black" stroke-width="2"/>\n'
                 
-                # Líneas verticales finales a cada hijo
-                for h_id in hijos:
+                for h_id in hijos_descendientes:
                     h_pos = posiciones[h_id]
-                    hx = h_pos['x'] + icon_size/2
-                    hy = h_pos['y']
-                    svg += f'  <line x1="{hx}" y1="{y_hijos_top}" x2="{hx}" y2="{hy}" stroke="black" stroke-width="1.5"/>\n'
+                    svg += f'  <line x1="{h_pos["x"] + icon_size/2}" y1="{y_hijos_dist}" x2="{h_pos["x"] + icon_size/2}" y2="{h_pos["y"]}" stroke="black" stroke-width="1.5"/>\n'
 
-        # 3. Renderizar Solteros
-        for padre_id, hijos in hijos_para_solteros.items():
-            pos_p = posiciones[padre_id]
-            px = pos_p['x'] + icon_size/2
-            py_exit = pos_p['y'] + icon_size
+        # 3. Renderizar Solteros (Padres con hijos no compartidos)
+        for padre_id, hijos_ids in hijos_para_solteros.items():
+            p_pos = posiciones[padre_id]
+            px = p_pos['x'] + icon_size/2
             
-            for h_id in hijos:
-                pos_h = posiciones[h_id]
-                hx = pos_h['x'] + icon_size/2
-                hy_entry = pos_h['y']
+            hijos = sorted([h for h in hijos_ids if h in posiciones])
+            # Only children strictly below
+            hijos_desc = [h for h in hijos if posiciones[h]['y'] > p_pos['y']]
+            
+            if hijos_desc:
+                y_min_h = min([posiciones[h]['y'] for h in hijos_desc])
+                y_dist = y_min_h - 25
                 
-                # Línea simple (con un pequeño quiebre si no están alineados)
-                if px == hx:
-                    svg += f'  <line x1="{px}" y1="{py_exit}" x2="{hx}" y2="{hy_entry}" stroke="black" stroke-width="2"/>\n'
-                else:
-                    mid_y = (py_exit + hy_entry) / 2
-                    svg += f'  <path d="M {px} {py_exit} V {mid_y} H {hx} V {hy_entry}" fill="none" stroke="black" stroke-width="1.5"/>\n'
+                svg += f'  <line x1="{px}" y1="{p_pos["y"] + icon_size}" x2="{px}" y2="{y_dist}" stroke="black" stroke-width="2"/>\n'
+                
+                hx_c = [posiciones[h]['x'] + icon_size/2 for h in hijos_desc]
+                if len(hijos_desc) > 1:
+                    svg += f'  <line x1="{min(hx_c)}" y1="{y_dist}" x2="{max(hx_c)}" y2="{y_dist}" stroke="black" stroke-width="2"/>\n'
+                
+                for h_id in hijos_desc:
+                    h_p = posiciones[h_id]
+                    svg += f'  <line x1="{h_p["x"] + icon_size/2}" y1="{y_dist}" x2="{h_p["x"] + icon_size/2}" y2="{h_p["y"]}" stroke="black" stroke-width="1.5"/>\n'
                     
         return svg
     
@@ -878,36 +856,35 @@ class GenogramGenerator:
         generaciones = []
         personas_procesadas = set()
         
-        # Encontrar raíces (personas sin padres)
+        # Encontrar raíces (personas sin padres mencionados)
         personas_con_padres = set()
         for rel in relaciones:
-            if rel['tipo'] == 'padre-hijo':
+            if rel.get('tipo', 'padre-hijo') == 'padre-hijo':
                 personas_con_padres.add(rel['persona2_id'])
         
         raices = [p['id'] for p in personas if p['id'] not in personas_con_padres]
         
         if not raices:
-            # Si no hay raíces claras, usar todas las personas en una sola generación
             return [[p['id'] for p in personas]]
         
         # BFS para organizar por generaciones
         generacion_actual = raices
         
         while generacion_actual:
-            generaciones.append(generacion_actual)
+            generaciones.append(list(generacion_actual))
             personas_procesadas.update(generacion_actual)
             
             # Encontrar hijos de la generación actual
             siguiente_generacion = []
             for rel in relaciones:
-                if rel['tipo'] == 'padre-hijo' and rel['persona1_id'] in generacion_actual:
+                if rel.get('tipo', 'padre-hijo') == 'padre-hijo' and rel['persona1_id'] in generacion_actual:
                     hijo_id = rel['persona2_id']
                     if hijo_id not in personas_procesadas and hijo_id not in siguiente_generacion:
                         siguiente_generacion.append(hijo_id)
             
             generacion_actual = siguiente_generacion
         
-        # Agregar personas no procesadas
+        # Agregar personas no procesadas (como hijos que no tienen padres en la lista)
         no_procesadas = [p['id'] for p in personas if p['id'] not in personas_procesadas]
         if no_procesadas:
             generaciones.append(no_procesadas)
@@ -1008,9 +985,9 @@ class GenogramGenerator:
     
     def _render_person(self, persona: Dict, x: float, y: float, size: float) -> str:
         """Renderiza una persona en el genograma con diseño profesional y coordenadas relativas"""
-        nombre = persona.get('nombre', '???')
+        nombre = str(persona.get('nombre') or '???')
         edad = persona.get('edad')
-        ocupacion = persona.get('ocupacion', '')
+        ocupacion = str(persona.get('ocupacion') or '')
         genero = persona.get('genero', 'masculino')
         vivo = persona.get('vivo', True)
         condiciones = persona.get('condiciones') or []
@@ -1059,7 +1036,7 @@ class GenogramGenerator:
         # 5. Ocupación debajo
         ocupacion_svg = ""
         if not ocupacion:
-            notas = persona.get('notas', '')
+            notas = str(persona.get('notas') or '')
             if notas and len(notas) < 25:
                 ocupacion = notas
                 
@@ -1438,7 +1415,7 @@ class GenogramGenerator:
         if patient_info.get('id') and patient_info['id'] not in personas:
             personas[patient_info['id']] = patient_info
 
-        relaciones = [r for r in family.get('relaciones', []) if r.get('tipo') == 'padre-hijo']
+        relaciones = family.get('relaciones', [])
 
         return self.create_genogram({'personas': list(personas.values()), 'relaciones': relaciones}, output_file)
     

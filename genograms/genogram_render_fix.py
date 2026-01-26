@@ -73,7 +73,7 @@ class GenogramGenerator:
                 death_mark = f'<line x1="5" y1="5" x2="{size-5}" y2="{size-5}" stroke="black" stroke-width="2"/><line x1="{size-5}" y1="5" x2="5" y2="{size-5}" stroke="black" stroke-width="2"/>'
         
         # Nombre (coordenadas ABSOLUTAS para posicionar en x,y)
-      nombre_svg_lines = []
+        nombre_svg_lines = []
         if len(nombre) > 15:
             palabras = nombre.split()
             mid = len(palabras) // 2

@@ -70,23 +70,493 @@ loadDotenvAndLog();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const { execFile } = require('child_process');
+
+function pythonExecutable() {
+    // Prefer project venv python, fallback to system python
+    // On Windows venv is usually in .venv/Scripts/python.exe
+    const venvPath = path.join(__dirname, '.venv', 'Scripts', process.platform === 'win32' ? 'python.exe' : 'python');
+    const exe = fs.existsSync(venvPath) ? venvPath : 'python';
+    console.log('[info] Python Detection:');
+    console.log('  - Checking path:', venvPath);
+    console.log('  - Exists?', fs.existsSync(venvPath));
+    console.log('  - Final selected exe:', exe);
+    return exe;
+}
+
+// --- SQLite initialization for pacientes storage ---
+let sqliteAvailable = false;
+let db = null;
+try {
+    const sqlite3 = require('sqlite3').verbose();
+    const dbPath = path.join(__dirname, 'data.sqlite');
+    db = new sqlite3.Database(dbPath);
+    sqliteAvailable = true;
+
+    // Create table for pacientes if not exists
+    db.serialize(() => {
+        db.run(`CREATE TABLE IF NOT EXISTS pacientes (
+            id INTEGER PRIMARY KEY,
+            nombre TEXT,
+            edad INTEGER,
+            telefono TEXT,
+            email TEXT,
+            direccion TEXT,
+            fechaNacimiento TEXT,
+            genero TEXT,
+            ocupacion TEXT,
+            motivoConsulta TEXT
+        )`);
+        // Transcriptions table: one transcription per patient session
+        db.run(`CREATE TABLE IF NOT EXISTS transcripciones (
+            id INTEGER PRIMARY KEY,
+            paciente_id INTEGER,
+            session_index INTEGER,
+            transcription_text TEXT,
+            transcription_path TEXT,
+            last_updated TEXT,
+            UNIQUE(paciente_id, session_index),
+            FOREIGN KEY(paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE
+        )`);
+        // Citas (appointments) table: link paciente <-> agenda
+        db.run(`CREATE TABLE IF NOT EXISTS citas (
+            id INTEGER PRIMARY KEY,
+            paciente_id INTEGER,
+            fecha TEXT,
+            hora TEXT,
+            estado TEXT,
+            psicologo_id INTEGER,
+            created_at TEXT,
+            FOREIGN KEY(paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE
+        )`);
+        // Sesiones table: store clinical sessions per patient
+        db.run(`CREATE TABLE IF NOT EXISTS sesiones (
+            id INTEGER PRIMARY KEY,
+            paciente_id INTEGER,
+            fecha TEXT,
+            notas TEXT,
+            soap TEXT,
+            duracion INTEGER,
+            recording_path TEXT,
+            estado TEXT,
+            created_at TEXT,
+            FOREIGN KEY(paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE
+        )`);
+    });
+    console.log('[info] SQLite DB initialized at', dbPath);
+} catch (e) {
+    console.warn('[warn] sqlite3 not available. Install with `npm install sqlite3` to enable DB persistence.');
+    sqliteAvailable = false;
+}
+
+// Helper wrappers for sqlite operations (use Promises)
+function getPacienteByIdAsync(id) {
+    return new Promise((resolve, reject) => {
+        if (!sqliteAvailable) return resolve(null);
+        db.get('SELECT * FROM pacientes WHERE id = ?', [id], (err, row) => {
+            if (err) return reject(err);
+            resolve(row || null);
+        });
+    });
+}
+
+function getAllPacientesAsync() {
+    return new Promise((resolve, reject) => {
+        if (!sqliteAvailable) return resolve([]);
+        db.all('SELECT * FROM pacientes ORDER BY id ASC', [], (err, rows) => {
+            if (err) return reject(err);
+            resolve(rows || []);
+        });
+    });
+}
+
+function createPacienteAsync(p) {
+    return new Promise((resolve, reject) => {
+        if (!sqliteAvailable) return resolve(null);
+        const stmt = db.prepare(`INSERT INTO pacientes (nombre, edad, telefono, email, direccion, fechaNacimiento, genero, ocupacion, motivoConsulta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+        stmt.run([
+            p.nombre || '',
+            p.edad || 0,
+            p.telefono || '',
+            p.email || '',
+            p.direccion || '',
+            p.fechaNacimiento || '',
+            p.genero || '',
+            p.ocupacion || '',
+            p.motivoConsulta || p.motivo || ''
+        ], function (err) {
+            stmt.finalize();
+            if (err) return reject(err);
+            // return the new row id
+            resolve(this.lastID);
+        });
+    });
+}
+
+// Transcription helpers
+function getTranscriptionAsync(pacienteId, sessionIndex) {
+    return new Promise((resolve, reject) => {
+        if (!sqliteAvailable) return resolve(null);
+        db.get('SELECT * FROM transcripciones WHERE paciente_id = ? AND session_index = ?', [pacienteId, sessionIndex], (err, row) => {
+            if (err) return reject(err);
+            resolve(row || null);
+        });
+    });
+}
+
+function upsertTranscriptionAsync(pacienteId, sessionIndex, text, transcriptionPath) {
+    return new Promise((resolve, reject) => {
+        if (!sqliteAvailable) return resolve(null);
+        const now = (new Date()).toISOString();
+        // Try update first
+        db.run('UPDATE transcripciones SET transcription_text = ?, transcription_path = ?, last_updated = ? WHERE paciente_id = ? AND session_index = ?', [text, transcriptionPath || '', now, pacienteId, sessionIndex], function (err) {
+            if (err) return reject(err);
+            if (this && this.changes && this.changes > 0) return resolve({ updated: true });
+            // Insert if not updated
+            const stmt = db.prepare('INSERT INTO transcripciones (paciente_id, session_index, transcription_text, transcription_path, last_updated) VALUES (?, ?, ?, ?, ?)');
+            stmt.run([pacienteId, sessionIndex, text || '', transcriptionPath || '', now], function (err2) {
+                stmt.finalize();
+                if (err2) return reject(err2);
+                resolve({ insertedId: this.lastID });
+            });
+        });
+    });
+}
+
+function getAllTranscriptionsAsync() {
+    return new Promise((resolve, reject) => {
+        if (!sqliteAvailable) return resolve([]);
+        db.all('SELECT * FROM transcripciones ORDER BY paciente_id ASC, session_index ASC', [], (err, rows) => {
+            if (err) return reject(err);
+            resolve(rows || []);
+        });
+    });
+}
+
+
+// Citas (appointments) helpers
+function getAllCitasAsync() {
+    return new Promise((resolve, reject) => {
+        if (!sqliteAvailable) return resolve([]);
+        db.all('SELECT * FROM citas ORDER BY fecha ASC, hora ASC', [], (err, rows) => {
+            if (err) return reject(err);
+            resolve(rows || []);
+        });
+    });
+}
+
+function createCitaAsync(cita) {
+    return new Promise((resolve, reject) => {
+        if (!sqliteAvailable) return resolve(null);
+        const stmt = db.prepare('INSERT INTO citas (paciente_id, fecha, hora, estado, psicologo_id, created_at) VALUES (?, ?, ?, ?, ?, ?)');
+        const now = (new Date()).toISOString();
+        stmt.run([cita.paciente_id || null, cita.fecha || null, cita.hora || null, cita.estado || 'pendiente', cita.psicologo_id || null, now], function (err) {
+            stmt.finalize();
+            if (err) return reject(err);
+            resolve({ id: this.lastID, paciente_id: cita.paciente_id, fecha: cita.fecha, hora: cita.hora, estado: cita.estado || 'pendiente', psicologo_id: cita.psicologo_id || null, created_at: now });
+        });
+    });
+}
+
+function deleteCitaAsync(id) {
+    return new Promise((resolve, reject) => {
+        if (!sqliteAvailable) return resolve({ changes: 0 });
+        db.run('DELETE FROM citas WHERE id = ?', [id], function (err) {
+            if (err) return reject(err);
+            resolve({ changes: this.changes });
+        });
+    });
+}
+
+// Sesiones helpers
+function getAllSesionesAsync(pacienteId) {
+    return new Promise((resolve, reject) => {
+        if (!sqliteAvailable) return resolve([]);
+        if (pacienteId) {
+            db.all('SELECT * FROM sesiones WHERE paciente_id = ? ORDER BY fecha DESC', [pacienteId], (err, rows) => {
+                if (err) return reject(err);
+                resolve(rows || []);
+            });
+        } else {
+            db.all('SELECT * FROM sesiones ORDER BY fecha DESC', [], (err, rows) => {
+                if (err) return reject(err);
+                resolve(rows || []);
+            });
+        }
+    });
+}
+
+function getSesionByIdAsync(id) {
+    return new Promise((resolve, reject) => {
+        if (!sqliteAvailable) return resolve(null);
+        db.get('SELECT * FROM sesiones WHERE id = ?', [id], (err, row) => {
+            if (err) return reject(err);
+            resolve(row || null);
+        });
+    });
+}
+
+function createSesionAsync(s) {
+    return new Promise((resolve, reject) => {
+        if (!sqliteAvailable) return resolve(null);
+        const stmt = db.prepare('INSERT INTO sesiones (paciente_id, fecha, notas, soap, duracion, recording_path, estado, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+        const now = (new Date()).toISOString();
+        stmt.run([
+            s.paciente_id || s.pacienteId || null,
+            s.fecha || null,
+            s.notas || s.notes || '',
+            (s.soap && typeof s.soap === 'object') ? JSON.stringify(s.soap) : (s.soap || null),
+            s.duracion || s.duration || null,
+            s.recording_path || s.recordingPath || null,
+            s.estado || s.status || 'finalizada',
+            now
+        ], function (err) {
+            stmt.finalize();
+            if (err) return reject(err);
+            resolve({ id: this.lastID, paciente_id: s.paciente_id || s.pacienteId || null, fecha: s.fecha || null, notas: s.notas || '', created_at: now });
+        });
+    });
+}
+
+function updateSesionAsync(id, s) {
+    return new Promise((resolve, reject) => {
+        if (!sqliteAvailable) return resolve({ changes: 0 });
+        const soapVal = (s.soap && typeof s.soap === 'object') ? JSON.stringify(s.soap) : (s.soap || null);
+        db.run('UPDATE sesiones SET fecha = ?, notas = ?, soap = ?, duracion = ?, recording_path = ?, estado = ? WHERE id = ?', [s.fecha || null, s.notas || '', soapVal, s.duracion || null, s.recording_path || s.recordingPath || null, s.estado || s.status || null, id], function (err) {
+            if (err) return reject(err);
+            resolve({ changes: this.changes });
+        });
+    });
+}
+
+function deleteSesionAsync(id) {
+    return new Promise((resolve, reject) => {
+        if (!sqliteAvailable) return resolve({ changes: 0 });
+        db.run('DELETE FROM sesiones WHERE id = ?', [id], function (err) {
+            if (err) return reject(err);
+            resolve({ changes: this.changes });
+        });
+    });
+}
+
+// --- API endpoints for sesiones ---
+// Get sesiones (optionally filter by paciente_id)
+app.get('/api/sesiones', async (req, res) => {
+    try {
+        const pacienteId = req.query.paciente_id || req.query.pacienteId || null;
+        const list = await getAllSesionesAsync(pacienteId ? Number(pacienteId) : null);
+        return res.json({ sesiones: list });
+    } catch (e) {
+        console.error('GET /api/sesiones error', e);
+        return res.status(500).json({ error: 'server_error', detail: String(e && e.message) });
+    }
+});
+
+// Get single sesion by id
+app.get('/api/sesiones/:id', async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const s = await getSesionByIdAsync(id);
+        if (!s) return res.status(404).json({ error: 'not_found' });
+        return res.json({ sesion: s });
+    } catch (e) {
+        console.error('GET /api/sesiones/:id error', e);
+        return res.status(500).json({ error: 'server_error' });
+    }
+});
+
+// Create sesion
+app.post('/api/sesiones', express.json(), async (req, res) => {
+    try {
+        const payload = req.body || {};
+        const created = await createSesionAsync(payload);
+        return res.json({ ok: true, sesion: created });
+    } catch (e) {
+        console.error('POST /api/sesiones error', e);
+        return res.status(500).json({ ok: false, error: 'server_error', detail: String(e && e.message) });
+    }
+});
+
+// Update sesion
+app.put('/api/sesiones/:id', express.json(), async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const payload = req.body || {};
+        const result = await updateSesionAsync(id, payload);
+        return res.json({ ok: true, result });
+    } catch (e) {
+        console.error('PUT /api/sesiones/:id error', e);
+        return res.status(500).json({ ok: false, error: 'server_error', detail: String(e && e.message) });
+    }
+});
+
+// Delete sesion
+app.delete('/api/sesiones/:id', async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const result = await deleteSesionAsync(id);
+        return res.json({ ok: true, result });
+    } catch (e) {
+        console.error('DELETE /api/sesiones/:id error', e);
+        return res.status(500).json({ ok: false, error: 'server_error', detail: String(e && e.message) });
+    }
+});
+
+// Migration endpoint: import sesiones from data.json (if present)
+app.post('/api/migrate-sesiones', async (req, res) => {
+    try {
+        const dataPath = path.join(__dirname, 'data.json');
+        if (!fs.existsSync(dataPath)) return res.status(400).json({ ok: false, error: 'data.json_not_found' });
+        const raw = fs.readFileSync(dataPath, 'utf8');
+        let j = null;
+        try { j = JSON.parse(raw); } catch (e) { return res.status(400).json({ ok: false, error: 'bad_json', detail: String(e && e.message) }); }
+        const sesiones = Array.isArray(j.sesiones) ? j.sesiones : (j.sessions || []);
+        let imported = 0;
+        for (const s of sesiones) {
+            try {
+                await createSesionAsync(s);
+                imported++;
+            } catch (e) { /* ignore per-item errors */ }
+        }
+        return res.json({ ok: true, imported });
+    } catch (e) {
+        console.error('POST /api/migrate-sesiones error', e);
+        return res.status(500).json({ ok: false, error: 'server_error', detail: String(e && e.message) });
+    }
+});
+
+// Generate genogram by note: checks sessions for 'árbol' and generates if found
+app.post('/api/generate-genogram', express.json(), async (req, res) => {
+    try {
+        const patientId = req.body.patient_id || req.body.patientId || null;
+        const patientFolder = req.body.patient_folder || req.body.paciente || req.body.patient || null;
+
+        if (!patientId || !patientFolder) {
+            return res.status(400).json({ ok: false, error: 'missing_patient_info', detail: 'Se requiere patient_id y patient_folder' });
+        }
+
+        // Buscar sesiones del paciente en la base de datos
+        const sessions = await getAllSesionesAsync(patientId);
+
+        // Función helper para normalizar texto (sin acentos, mayúsculas, espacios extra)
+        function normalizeText(text) {
+            return String(text || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')  // Remover acentos
+                .toLowerCase()
+                .trim()
+                .replace(/\s+/g, ' ');
+        }
+
+        // Buscar sesión con título "Árbol Genealógico"
+        const targetTitle = normalizeText('arbol genealogico');
+        const genogramSession = sessions.find(s => {
+            const sessionTitle = normalizeText(s.notas || '');
+            return sessionTitle === targetTitle || sessionTitle.includes(targetTitle);
+        });
+
+        if (!genogramSession) {
+            return res.status(404).json({
+                ok: false,
+                error: 'no_genogram_session',
+                detail: 'No se encontró una sesión con el título "Árbol Genealógico". Por favor, crea una sesión con ese título exacto para generar el genograma.'
+            });
+        }
+
+        // Obtener el índice de la sesión (posición en el array de sesiones del paciente)
+        const sessionIndex = sessions.indexOf(genogramSession);
+        console.log(`[genogram] Found session "${genogramSession.notas}" at index ${sessionIndex} for patient ${patientId}`);
+
+        const py = pythonExecutable();
+        const script = path.join(__dirname, 'genograms', 'run_generate_by_note.py');
+        const args = [script, patientFolder, String(sessionIndex + 1)];
+
+        // Force venv Scripts into PATH for dependency resolution
+        const childEnv = { ...process.env };
+        const venvDir = path.dirname(py);
+        if (process.platform === 'win32') {
+            childEnv['Path'] = `${venvDir}${path.delimiter}${childEnv['Path'] || ''}`;
+            childEnv['PATH'] = `${venvDir}${path.delimiter}${childEnv['PATH'] || ''}`;
+        } else {
+            childEnv['PATH'] = `${venvDir}${path.delimiter}${childEnv['PATH'] || ''}`;
+        }
+        const child = execFile(py, args, { env: childEnv, windowsHide: true, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+            if (err && err.code === 2) {
+                return res.status(400).json({ ok: false, error: 'missing_patient_folder' });
+            }
+            if (err && err.code === 1) {
+                // script crashed
+                let detail = stderr || String(err.message || 'error');
+                try { detail = JSON.parse(stdout).detail || detail; } catch (e) { }
+                return res.status(500).json({ ok: false, error: 'script_exception', detail });
+            }
+
+            // Parse stdout as JSON result - robustly find JSON block
+            let result = null;
+            try {
+                const jsonMatch = (stdout || '').match(/\{[\s\S]*\}/);
+                const jsonStr = jsonMatch ? jsonMatch[0] : (stdout || '{}');
+                result = JSON.parse(jsonStr);
+            } catch (e) {
+                console.error('[genogram] Failed to parse Python output:', stdout);
+                result = { ok: false, error: 'bad_json', raw: stdout };
+            }
+
+            if (result && result.ok) {
+                // El script devuelve la ruta absoluta. La normalizamos para el cliente.
+                const relativePath = path.relative(path.join(__dirname, 'outputs'), result.output);
+                return res.json({ ok: true, output: result.output, relativePath: relativePath });
+            }
+            // Not ok: e.g., no session with note
+            return res.json({ ok: false, error: result && result.error ? result.error : 'unknown' });
+        });
+
+        // Safety: after 60s, kill child
+        const timeout = setTimeout(() => {
+            try { child.kill(); } catch (e) { }
+        }, 60000);
+        child.on('exit', () => clearTimeout(timeout));
+
+    } catch (error) {
+        console.error('[genogram] Error:', error);
+        res.status(500).json({ ok: false, error: 'internal_server_error' });
+    }
+});
+
+// Check if genogram exists for patient
+app.get('/api/check-genogram/:patientFolder', async (req, res) => {
+    try {
+        const patientFolder = req.params.patientFolder;
+        const genogramPath = path.join(__dirname, 'outputs', patientFolder, 'genograma.html');
+
+        if (fs.existsSync(genogramPath)) {
+            return res.json({ ok: true, exists: true, path: `/outputs/${patientFolder}/genograma.html` });
+        } else {
+            return res.json({ ok: true, exists: false });
+        }
+    } catch (error) {
+        res.status(500).json({ ok: false, error: 'error_checking_genogram' });
+    }
+});
+
+
 // Parse JSON even if stdout contains extra logs (e.g., Python warnings).
-function parsePossiblyNoisyJson(raw){
-    if(!raw) return null;
+function parsePossiblyNoisyJson(raw) {
+    if (!raw) return null;
     const s = String(raw).trim();
-    if(!s) return null;
-    try{ return JSON.parse(s); }catch(e){ /* fallthrough */ }
+    if (!s) return null;
+    try { return JSON.parse(s); } catch (e) { /* fallthrough */ }
 
     // Try to extract the last JSON object in the output.
-    try{
+    try {
         const matches = s.match(/\{[\s\S]*\}/g);
-        if(matches && matches.length){
-            for(let i = matches.length - 1; i >= 0; i--){
+        if (matches && matches.length) {
+            for (let i = matches.length - 1; i >= 0; i--) {
                 const chunk = matches[i];
-                try{ return JSON.parse(chunk); }catch(e){ /* continue */ }
+                try { return JSON.parse(chunk); } catch (e) { /* continue */ }
             }
         }
-    }catch(e){ /* ignore */ }
+    } catch (e) { /* ignore */ }
     return null;
 }
 
@@ -570,17 +1040,20 @@ app.post('/api/rag/ask', express.json({ limit: '1mb' }), (req, res) => {
             return res.status(400).json({ ok: false, error: 'missing_collection_or_query' });
         }
 
-        // Prefer project-local .venv python if it exists (Windows/Unix paths)
-        let pyExec = process.env.PYTHON_PATH || process.env.PYTHON || 'python';
-        try {
-            const venvWin = path.join(__dirname, '.venv', 'Scripts', 'python.exe');
-            const venvUnix = path.join(__dirname, '.venv', 'bin', 'python');
-            if (fs.existsSync(venvWin)) pyExec = venvWin;
-            else if (fs.existsSync(venvUnix)) pyExec = venvUnix;
-        } catch (e) { /* ignore */ }
-
+        const pyExec = pythonExecutable();
         const scriptPath = path.join(__dirname, 'tools', 'rag_query.py');
-        const childEnv = Object.assign({}, process.env);
+
+        // Force venv Scripts into PATH for dependency resolution
+        const childEnv = { ...process.env };
+        const venvDir = path.dirname(pyExec);
+
+        if (process.platform === 'win32') {
+            childEnv['Path'] = `${venvDir}${path.delimiter}${childEnv['Path'] || ''}`;
+            childEnv['PATH'] = `${venvDir}${childEnv['Path']}`; // Sync them
+        } else {
+            childEnv['PATH'] = `${venvDir}${path.delimiter}${childEnv['PATH'] || ''}`;
+        }
+
         try { childEnv.PYTHONIOENCODING = childEnv.PYTHONIOENCODING || 'utf-8'; } catch (e) { }
         try { childEnv.PYTHONUTF8 = childEnv.PYTHONUTF8 || '1'; } catch (e) { }
 
@@ -611,7 +1084,7 @@ app.post('/api/rag/ask', express.json({ limit: '1mb' }), (req, res) => {
                     'collection_not_found'
                 ]);
                 const status = clientErrors.has(errCode) ? 400 : 500;
-                return res.status(status).json(Object.assign({ ok:false, code, stderr: (err || '').slice(0, 8000) }, parsed));
+                return res.status(status).json(Object.assign({ ok: false, code, stderr: (err || '').slice(0, 8000) }, parsed));
             }
 
             if (code !== 0) {
@@ -619,8 +1092,8 @@ app.post('/api/rag/ask', express.json({ limit: '1mb' }), (req, res) => {
             }
             try {
                 return res.json(JSON.parse(out));
-            }catch(e){
-                return res.status(500).json({ ok:false, error: 'bad_python_json', detail: String(e && e.message), raw: out, stderr: (err || '').slice(0, 8000) });
+            } catch (e) {
+                return res.status(500).json({ ok: false, error: 'bad_python_json', detail: String(e && e.message), raw: out, stderr: (err || '').slice(0, 8000) });
             }
         });
 
@@ -631,9 +1104,41 @@ app.post('/api/rag/ask', express.json({ limit: '1mb' }), (req, res) => {
     }
 });
 
+// Diagnostic endpoint to check Python environment
+app.get('/api/diag/python', async (req, res) => {
+    try {
+        const py = pythonExecutable();
+        const script = path.join(__dirname, 'genograms', 'env_diag.py');
+        const { execFile } = require('child_process');
+
+        const childEnv = { ...process.env };
+        const pathKey = process.platform === 'win32' ? 'Path' : 'PATH';
+        childEnv[pathKey] = `${path.dirname(py)}${path.delimiter}${childEnv[pathKey] || ''}`;
+
+        // On Windows, sometimes both 'Path' and 'PATH' exist. Let's fix both to be safe.
+        if (process.platform === 'win32') {
+            childEnv['PATH'] = childEnv['Path'];
+        }
+
+        execFile(py, [script], { env: childEnv }, (err, stdout, stderr) => {
+            res.json({
+                ok: !err,
+                py,
+                stdout,
+                stderr,
+                platform: process.platform,
+                pathKey,
+                envPath: childEnv[pathKey]?.substring(0, 200) + '...'
+            });
+        });
+    } catch (e) {
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
 // ICD-11 scoring endpoint: query ICD-11 collection in Qdrant and return normalized scores (JSON)
 app.post('/api/icd11/score', express.json({ limit: '1mb' }), (req, res) => {
-    try{
+    try {
         const {
             clinical_text,
             search_query,
@@ -643,40 +1148,44 @@ app.post('/api/icd11/score', express.json({ limit: '1mb' }), (req, res) => {
             collection,
         } = req.body || {};
 
-        if(!clinical_text || !String(clinical_text).trim()){
-            return res.status(400).json({ ok:false, error: 'missing_clinical_text' });
+        if (!clinical_text || !String(clinical_text).trim()) {
+            return res.status(400).json({ ok: false, error: 'missing_clinical_text' });
         }
 
-        // Prefer project-local .venv python if it exists (Windows/Unix paths)
-        let pyExec = process.env.PYTHON_PATH || process.env.PYTHON || 'python';
-        try{
-            const venvWin = path.join(__dirname, '.venv', 'Scripts', 'python.exe');
-            const venvUnix = path.join(__dirname, '.venv', 'bin', 'python');
-            if(fs.existsSync(venvWin)) pyExec = venvWin;
-            else if(fs.existsSync(venvUnix)) pyExec = venvUnix;
-        }catch(e){ /* ignore */ }
-
+        const pyExec = pythonExecutable();
         const scriptPath = path.join(__dirname, 'tools', 'icd11_score.py');
-        const childEnv = Object.assign({}, process.env);
-        try{ childEnv.PYTHONIOENCODING = childEnv.PYTHONIOENCODING || 'utf-8'; }catch(e){}
-        try{ childEnv.PYTHONUTF8 = childEnv.PYTHONUTF8 || '1'; }catch(e){}
+
+        // Force venv Scripts into PATH
+        const childEnv = { ...process.env };
+        const venvDir = path.dirname(pyExec);
+
+        // Extremely robust PATH fix for Windows
+        if (process.platform === 'win32') {
+            childEnv['Path'] = `${venvDir}${path.delimiter}${childEnv['Path'] || ''}`;
+            childEnv['PATH'] = `${venvDir}${path.delimiter}${childEnv['PATH'] || ''}`;
+        } else {
+            childEnv['PATH'] = `${venvDir}${path.delimiter}${childEnv['PATH'] || ''}`;
+        }
+
+        try { childEnv.PYTHONIOENCODING = childEnv.PYTHONIOENCODING || 'utf-8'; } catch (e) { }
+        try { childEnv.PYTHONUTF8 = childEnv.PYTHONUTF8 || '1'; } catch (e) { }
 
         const child = spawn(pyExec, [scriptPath], { env: childEnv, cwd: __dirname });
 
         let out = '';
         let err = '';
-        if(child.stdout) child.stdout.on('data', (d)=>{ out += d.toString(); });
-        if(child.stderr) child.stderr.on('data', (d)=>{ err += d.toString(); });
-        child.on('error', (e)=>{
-            return res.status(500).json({ ok:false, error: 'icd11_spawn_error', detail: String(e && e.message) });
+        if (child.stdout) child.stdout.on('data', (d) => { out += d.toString(); });
+        if (child.stderr) child.stderr.on('data', (d) => { err += d.toString(); });
+        child.on('error', (e) => {
+            return res.status(500).json({ ok: false, error: 'icd11_spawn_error', detail: String(e && e.message) });
         });
-        child.on('close', (code)=>{
+        child.on('close', (code) => {
             let parsed = null;
             parsed = parsePossiblyNoisyJson(out);
 
-            if(parsed && typeof parsed === 'object'){
+            if (parsed && typeof parsed === 'object') {
                 const isOk = parsed.ok === true;
-                if(isOk) return res.json(parsed);
+                if (isOk) return res.json(parsed);
 
                 const errCode = String(parsed.error || 'icd11_error');
                 const clientErrors = new Set([
@@ -687,13 +1196,13 @@ app.post('/api/icd11/score', express.json({ limit: '1mb' }), (req, res) => {
                     'missing_gemini_api_key'
                 ]);
                 const status = clientErrors.has(errCode) ? 400 : 500;
-                return res.status(status).json(Object.assign({ ok:false, code, stderr: (err || '').slice(0, 8000) }, parsed));
+                return res.status(status).json(Object.assign({ ok: false, code, stderr: (err || '').slice(0, 8000) }, parsed));
             }
 
-            if(code !== 0){
-                return res.status(500).json({ ok:false, error: 'icd11_failed', code, detail: err || out || `exit_${code}` });
+            if (code !== 0) {
+                return res.status(500).json({ ok: false, error: 'icd11_failed', code, detail: err || out || `exit_${code}` });
             }
-            return res.status(500).json({ ok:false, error: 'bad_python_json', code, raw: out, stderr: (err || '').slice(0, 8000) });
+            return res.status(500).json({ ok: false, error: 'bad_python_json', code, raw: out, stderr: (err || '').slice(0, 8000) });
         });
 
         child.stdin.write(JSON.stringify({
@@ -705,8 +1214,8 @@ app.post('/api/icd11/score', express.json({ limit: '1mb' }), (req, res) => {
             collection,
         }));
         child.stdin.end();
-    }catch(e){
-        return res.status(500).json({ ok:false, error: 'server_error', detail: String(e && e.message) });
+    } catch (e) {
+        return res.status(500).json({ ok: false, error: 'server_error', detail: String(e && e.message) });
     }
 });
 
@@ -781,6 +1290,315 @@ app.post('/api/data', (req, res) => {
     const body = req.body;
     try { writeData(body); res.json({ ok: true }); } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+// New CRUD endpoints for pacientes using SQLite (if available)
+app.get('/api/pacientes', async (req, res) => {
+    try {
+        if (sqliteAvailable) {
+            const pacientes = await getAllPacientesAsync();
+            return res.json({ ok: true, pacientes });
+        }
+        const d = readData();
+        return res.json({ ok: true, pacientes: (d && d.pacientes) || [] });
+    } catch (err) {
+        console.error('Error fetching pacientes', err);
+        res.status(500).json({ ok: false, error: 'server_error' });
+    }
+});
+
+app.get('/api/pacientes/:id', async (req, res) => {
+    try {
+        const id = req.params.id;
+        if (sqliteAvailable) {
+            const p = await getPacienteByIdAsync(id);
+            if (!p) return res.status(404).json({ ok: false, error: 'not_found' });
+            return res.json({ ok: true, paciente: p });
+        }
+        const d = readData();
+        const p = d && d.pacientes && d.pacientes.find(x => String(x.id) === String(id));
+        if (!p) return res.status(404).json({ ok: false, error: 'not_found' });
+        return res.json({ ok: true, paciente: p });
+    } catch (err) {
+        console.error('Error fetching paciente', err);
+        res.status(500).json({ ok: false, error: 'server_error' });
+    }
+});
+
+app.post('/api/pacientes', express.json({ limit: '1mb' }), async (req, res) => {
+    try {
+        const p = req.body || {};
+        if (!p || !p.nombre) return res.status(400).json({ ok: false, error: 'nombre_required' });
+        if (sqliteAvailable) {
+            const id = await createPacienteAsync(p);
+            const paciente = await getPacienteByIdAsync(id);
+            return res.json({ ok: true, paciente });
+        }
+        // fallback: append to data.json
+        const data = readData() || { pacientes: [] };
+        const newId = data.pacientes && data.pacientes.length ? (Math.max(...data.pacientes.map(x => x.id)) + 1) : 1;
+        const paciente = Object.assign({ id: newId }, p);
+        data.pacientes = data.pacientes || [];
+        data.pacientes.push(paciente);
+        writeData(data);
+        return res.json({ ok: true, paciente });
+    } catch (err) {
+        console.error('Error creating paciente', err);
+        res.status(500).json({ ok: false, error: 'server_error' });
+    }
+});
+
+// Delete paciente
+app.delete('/api/pacientes/:id', async (req, res) => {
+    try {
+        const id = req.params.id;
+        if (sqliteAvailable) {
+            await new Promise((resolve, reject) => {
+                db.run('DELETE FROM pacientes WHERE id = ?', [id], function (err) {
+                    if (err) return reject(err);
+                    resolve(this.changes);
+                });
+            });
+            return res.json({ ok: true });
+        }
+        // fallback: remove from data.json
+        const data = readData() || { pacientes: [] };
+        const origLen = data.pacientes.length;
+        data.pacientes = data.pacientes.filter(x => String(x.id) !== String(id));
+        if (data.pacientes.length === origLen) return res.status(404).json({ ok: false, error: 'not_found' });
+        writeData(data);
+        return res.json({ ok: true });
+    } catch (err) {
+        console.error('Error deleting paciente', err);
+        res.status(500).json({ ok: false, error: 'server_error' });
+    }
+});
+
+// Migration helper: import pacientes from data.json into sqlite (safe to call once)
+app.post('/api/migrate-pacientes', async (req, res) => {
+    if (!sqliteAvailable) return res.status(400).json({ ok: false, error: 'sqlite_not_available' });
+    try {
+        const data = readData();
+        const pacientes = (data && data.pacientes) || [];
+        let imported = 0;
+        for (const p of pacientes) {
+            // skip if exists by id
+            const exists = await getPacienteByIdAsync(p.id);
+            if (exists) continue;
+            // insert with provided id via manual insert
+            await new Promise((resolve, reject) => {
+                const stmt = db.prepare('INSERT INTO pacientes (id, nombre, edad, telefono, email, direccion, fechaNacimiento, genero, ocupacion, motivoConsulta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                stmt.run([
+                    p.id,
+                    p.nombre || '',
+                    p.edad || 0,
+                    p.telefono || '',
+                    p.email || '',
+                    p.direccion || '',
+                    p.fechaNacimiento || '',
+                    p.genero || '',
+                    p.ocupacion || '',
+                    p.motivoConsulta || p.motivo || ''
+                ], function (err) { stmt.finalize(); if (err) return reject(err); resolve(); });
+            });
+            imported++;
+        }
+        return res.json({ ok: true, imported });
+    } catch (err) {
+        console.error('Migration error', err);
+        res.status(500).json({ ok: false, error: 'migration_failed', detail: String(err) });
+    }
+});
+
+// Transcriptions migration endpoint: scan outputs/ for transcription files and insert into DB
+app.post('/api/transcripciones/migrate', async (req, res) => {
+    if (!sqliteAvailable) return res.status(400).json({ ok: false, error: 'sqlite_not_available' });
+    try {
+        // Ensure pacientes are migrated first if requested
+        // Build map of sanitized patient -> id
+        const pacientes = await getAllPacientesAsync();
+        const nameToId = new Map();
+        pacientes.forEach(p => {
+            const sanitized = sanitizePatientName(p.nombre || '');
+            if (sanitized) nameToId.set(sanitized, p.id);
+        });
+
+        // Walk outputsDir for files matching pattern *_transcription.txt
+        const foundFiles = [];
+        function walk(dir) {
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            for (const e of entries) {
+                const full = path.join(dir, e.name);
+                if (e.isDirectory()) walk(full);
+                else if (e.isFile() && /_transcription\.txt$/i.test(e.name)) foundFiles.push(full);
+            }
+        }
+        walk(outputsDir);
+
+        let imported = 0;
+        let skipped = 0;
+        const problems = [];
+
+        for (const fpath of foundFiles) {
+            try {
+                // Expect path like outputs/patient_<sanitized>/sesion_<N>/patient_<sanitized>_sesion<N>_transcription.txt
+                const parts = fpath.split(path.sep);
+                // find the segment that starts with 'patient_'
+                const patientSeg = parts.find(p => p.startsWith('patient_')) || '';
+                const sanitized = patientSeg.replace(/^patient_/, '');
+                // find session segment like sesion_8
+                const sessionSeg = parts.find(p => /^sesion_\d+$/.test(p)) || '';
+                const sessionIndex = sessionSeg ? parseInt(sessionSeg.split('_')[1], 10) : null;
+
+                if (!sanitized || !sessionIndex) { skipped++; problems.push({ file: fpath, reason: 'bad_path' }); continue; }
+
+                // Map sanitized -> paciente id; if not found, try to create a new paciente with that name
+                let pid = nameToId.get(sanitized);
+                if (!pid) {
+                    // Create a readable name from sanitized: replace _ with space and capitalize
+                    const pretty = sanitized.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+                    const newId = await createPacienteAsync({ nombre: pretty });
+                    // fetch the created paciente
+                    const created = await getPacienteByIdAsync(newId);
+                    pid = created.id;
+                    nameToId.set(sanitized, pid);
+                }
+
+                const text = fs.readFileSync(fpath, 'utf8');
+                // use sessionIndex as numeric value (keep as found in folder)
+                await upsertTranscriptionAsync(pid, sessionIndex, text, path.relative(__dirname, fpath).replace(/\\/g, '/'));
+                imported++;
+            } catch (e) {
+                skipped++; problems.push({ file: fpath, error: String(e && e.message) });
+            }
+        }
+
+        return res.json({ ok: true, imported, skipped, problems });
+    } catch (err) {
+        console.error('transcriptions migration error', err);
+        return res.status(500).json({ ok: false, error: 'migration_failed', detail: String(err) });
+    }
+});
+
+// CRUD endpoints for transcriptions
+app.get('/api/transcripciones', async (req, res) => {
+    try {
+        if (sqliteAvailable) {
+            const rows = await getAllTranscriptionsAsync();
+            return res.json({ ok: true, transcripciones: rows });
+        }
+        return res.json({ ok: true, transcripciones: [] });
+    } catch (e) { console.error(e); res.status(500).json({ ok: false, error: 'server_error' }); }
+});
+
+app.get('/api/transcripciones/:pacienteId/:sessionIndex', async (req, res) => {
+    try {
+        const pid = req.params.pacienteId;
+        const si = parseInt(req.params.sessionIndex, 10);
+        if (sqliteAvailable) {
+            const t = await getTranscriptionAsync(pid, si);
+            if (!t) return res.status(404).json({ ok: false, error: 'not_found' });
+            return res.json({ ok: true, transcripcion: t });
+        }
+        return res.status(404).json({ ok: false, error: 'sqlite_not_available' });
+    } catch (e) { console.error(e); res.status(500).json({ ok: false, error: 'server_error' }); }
+});
+
+app.post('/api/transcripciones', express.json({ limit: '2mb' }), async (req, res) => {
+    try {
+        const { pacienteId, sessionIndex, transcriptionText, transcriptionPath } = req.body || {};
+        if (!pacienteId || sessionIndex === undefined) return res.status(400).json({ ok: false, error: 'pacienteId_and_sessionIndex_required' });
+        if (sqliteAvailable) {
+            const r = await upsertTranscriptionAsync(pacienteId, sessionIndex, transcriptionText || '', transcriptionPath || '');
+            return res.json({ ok: true, result: r });
+        }
+        return res.status(400).json({ ok: false, error: 'sqlite_not_available' });
+    } catch (e) { console.error(e); res.status(500).json({ ok: false, error: 'server_error' }); }
+});
+
+// --- Citas (appointments) endpoints ---
+app.get('/api/citas', async (req, res) => {
+    try {
+        if (sqliteAvailable) {
+            const citas = await getAllCitasAsync();
+            return res.json({ ok: true, citas });
+        }
+        const d = readData() || {};
+        return res.json({ ok: true, citas: d.agenda || [] });
+    } catch (e) { console.error(e); return res.status(500).json({ ok: false, error: 'server_error' }); }
+});
+
+app.post('/api/citas', express.json({ limit: '1mb' }), async (req, res) => {
+    try {
+        const body = req.body || {};
+        // Accept either snake_case or camelCase
+        const paciente_id = body.paciente_id || body.pacienteId || body.pacienteId === 0 ? body.paciente_id || body.pacienteId : null;
+        const fecha = body.fecha || body.date || null;
+        const hora = body.hora || body.time || null;
+        const estado = body.estado || body.status || 'pendiente';
+        const psicologo_id = body.psicologo_id || body.psicologoId || null;
+
+        if (sqliteAvailable) {
+            const created = await createCitaAsync({ paciente_id, fecha, hora, estado, psicologo_id });
+            return res.json({ ok: true, cita: created });
+        }
+
+        // fallback: append to data.json.agenda
+        const data = readData() || {};
+        data.agenda = data.agenda || [];
+        const newId = data.agenda.length ? (Math.max(...data.agenda.map(x => x.id)) + 1) : 1;
+        const cita = { id: newId, paciente_id, fecha, hora, estado, psicologo_id, created_at: (new Date()).toISOString() };
+        data.agenda.push(cita);
+        writeData(data);
+        return res.json({ ok: true, cita });
+    } catch (err) { console.error('Error creating cita', err); return res.status(500).json({ ok: false, error: 'server_error' }); }
+});
+
+app.delete('/api/citas/:id', async (req, res) => {
+    try {
+        const id = req.params.id;
+        if (sqliteAvailable) {
+            const r = await deleteCitaAsync(id);
+            if (r.changes && r.changes > 0) return res.json({ ok: true });
+            return res.status(404).json({ ok: false, error: 'not_found' });
+        }
+        const data = readData() || {};
+        const orig = (data.agenda || []).length;
+        data.agenda = (data.agenda || []).filter(x => String(x.id) !== String(id));
+        if (data.agenda.length === orig) return res.status(404).json({ ok: false, error: 'not_found' });
+        writeData(data);
+        return res.json({ ok: true });
+    } catch (err) { console.error(err); return res.status(500).json({ ok: false, error: 'server_error' }); }
+});
+
+// Migration endpoint to import agenda from data.json into SQLite
+app.post('/api/migrate-citas', async (req, res) => {
+    if (!sqliteAvailable) return res.status(400).json({ ok: false, error: 'sqlite_not_available' });
+    try {
+        const data = readData() || {};
+        const agenda = data.agenda || [];
+        let imported = 0;
+        for (const a of agenda) {
+            try {
+                // Ensure paciente exists; if not, create minimal record
+                let pid = a.paciente_id || a.pacienteId || null;
+                if (pid) {
+                    const exists = await getPacienteByIdAsync(pid);
+                    if (!exists) {
+                        // create placeholder paciente with generic name
+                        const createdId = await createPacienteAsync({ nombre: `Paciente_${pid}` });
+                        pid = createdId;
+                    }
+                }
+                await createCitaAsync({ paciente_id: pid, fecha: a.fecha || a.date, hora: a.hora || a.time, estado: a.estado || a.status || 'pendiente', psicologo_id: a.psicologo_id || a.psicologoId || null });
+                imported++;
+            } catch (e) {
+                console.warn('Failed to import agenda item', a, e && e.message);
+            }
+        }
+        return res.json({ ok: true, imported });
+    } catch (err) { console.error('migrate-citas error', err); return res.status(500).json({ ok: false, error: 'migration_failed', detail: String(err) }); }
+});
+
 
 // Endpoint para generar resumen de transcripción usando HuggingFace
 app.post('/api/generate-summary', express.json({ limit: '2mb' }), async (req, res) => {
@@ -893,9 +1711,20 @@ app.post('/api/genograma/:patientId', async (req, res) => {
 
         console.log(`Generando genograma para paciente ${patientId}...`);
 
-        // 1. Obtener nombre del paciente desde data.json
-        const allData = readData();
-        const patientData = allData ? allData.pacientes.find(p => String(p.id) === String(patientId)) : null;
+        // 1. Obtener nombre del paciente desde SQLite (preferido) o data.json como fallback
+        let patientData = null;
+        if (sqliteAvailable) {
+            try {
+                patientData = await getPacienteByIdAsync(patientId);
+            } catch (e) {
+                console.warn('[warn] Error leyendo paciente desde sqlite:', e && e.message);
+                patientData = null;
+            }
+        }
+        if (!patientData) {
+            const allData = readData();
+            patientData = allData ? allData.pacientes.find(p => String(p.id) === String(patientId)) : null;
+        }
 
         let fullTranscription = '';
 
@@ -965,8 +1794,13 @@ app.post('/api/genograma/:patientId', async (req, res) => {
 
         // Ejecutar script Python
         const { spawn } = require('child_process');
-        const pythonPath = process.env.PYTHON_PATH || 'python';
+        const pythonPath = pythonExecutable();
         const scriptPath = path.join(__dirname, 'genograms', 'generate_genogram.py');
+
+        // Force venv Scripts into PATH
+        const childEnv = { ...process.env };
+        const pathKey = process.platform === 'win32' ? 'Path' : 'PATH';
+        childEnv[pathKey] = `${path.dirname(pythonPath)}${path.delimiter}${childEnv[pathKey]}`;
 
         // Crear archivo temporal con la transcripción
         const tempTranscriptionPath = path.join(__dirname, 'outputs', `temp_transcription_${patientId}.txt`);
@@ -979,7 +1813,7 @@ app.post('/api/genograma/:patientId', async (req, res) => {
             scriptPath,
             tempTranscriptionPath,
             outputPath
-        ]);
+        ], { env: childEnv });
 
         let pythonOutput = '';
         let pythonError = '';

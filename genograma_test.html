@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genograma Familiar</title>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        #genogram-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            max-width: 100%;
+            overflow: hidden;
+        }
+        #genogram-svg {
+            border: 1px solid #ddd;
+            cursor: move;
+        }
+        .controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        h1 {
+            margin-top: 0;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div id="genogram-container">
+        <h1>📊 Genograma Familiar</h1>
+        <div class="controls">
+            <button onclick="panZoom.zoomIn()">🔍 Zoom In</button>
+            <button onclick="panZoom.zoomOut()">🔍 Zoom Out</button>
+            <button onclick="panZoom.reset()">🔄 Reset</button>
+            <button onclick="panZoom.fit()">📐 Ajustar</button>
+        </div>
+        <svg id="genogram-svg" width="830.0" height="600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <!-- Relaciones -->
+  <line x1="600.0" y1="400" x2="600.0" y2="420" stroke="black" stroke-width="2"/>
+  <line x1="300.0" y1="160" x2="300.0" y2="420" stroke="black" stroke-width="2"/>
+  <line x1="300.0" y1="420" x2="600.0" y2="420" stroke="black" stroke-width="2"/>
+  <line x1="450.0" y1="420" x2="450.0" y2="340" stroke="black" stroke-width="2"/>
+  <line x1="600.0" y1="400" x2="600.0" y2="420" stroke="black" stroke-width="2"/>
+  <line x1="300.0" y1="160" x2="300.0" y2="420" stroke="black" stroke-width="2"/>
+  <line x1="300.0" y1="420" x2="600.0" y2="420" stroke="black" stroke-width="2"/>
+  <line x1="450.0" y1="420" x2="450.0" y2="340" stroke="black" stroke-width="2"/>
+  <line x1="500.0" y1="160" x2="500.0" y2="340" stroke="black" stroke-width="2"/>
+  <!-- Personas -->
+  <g id="person-juan_garcia">
+    <text x="600.0" y="330" text-anchor="middle" font-size="11" font-family="Arial" font-weight="bold">Juan García</text>
+
+    <g transform="translate(570.0,340)">
+      <image href="data:image/svg+xml;charset=utf-8;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPCEtLSBGb25kbyB0cmFuc3BhcmVudGU7IGRvcyBjdWFkcmFkb3MgY29uY8OpbnRyaWNvcyBzb2xvIGNvbiBjb250b3JubyBuZWdybyAtLT4KPHN2ZyB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICAgICB3aWR0aD0iMTE1MiIgaGVpZ2h0PSI3MjAiIHZpZXdCb3g9IjAgMCAxMTUyIDcyMCIgc3R5bGU9ImJhY2tncm91bmQ6bm9uZSI+CiAgPHN0eWxlPgogICAgLm91dGxpbmUgewogICAgICBmaWxsOiBub25lOwogICAgICBzdHJva2U6ICMwMDA7CiAgICAgIHN0cm9rZS13aWR0aDogNDsgICAgICAgICAgLyogZ3Jvc29yIG1vZGVyYWRvICovCiAgICAgIHN0cm9rZS1saW5lY2FwOiByb3VuZDsKICAgICAgc3Ryb2tlLWxpbmVqb2luOiByb3VuZDsKICAgICAgdmVjdG9yLWVmZmVjdDogbm9uLXNjYWxpbmctc3Ryb2tlOwogICAgfQogIDwvc3R5bGU+CgogIDwhLS0gQ3VhZHJhZG8gZXh0ZXJpb3IgKGNlbnRyYWRvIGRlIDYwMHg2MDApIC0tPgogIDxyZWN0IGNsYXNzPSJvdXRsaW5lIiB4PSIyNzYiIHk9IjYwIiB3aWR0aD0iNjAwIiBoZWlnaHQ9IjYwMCIvPgogIDwhLS0gQ3VhZHJhZG8gaW50ZXJpb3IgKGNlbnRyYWRvIGRlIDMwMHgzMDApIC0tPgogIDxyZWN0IGNsYXNzPSJvdXRsaW5lIiB4PSI0MjYiIHk9IjIxMCIgd2lkdGg9IjMwMCIgaGVpZ2h0PSIzMDAiLz4KPC9zdmc+" x="0" y="0" width="60" height="60" /><rect x="-4" y="-4" width="68" height="68" fill="none" stroke="black" stroke-width="2"/>
+    </g>
+        <text x="600.0" y="415" text-anchor="middle" font-size="10" font-family="Arial">45 años</text>
+
+        
+    </g>
+  <g id="person-maria_lopez">
+    <text x="300.0" y="90" text-anchor="middle" font-size="11" font-family="Arial" font-weight="bold">María López</text>
+
+    <g transform="translate(270.0,100)">
+      <image href="data:image/svg+xml;charset=utf-8;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/Pgo8IURPQ1RZUEUgc3ZnIFBVQkxJQyAiLS8vVzNDLy9EVEQgU1ZHIDIwMDEwOTA0Ly9FTiIKICJodHRwOi8vd3d3LnczLm9yZy9UUi8yMDAxL1JFQy1TVkctMjAwMTA5MDQvRFREL3N2ZzEwLmR0ZCI+CjxzdmcgdmVyc2lvbj0iMS4wIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciCiB3aWR0aD0iMTkyMC4wMDAwMDBwdCIgaGVpZ2h0PSIxMDgwLjAwMDAwMHB0IiB2aWV3Qm94PSIwIDAgMTkyMC4wMDAwMDAgMTA4MC4wMDAwMDAiCiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCBtZWV0Ij4KCjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAuMDAwMDAwLDEwODAuMDAwMDAwKSBzY2FsZSgwLjEwMDAwMCwtMC4xMDAwMDApIgpmaWxsPSIjMDAwMDAwIiBzdHJva2U9Im5vbmUiPgo8cGF0aCBkPSJNOTE3NSA5MDgwIGMtNjM2IC03NSAtMTIyOCAtMzA2IC0xNzUwIC02ODMgLTE2NyAtMTIxIC0zMTUgLTI1MAotNDc1IC00MTQgLTQ2OSAtNDc5IC03OTEgLTEwNTQgLTk1MCAtMTY5NiAtNzUgLTMwNCAtOTIgLTQ0MiAtOTcgLTc4NiAtNgotMzMxIDMgLTQ3MyA0MyAtNzExIDE5NiAtMTE2OSA5NDIgLTIxNzcgMjAwNCAtMjcwNiA0MDkgLTIwNCA4MDAgLTMxOCAxMjYzCi0zNjkgMjA1IC0yMiA1ODggLTIwIDc5NyA1IDYwNSA3MSAxMTMxIDI2MyAxNjMwIDU5NCA5NDcgNjI5IDE1NTMgMTY0NyAxNjUxCjI3NzEgMTUgMTczIDcgNTU1IC0xNiA3NDUgLTEwMiA4NTYgLTQ4NSAxNjMyIC0xMTAyIDIyMzAgLTI5MiAyODQgLTU2OCA0NzgKLTkzNSA2NjAgLTM5OSAxOTcgLTc4MCAzMTAgLTEyMjEgMzYwIC0yMjYgMjYgLTYyMiAyNiAtODQyIDB6IG03NzUgLTIyMApjMTEzNCAtMTE4IDIxMzUgLTc4MyAyNjk0IC0xNzg2IDQ2MCAtODI4IDU1NiAtMTg2MyAyNTUgLTI3NjUgLTM4MSAtMTE0NAotMTMyNSAtMjAxMSAtMjQ5NCAtMjI5MCAtMjQ2IC01OCAtNDMxIC04MCAtNzI4IC04NiAtNDUyIC05IC03ODEgMzcgLTExNjIKMTY0IC01NTEgMTgzIC05OTMgNDU4IC0xMzk1IDg3MCAtMjEzIDIxNyAtMzQ5IDM5MCAtNDkyIDYyNiAtMjcwIDQ0NSAtNDI5CjkyMiAtNDg5IDE0NjcgLTE5IDE3NSAtMTcgNjA3IDQgNzY0IDExNCA4NDUgNDk2IDE1ODUgMTEwNiAyMTQwIDYwNyA1NTEgMTMyMwo4NTIgMjE3MSA5MTAgODYgNiA0MjUgLTMgNTMwIC0xNHoiLz4KPC9nPgo8L3N2Zz4K" x="0" y="0" width="60" height="60" />
+    </g>
+        <text x="300.0" y="175" text-anchor="middle" font-size="10" font-family="Arial">42 años</text>
+
+        
+    </g>
+  <g id="person-pedro_garcia_lopez">
+    <text x="200.0" y="330" text-anchor="middle" font-size="11" font-family="Arial" font-weight="bold">Pedro</text>
+
+    <g transform="translate(170.0,340)">
+      <image href="data:image/svg+xml;charset=utf-8;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPCEtLSBDdWFkcmFkbyBkaXZpZGlkbyB2ZXJ0aWNhbG1lbnRlIGNvbiBsYSBtaXRhZCBpenF1aWVyZGEgcmVsbGVuYSBkZSBsw61uZWFzIGRpYWdvbmFsZXMgY29udGludWFzICgvKSAtLT4KPHN2ZyB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgCiAgICAgd2lkdGg9IjExNTIiIGhlaWdodD0iNzIwIiB2aWV3Qm94PSIwIDAgMTE1MiA3MjAiIHN0eWxlPSJiYWNrZ3JvdW5kOm5vbmUiPgogIAogIDxkZWZzPgogICAgPCEtLSBEZWZpbmljacOzbiBkZWwgcGF0csOzbiBkZSBsw61uZWFzIGRpYWdvbmFsZXMgKC8pIGRlIGl6cXVpZXJkYSBhIGRlcmVjaGEgLS0+CiAgICA8cGF0dGVybiBpZD0iZGlhZ29uYWxIYXRjaExSIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIiB3aWR0aD0iMjAiIGhlaWdodD0iMjAiPgogICAgICA8IS0tIEzDrW5lYSBxdWUgdmEgZGUgYWJham8taXpxdWllcmRhIGEgYXJyaWJhLWRlcmVjaGEgcGFyYSBjcmVhciBlbCBlZmVjdG8gIi8iIC0tPgogICAgICA8cGF0aCBkPSJNLTUsMjUgTDI1LC01IiBzdHJva2U9IiMwMDAwMDAiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9ImJ1dHQiLz4KICAgIDwvcGF0dGVybj4KICA8L2RlZnM+CgogIDwhLS0gTWl0YWQgaXpxdWllcmRhIGRlbCBjdWFkcmFkbyByZWxsZW5hIGNvbiBlbCBwYXRyw7NuIGRlIGzDrW5lYXMgZGlhZ29uYWxlcyAtLT4KICA8IS0tIHg9Mjc2IChpbmljaW8pLCB5PTYwIChpbmljaW8pLCBhbmNobz0zMDAgKG1pdGFkIGRlIDYwMCksIGFsdG89NjAwIC0tPgogIDxyZWN0IHg9IjI3NiIgeT0iNjAiIHdpZHRoPSIzMDAiIGhlaWdodD0iNjAwIiBmaWxsPSJ1cmwoI2RpYWdvbmFsSGF0Y2hMUikiIC8+CgogIDwhLS0gQ29udG9ybm8gZGVsIGN1YWRyYWRvIGNvbXBsZXRvICg2MDB4NjAwKSAtLT4KICA8cmVjdCB4PSIyNzYiIHk9IjYwIiB3aWR0aD0iNjAwIiBoZWlnaHQ9IjYwMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwMDAwIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KCiAgPCEtLSBMw61uZWEgZGl2aXNvcmlhIHZlcnRpY2FsIGVuIGVsIGNlbnRybyAtLT4KICA8bGluZSB4MT0iNTc2IiB5MT0iNjAiIHgyPSI1NzYiIHkyPSI2NjAiIHN0cm9rZT0iIzAwMDAwMCIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KCjwvc3ZnPg==" x="0" y="0" width="60" height="60" />
+    </g>
+        <text x="200.0" y="415" text-anchor="middle" font-size="10" font-family="Arial">15 años</text>
+
+        <text x="200.0" y="429" text-anchor="middle" font-size="9" font-family="Arial" fill="#666">En tratamiento por ansied</text>
+
+    </g>
+  <g id="person-ana_garcia_lopez">
+    <text x="400.0" y="330" text-anchor="middle" font-size="11" font-family="Arial" font-weight="bold">Ana</text>
+
+    <g transform="translate(370.0,340)">
+      <image href="data:image/svg+xml;charset=utf-8;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/Pgo8IURPQ1RZUEUgc3ZnIFBVQkxJQyAiLS8vVzNDLy9EVEQgU1ZHIDIwMDEwOTA0Ly9FTiIKICJodHRwOi8vd3d3LnczLm9yZy9UUi8yMDAxL1JFQy1TVkctMjAwMTA5MDQvRFREL3N2ZzEwLmR0ZCI+CjxzdmcgdmVyc2lvbj0iMS4wIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciCiB3aWR0aD0iMTkyMC4wMDAwMDBwdCIgaGVpZ2h0PSIxMDgwLjAwMDAwMHB0IiB2aWV3Qm94PSIwIDAgMTkyMC4wMDAwMDAgMTA4MC4wMDAwMDAiCiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCBtZWV0Ij4KCjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAuMDAwMDAwLDEwODAuMDAwMDAwKSBzY2FsZSgwLjEwMDAwMCwtMC4xMDAwMDApIgpmaWxsPSIjMDAwMDAwIiBzdHJva2U9Im5vbmUiPgo8cGF0aCBkPSJNOTE3NSA5MDgwIGMtNjM2IC03NSAtMTIyOCAtMzA2IC0xNzUwIC02ODMgLTE2NyAtMTIxIC0zMTUgLTI1MAotNDc1IC00MTQgLTQ2OSAtNDc5IC03OTEgLTEwNTQgLTk1MCAtMTY5NiAtNzUgLTMwNCAtOTIgLTQ0MiAtOTcgLTc4NiAtNgotMzMxIDMgLTQ3MyA0MyAtNzExIDE5NiAtMTE2OSA5NDIgLTIxNzcgMjAwNCAtMjcwNiA0MDkgLTIwNCA4MDAgLTMxOCAxMjYzCi0zNjkgMjA1IC0yMiA1ODggLTIwIDc5NyA1IDYwNSA3MSAxMTMxIDI2MyAxNjMwIDU5NCA5NDcgNjI5IDE1NTMgMTY0NyAxNjUxCjI3NzEgMTUgMTczIDcgNTU1IC0xNiA3NDUgLTEwMiA4NTYgLTQ4NSAxNjMyIC0xMTAyIDIyMzAgLTI5MiAyODQgLTU2OCA0NzgKLTkzNSA2NjAgLTM5OSAxOTcgLTc4MCAzMTAgLTEyMjEgMzYwIC0yMjYgMjYgLTYyMiAyNiAtODQyIDB6IG03NzUgLTIyMApjMTEzNCAtMTE4IDIxMzUgLTc4MyAyNjk0IC0xNzg2IDQ2MCAtODI4IDU1NiAtMTg2MyAyNTUgLTI3NjUgLTM4MSAtMTE0NAotMTMyNSAtMjAxMSAtMjQ5NCAtMjI5MCAtMjQ2IC01OCAtNDMxIC04MCAtNzI4IC04NiAtNDUyIC05IC03ODEgMzcgLTExNjIKMTY0IC01NTEgMTgzIC05OTMgNDU4IC0xMzk1IDg3MCAtMjEzIDIxNyAtMzQ5IDM5MCAtNDkyIDYyNiAtMjcwIDQ0NSAtNDI5CjkyMiAtNDg5IDE0NjcgLTE5IDE3NSAtMTcgNjA3IDQgNzY0IDExNCA4NDUgNDk2IDE1ODUgMTEwNiAyMTQwIDYwNyA1NTEgMTMyMwo4NTIgMjE3MSA5MTAgODYgNiA0MjUgLTMgNTMwIC0xNHoiLz4KPC9nPgo8L3N2Zz4K" x="0" y="0" width="60" height="60" />
+    </g>
+        <text x="400.0" y="415" text-anchor="middle" font-size="10" font-family="Arial">12 años</text>
+
+        
+    </g>
+  <g id="person-roberto_garcia">
+    <text x="500.0" y="90" text-anchor="middle" font-size="11" font-family="Arial" font-weight="bold">Roberto</text>
+
+    <g transform="translate(470.0,100)">
+      <image href="data:image/svg+xml;charset=utf-8;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/Pgo8IURPQ1RZUEUgc3ZnIFBVQkxJQyAiLS8vVzNDLy9EVEQgU1ZHIDIwMDEwOTA0Ly9FTiIKICJodHRwOi8vd3d3LnczLm9yZy9UUi8yMDAxL1JFQy1TVkctMjAwMTA5MDQvRFREL3N2ZzEwLmR0ZCI+CjxzdmcgdmVyc2lvbj0iMS4wIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciCiB3aWR0aD0iMTkyMC4wMDAwMDBwdCIgaGVpZ2h0PSIxMDgwLjAwMDAwMHB0IiB2aWV3Qm94PSIwIDAgMTkyMC4wMDAwMDAgMTA4MC4wMDAwMDAiCiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCBtZWV0Ij4KCjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAuMDAwMDAwLDEwODAuMDAwMDAwKSBzY2FsZSgwLjEwMDAwMCwtMC4xMDAwMDApIgpmaWxsPSIjMDAwMDAwIiBzdHJva2U9Im5vbmUiPgo8cGF0aCBkPSJNNjI3MCA1NDAwIGwwIC0zMzMwIDMzMzAgMCAzMzMwIDAgMCAzMzMwIDAgMzMzMCAtMzMzMCAwIC0zMzMwIDAgMAotMzMzMHogbTY0NjAgMjkzMyBjMCAtNDE2OSAtMSAtNjA1NyAtMyAtNjA2MCAtMyAtMiAtMTg5MSAtMyAtNjA1OSAtMyBsLTIwOAowIDAgMzEyOCBjMCAxNzIxIDMgMzEzMiA3IDMxMzUgMyA0IDE0MTQgNyAzMTM1IDcgbDMxMjggMCAwIC0yMDd6Ii8+CjwvZz4KPC9zdmc+Cg==" x="0" y="0" width="60" height="60" />
+    </g>
+        <text x="500.0" y="175" text-anchor="middle" font-size="10" font-family="Arial">70 años</text>
+
+        
+    </g>
+</svg>
+
+    </div>
+    <script>
+        var panZoom = svgPanZoom('#genogram-svg', {
+            zoomEnabled: true,
+            controlIconsEnabled: false,
+            fit: true,
+            center: true,
+            minZoom: 0.5,
+            maxZoom: 10
+        });
+    </script>
+</body>
+</html>

@@ -2,44 +2,7 @@
 // VALORES MOCK (extendidos)
 // ---------------------
 
-const mockPacientes = [
-    {
-        id: 1,
-        nombre: "Juan Pérez",
-        edad: 32,
-        motivo: "Ansiedad",
-        contacto: "juan@example.com",
-        direccion: "Calle Falsa 123",
-        antecedentes: "No alergias. Antecedentes familiares de ansiedad.",
-        consents: [],
-        genogramaHtml: null
-
-    },
-    {
-        id: 2,
-        nombre: "María López",
-        edad: 27,
-        motivo: "Depresión",
-        contacto: "maria@example.com",
-        direccion: "Av. Siempreviva 742",
-        antecedentes: "Tratamiento previo con ISRS.",
-        consents: [],
-        genogramaHtml: null
-
-    },
-    {
-        id: 3,
-        nombre: "Carlos Ruiz",
-        edad: 45,
-        motivo: "Estrés laboral",
-        contacto: "carlos@example.com",
-        direccion: "Paseo del Prado 10",
-        antecedentes: "Hipertensión controlada.",
-        consents: [],
-        genogramaHtml: null
-
-    }
-];
+const mockPacientes = [];
 
 const mockAgenda = [
     { fecha: "2025-11-19", hora: "10:00", pacienteId: 1, estado: 'Confirmada' },
@@ -152,20 +115,20 @@ function pickClosestCollection(requested, available) {
 // ICD-11 scoring helpers (RAG collection: rag_ics_enfermedadesmundiales)
 // ---------------------
 
-function icd11Key(item){
+function icd11Key(item) {
     const code = (item && (item.codigo || item.code)) ? String(item.codigo || item.code).trim() : '';
-    if(code) return 'code:' + code;
+    if (code) return 'code:' + code;
     const name = String(item && (item.nombre || item.name) || '').trim().toLowerCase();
     return name ? ('name:' + name) : '';
 }
 
-function objectiveToText(obj){
-    if(!obj) return '';
-    if(typeof obj === 'string') return obj.trim();
-    try{ return JSON.stringify(obj, null, 2); }catch(e){ return String(obj); }
+function objectiveToText(obj) {
+    if (!obj) return '';
+    if (typeof obj === 'string') return obj.trim();
+    try { return JSON.stringify(obj, null, 2); } catch (e) { return String(obj); }
 }
 
-function buildClinicalTextForIcd11(s, analysisText){
+function buildClinicalTextForIcd11(s, analysisText) {
     const subjetivo = (s && s.soap && typeof s.soap.s === 'string') ? s.soap.s.trim() : '';
     const objetivo = (s && s.soap) ? objectiveToText(s.soap.o) : '';
     const analisis = String(analysisText || '').trim();
@@ -181,23 +144,23 @@ function buildClinicalTextForIcd11(s, analysisText){
     ].join('\n').trim();
 }
 
-function icd11DynamicAlpha(sessionCount){
+function icd11DynamicAlpha(sessionCount) {
     const n = Math.max(1, Number(sessionCount || 1));
-    if(n <= 2) return 0.50;
-    if(n <= 5) return 0.35;
+    if (n <= 2) return 0.50;
+    if (n <= 5) return 0.35;
     return 0.25;
 }
 
-function mergeIcd11Aggregate(prevAgg, sessionScores, alpha){
+function mergeIcd11Aggregate(prevAgg, sessionScores, alpha) {
     const prev = (prevAgg && typeof prevAgg === 'object') ? prevAgg : {};
     const next = Object.assign({}, prev);
     const a = Math.max(0.05, Math.min(0.80, Number(alpha || 0.30)));
 
     const seenKeys = new Set();
     const scores = Array.isArray(sessionScores) ? sessionScores : [];
-    for(const it of scores){
+    for (const it of scores) {
         const key = icd11Key(it);
-        if(!key) continue;
+        if (!key) continue;
         seenKeys.add(key);
 
         const nombre = String(it.nombre || it.name || '').trim();
@@ -214,8 +177,8 @@ function mergeIcd11Aggregate(prevAgg, sessionScores, alpha){
     }
 
     // Gentle decay for items not observed in this session (prevents old hypotheses from sticking forever)
-    for(const key of Object.keys(next)){
-        if(seenKeys.has(key)) continue;
+    for (const key of Object.keys(next)) {
+        if (seenKeys.has(key)) continue;
         const entry = next[key];
         const prevScore = (entry && typeof entry.score === 'number') ? entry.score : Number(entry && entry.score) || 0;
         next[key] = Object.assign({}, entry, { score: prevScore * (1 - (a * 0.12)) });
@@ -224,27 +187,27 @@ function mergeIcd11Aggregate(prevAgg, sessionScores, alpha){
     return next;
 }
 
-function icd11AggTopList(aggMap, limit=5){
+function icd11AggTopList(aggMap, limit = 5) {
     const arr = Object.values((aggMap && typeof aggMap === 'object') ? aggMap : {});
-    arr.sort((a,b)=>(Number(b.score)||0) - (Number(a.score)||0));
-    return arr.slice(0, Math.max(1, Number(limit||5))).map(x=>({
+    arr.sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
+    return arr.slice(0, Math.max(1, Number(limit || 5))).map(x => ({
         nombre: String(x.nombre || '').trim(),
         codigo: String(x.codigo || '').trim(),
         score: Math.round(Math.max(0, Math.min(100, Number(x.score || 0))))
-    })).filter(x=>x.nombre);
+    })).filter(x => x.nombre);
 }
 
-function formatIcd11Block({ sessionScores, sessionNote, aggTop }){
+function formatIcd11Block({ sessionScores, sessionNote, aggTop }) {
     const lines = [];
     lines.push('---');
     lines.push('📌 Score ICD‑11 (orientativo, no diagnóstico)');
     lines.push('');
 
-    if(Array.isArray(sessionScores) && sessionScores.length){
+    if (Array.isArray(sessionScores) && sessionScores.length) {
         lines.push('Sesión actual:');
-        sessionScores.slice(0,5).forEach(x=>{
+        sessionScores.slice(0, 5).forEach(x => {
             const code = x.codigo ? ` (${x.codigo})` : '';
-            lines.push(`- ${x.nombre}${code}: ${Math.round(Number(x.score)||0)}%`);
+            lines.push(`- ${x.nombre}${code}: ${Math.round(Number(x.score) || 0)}%`);
         });
         lines.push('');
     } else {
@@ -252,16 +215,16 @@ function formatIcd11Block({ sessionScores, sessionNote, aggTop }){
         lines.push('');
     }
 
-    if(Array.isArray(aggTop) && aggTop.length){
+    if (Array.isArray(aggTop) && aggTop.length) {
         lines.push('Acumulado paciente (se afina con sesiones):');
-        aggTop.forEach(x=>{
+        aggTop.forEach(x => {
             const code = x.codigo ? ` (${x.codigo})` : '';
-            lines.push(`- ${x.nombre}${code}: ${Math.round(Number(x.score)||0)}%`);
+            lines.push(`- ${x.nombre}${code}: ${Math.round(Number(x.score) || 0)}%`);
         });
         lines.push('');
     }
 
-    if(sessionNote){
+    if (sessionNote) {
         lines.push(`Nota: ${String(sessionNote).trim()}`);
     }
 
@@ -437,7 +400,60 @@ window.addEventListener('popstate', (event) => {
 });
 
 // Inicializar con la URL actual
-document.addEventListener('DOMContentLoaded', () => {
+// Try to sync initial data from server (pacientes, agenda)
+async function syncInitialFromServer() {
+    try {
+        const pRes = await fetch(API_BASE + '/api/pacientes');
+        if (pRes && pRes.ok) {
+            const pj = await pRes.json().catch(() => null);
+            const list = (pj && pj.pacientes) ? pj.pacientes : [];
+            // replace mockPacientes
+            mockPacientes.length = 0;
+            list.forEach(x => {
+                // normalize fields
+                const paciente = Object.assign({}, x, {
+                    motivo: x.motivoConsulta || x.motivo || '',
+                    contacto: x.telefono || x.email || x.contacto || '',
+                    antecedentes: x.antecedentes || '',
+                    consents: Array.isArray(x.consents) ? x.consents : [],
+                    genogramaHtml: x.genogramaHtml || null,
+                    id: Number(x.id)
+                });
+                mockPacientes.push(paciente);
+            });
+        }
+    } catch (e) { console.warn('Could not fetch pacientes from server', e); }
+
+    try {
+        const cRes = await fetch(API_BASE + '/api/citas');
+        if (cRes && cRes.ok) {
+            const cj = await cRes.json().catch(() => null);
+            const list = (cj && cj.citas) ? cj.citas : [];
+            // replace mockAgenda
+            mockAgenda.length = 0;
+            list.forEach(a => {
+                mockAgenda.push({ fecha: a.fecha || a.date || '', hora: a.hora || a.time || '', pacienteId: a.paciente_id || a.pacienteId || null, estado: a.estado || a.status || 'Pendiente', id: a.id || null });
+            });
+        }
+    } catch (e) { console.warn('Could not fetch citas from server', e); }
+
+    try {
+        const sRes = await fetch(API_BASE + '/api/sesiones');
+        if (sRes && sRes.ok) {
+            const sj = await sRes.json().catch(() => null);
+            const list = (sj && sj.sesiones) ? sj.sesiones : [];
+            // replace mockSesiones
+            mockSesiones.length = 0;
+            list.forEach(s => {
+                mockSesiones.push({ pacienteId: s.paciente_id || s.pacienteId || null, fecha: s.fecha || null, notas: s.notas || s.notes || '', soap: (() => { try { return s.soap ? (typeof s.soap === 'string' ? JSON.parse(s.soap) : s.soap) : null; } catch (e) { return s.soap || null; } })(), duracion: s.duracion || s.duration || null, id: s.id || null });
+            });
+        }
+    } catch (e) { console.warn('Could not fetch sesiones from server', e); }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // Attempt to populate UI from server-backed DB first
+    await syncInitialFromServer();
     const path = window.location.pathname;
     const pathParts = path.substring(1).split('/').filter(p => p);
     const moduleName = pathParts[0] || 'dashboard';
@@ -770,43 +786,144 @@ function renderDashboard() {
     }, 0);
 }
 
+async function addNewPatient() {
+    try {
+        // Esperar brevemente (poll) a que UIComponents esté disponible (hasta 600ms)
+        const waitForUIComponents = async (timeout = 600) => {
+            const start = Date.now();
+            while (Date.now() - start < timeout) {
+                if (window.UIComponents && typeof window.UIComponents.openNewPatientModal === 'function') return true;
+                await new Promise(r => setTimeout(r, 50));
+            }
+            return false;
+        };
+
+        const hasUI = await waitForUIComponents(600);
+        if (hasUI) {
+            return window.UIComponents.openNewPatientModal();
+        }
+
+        // Si UIComponents no está, intentar la vista modular
+        if (window.pacientesView && typeof window.pacientesView.addNewPatient === 'function') {
+            return window.pacientesView.addNewPatient();
+        }
+
+        // Último recurso: abrir modal simple para crear paciente si no hay helper
+        const formHtml = `
+            <div class="modern-modal-header"><h3>Nuevo paciente</h3></div>
+            <div class="modern-modal-body">
+                <div class="modern-form-group"><label>Nombre completo</label><input id="_np_nombre" class="modern-input"></div>
+                <div class="modern-form-group"><label>Edad</label><input id="_np_edad" type="number" class="modern-input" min="0"></div>
+                <div class="modern-form-group"><label>Teléfono</label><input id="_np_telefono" class="modern-input" placeholder="(+56) 9 1234 5678"></div>
+                <div class="modern-form-group"><label>Correo electrónico</label><input id="_np_email" type="email" class="modern-input" placeholder="ejemplo@mail.com"></div>
+                <div class="modern-form-group"><label>Fecha de nacimiento</label><input id="_np_fechaNacimiento" type="date" class="modern-input"></div>
+                <div class="modern-form-group"><label>Género</label>
+                    <select id="_np_genero" class="modern-input">
+                        <option value="">-- Seleccionar --</option>
+                        <option value="femenino">Femenino</option>
+                        <option value="masculino">Masculino</option>
+                        <option value="otro">Otro</option>
+                        <option value="prefiero_no_decir">Prefiero no decir</option>
+                    </select>
+                </div>
+                <div class="modern-form-group"><label>Ocupación</label><input id="_np_ocupacion" class="modern-input"></div>
+                <div class="modern-form-group"><label>Dirección</label><input id="_np_direccion" class="modern-input"></div>
+                <div class="modern-form-group"><label>Motivo de consulta</label><textarea id="_np_motivoConsulta" class="modern-input" rows="3"></textarea></div>
+                <div class="modern-form-group"><label>Antecedentes / notas</label><textarea id="_np_antecedentes" class="modern-input" rows="3"></textarea></div>
+            </div>
+            <div class="modern-modal-footer">
+                <button class="modern-btn cancel-btn" id="_np_cancel">Cancelar</button>
+                <button class="modern-btn save-btn" id="_np_save">Crear</button>
+            </div>
+        `;
+
+        const modal = createModal(formHtml);
+        modal.backdrop.querySelector('#_np_cancel').onclick = () => modal.close();
+        modal.backdrop.querySelector('#_np_save').onclick = async () => {
+            const nombre = (modal.backdrop.querySelector('#_np_nombre').value || '').trim();
+            if (!nombre) { alert('El nombre es obligatorio'); return; }
+            const edad = parseInt(modal.backdrop.querySelector('#_np_edad').value) || 0;
+            const direccion = modal.backdrop.querySelector('#_np_direccion').value || '';
+            const antecedentes = modal.backdrop.querySelector('#_np_antecedentes').value || '';
+
+            const telefono = modal.backdrop.querySelector('#_np_telefono').value || '';
+            const email = modal.backdrop.querySelector('#_np_email').value || '';
+            const fechaNacimiento = modal.backdrop.querySelector('#_np_fechaNacimiento').value || '';
+            const genero = modal.backdrop.querySelector('#_np_genero').value || '';
+            const ocupacion = modal.backdrop.querySelector('#_np_ocupacion').value || '';
+            const motivoConsulta = modal.backdrop.querySelector('#_np_motivoConsulta').value || '';
+            const payload = { nombre, edad, telefono, email, direccion, fechaNacimiento, genero, ocupacion, motivoConsulta, antecedentes };
+
+            // Try to persist to server
+            try {
+                const resp = await fetch(`${API_BASE}/api/pacientes`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const pacienteRaw = (data && data.paciente) ? data.paciente : data;
+                    // Normalize fields expected by the UI
+                    const paciente = Object.assign({}, pacienteRaw, {
+                        motivo: pacienteRaw.motivoConsulta || pacienteRaw.motivo || '',
+                        contacto: pacienteRaw.telefono || pacienteRaw.email || pacienteRaw.contacto || '',
+                        antecedentes: pacienteRaw.antecedentes || '',
+                        consents: Array.isArray(pacienteRaw.consents) ? pacienteRaw.consents : [],
+                        genogramaHtml: pacienteRaw.genogramaHtml || null,
+                        id: Number(pacienteRaw.id)
+                    });
+                    mockPacientes.push(paciente);
+                    try { await saveData(); } catch (e) { /* ignore */ }
+                    try { renderPacientes(); } catch (e) { console.warn('renderPacientes fallback failed', e); }
+                    modal.close();
+                    alert('✅ Paciente creado');
+                    return;
+                }
+                console.warn('Server returned', resp.status);
+            } catch (e) {
+                console.warn('Error creating paciente on server:', e);
+            }
+
+            // Fallback to local-only creation
+            const newId = mockPacientes.length ? (Math.max(...mockPacientes.map(p => p.id)) + 1) : 1;
+            const newPatient = { id: newId, nombre, edad, telefono: telefono || '', email: email || '', direccion, fechaNacimiento: fechaNacimiento || '', genero: genero || '', ocupacion: ocupacion || '', motivoConsulta: motivoConsulta || '', antecedentes, consents: [], genogramaHtml: null };
+            mockPacientes.push(newPatient);
+            try { await saveData(); } catch (e) { /* ignore */ }
+            try { renderPacientes(); } catch (e) { console.warn('renderPacientes fallback failed', e); }
+            modal.close();
+            alert('✅ Paciente creado (local)');
+        };
+    } catch (e) {
+        console.error('addNewPatient error:', e);
+    }
+}
 function renderPacientes() {
+    currentModule = 'pacientes';
     mainContent.innerHTML = `
-        <div class="patients-header">
-            <h1>Gestión de Pacientes</h1>
-            <button class="add-patient-btn" onclick="addNewPatient()">
-                <span class="btn-icon">➕</span>
-                <span>Nuevo Paciente</span>
-            </button>
+        <div class="module-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <h1 style="margin:0">Pacientes</h1>
+            <div>
+                <button class="btn primary" onclick="addNewPatient()" style="padding:8px 14px;">➕ Nuevo paciente</button>
+            </div>
         </div>
         <div class="card">
             <div class="patients-grid">
                 ${mockPacientes.map(p => `
                     <div class="patient-card" data-id="${p.id}">
                         <div class="patient-card-header">
-                            <div class="patient-avatar">
-                                <span class="avatar-icon">👤</span>
-                            </div>
-                            <div class="patient-info">
-                                <h3 class="patient-name">${p.nombre}</h3>
-                                <div class="patient-age">
-                                    <span class="age-icon">🎂</span>
-                                    <span>${p.edad} años</span>
-                                </div>
-                            </div>
+                            <h3>${p.nombre}</h3>
+                            <div class="patient-meta">${p.edad} años</div>
                         </div>
                         <div class="patient-card-body">
                             <div class="patient-reason">
                                 <span class="reason-icon">📋</span>
                                 <span class="reason-label">Motivo:</span>
-                                <span class="reason-text">${p.motivo}</span>
+                                <span class="reason-text">${p.motivoConsulta || p.motivo || ''}</span>
                             </div>
                         </div>
                         <div class="patient-card-footer">
-                            <button class="patient-action-btn view-btn">
-                                <span>👁️</span>
-                                <span>Ver Detalles</span>
-                            </button>
+                            <button class="patient-action-btn view-btn" onclick="navigateToModule('pacientes',{id:${p.id}})">👁️ Ver Detalles</button>
+                            <button class="patient-action-btn delete-btn" style="margin-left:8px;background:linear-gradient(135deg,#ef4444,#dc2626);color:white;" onclick="event.stopPropagation(); deletePaciente(${p.id})">🗑️ Eliminar</button>
                         </div>
                     </div>
                 `).join('')}
@@ -821,6 +938,37 @@ function renderPacientes() {
             navigateToModule('pacientes', { id });
         });
     });
+}
+
+// Delete paciente from server (or locally if server unavailable)
+async function deletePaciente(id) {
+    if (!confirm('¿Eliminar paciente (provisional)?')) return;
+    try {
+        const resp = await fetch(`${API_BASE}/api/pacientes/${id}`, { method: 'DELETE' });
+        if (resp.ok) {
+            // remove from local mock list if present
+            const idx = mockPacientes.findIndex(p => Number(p.id) === Number(id));
+            if (idx >= 0) mockPacientes.splice(idx, 1);
+            try { await saveData(); } catch (e) { /* ignore */ }
+            renderPacientes();
+            alert('Paciente eliminado');
+            return;
+        }
+        const j = await resp.json().catch(() => null);
+        console.warn('Delete failed', resp.status, j);
+        alert('No se pudo eliminar en el servidor; eliminando localmente');
+        const idx = mockPacientes.findIndex(p => Number(p.id) === Number(id));
+        if (idx >= 0) mockPacientes.splice(idx, 1);
+        try { await saveData(); } catch (e) { /* ignore */ }
+        renderPacientes();
+    } catch (e) {
+        console.error('deletePaciente error', e);
+        // fallback local
+        const idx = mockPacientes.findIndex(p => Number(p.id) === Number(id));
+        if (idx >= 0) mockPacientes.splice(idx, 1);
+        try { await saveData(); } catch (e) { /* ignore */ }
+        renderPacientes();
+    }
 }
 
 let agendaView = 'list';
@@ -1457,6 +1605,23 @@ function createModal(html) {
             modalEl.style.padding = modalEl.style.padding || '32px';
             // Avoid horizontal overflow inside modal
             modalEl.style.overflowX = 'hidden';
+            // Ensure modal accepts pointer events and can receive focus
+            modalEl.style.pointerEvents = 'auto';
+            try { modalEl.setAttribute('tabindex', '-1'); } catch (e) { }
+        }
+    } catch (e) { /* ignore */ }
+    // Ensure backdrop accepts pointer events
+    try { backdrop.style.pointerEvents = 'auto'; } catch (e) { }
+    // Auto-focus first input inside modal when opened
+    try {
+        const inner = backdrop.querySelector('.modal');
+        if (inner) {
+            setTimeout(() => {
+                const first = inner.querySelector('input, textarea, select');
+                if (first) {
+                    try { first.focus(); } catch (e) { /* ignore */ }
+                }
+            }, 50);
         }
     } catch (e) { /* ignore */ }
     return {
@@ -2743,19 +2908,26 @@ async function deleteSession(sessionIndex, patientId) {
 
     // Delete session by index
     console.log('✅ PIN correcto. Procediendo a eliminar...');
-    console.log('Eliminando sesión en índice:', sessionIndex, 'Total sesiones antes:', mockSesiones.length);
+    // If the session was persisted on server (has id), attempt server-side deletion
+    if (session && session.id) {
+        try {
+            const resp = await fetch(API_BASE + '/api/sesiones/' + encodeURIComponent(session.id), { method: 'DELETE' });
+            if (resp && resp.ok) {
+                mockSesiones.splice(sessionIndex, 1);
+                await saveData();
+                alert('✅ Sesión eliminada correctamente');
+                showPatient(patientId, false);
+                return;
+            }
+            console.warn('Server delete returned non-ok, will remove locally');
+        } catch (e) { console.warn('Error deleting session on server, will remove locally', e); }
+    }
 
+    // Fallback: remove locally
     mockSesiones.splice(sessionIndex, 1);
-
-    console.log('Total sesiones después:', mockSesiones.length);
-
     await saveData();
-    console.log('✅ Datos guardados en localStorage');
-
-    alert('✅ Sesión eliminada correctamente');
-
-    // Refresh patient view
-    console.log('Re-renderizando vista del paciente:', patientId);
+    console.log('✅ Sesión eliminada (local)');
+    alert('✅ Sesión eliminada');
     showPatient(patientId, false);
 }
 
@@ -2877,18 +3049,17 @@ function showPatient(id, pushHistory = true) {
             </div>
         </div>
 
-        <div class="card">
+        <div class="card genogram-card" id="genogramContainer">
             <div class="card-header-modern">
-                <h3>📊 Genograma Familiar</h3>
+                <h3>🌳 Genograma Familiar</h3>
+                <div id="genogramHeaderActions">
+                     <!-- Se cargará botón de generar si no existe -->
+                </div>
             </div>
-            <div style="padding:20px;">
-                <p style="color:#4b5563; font-size:14px; margin-bottom:16px;">
-                    Visualiza el diagrama familiar del paciente basado en las transcripciones de sesiones.
-                </p>
-                <button onclick="viewGenograma(${p.id})" class="btn primary" style="width:100%; background:linear-gradient(135deg, #00838f 0%, #006064 100%); color:white; padding:12px; border-radius:8px; font-size:14px; display:flex; align-items:center; justify-content:center; gap:8px;">
-                    <span>📊</span>
-                    <span>${p.genogramaHtml ? 'Ver genograma generado' : 'Generar genograma'}</span>
-                </button>
+            <div class="genogram-preview-container" id="genogramPreviewArea">
+                <div class="loading-genogram">
+                    <p>Buscando genograma...</p>
+                </div>
             </div>
         </div>
 
@@ -3063,6 +3234,9 @@ function showPatient(id, pushHistory = true) {
             await deleteSession(sessionIndex, p.id);
         });
     });
+
+    // --- NUEVA LÓGICA DE GENOGRAMA ---
+    checkExistingGenogram(p);
 }
 
 // Quick actions
@@ -3072,9 +3246,26 @@ async function quickRegisterSession() {
     const paciente = getPatientById(parseInt(pid));
     if (!paciente) { console.log('Paciente no encontrado'); return; }
     const notas = await modalPrompt('Notas breves de la sesión');
-    mockSesiones.push({ pacienteId: paciente.id, fecha: new Date().toISOString().slice(0, 10), notas: notas || 'Registro rápido', soap: null, attachments: [] });
+    const newSess = { pacienteId: paciente.id, fecha: new Date().toISOString().slice(0, 10), notas: notas || 'Registro rápido', soap: null, attachments: [] };
+    // Try to persist to server first
+    try {
+        const resp = await fetch(API_BASE + '/api/sesiones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSess) });
+        if (resp && resp.ok) {
+            const j = await resp.json().catch(() => null);
+            const created = (j && j.sesion) ? j.sesion : j;
+            const sObj = Object.assign({}, newSess, { id: created && created.id ? created.id : null });
+            mockSesiones.push(sObj);
+            await saveData();
+            console.log('Sesión registrada y persistida en servidor');
+            loadModule('dashboard');
+            return;
+        }
+    } catch (e) { console.warn('No se pudo persistir sesión en server, guardando localmente', e); }
+
+    // Fallback local
+    mockSesiones.push(newSess);
     await saveData();
-    console.log('Sesión registrada (mock)');
+    console.log('Sesión registrada (local)');
     loadModule('dashboard');
 }
 
@@ -3140,6 +3331,18 @@ async function promptStartSession(patientId) {
     if (ok) {
         console.log('✅ Grabación habilitada');
         const newSess = { pacienteId: p.id, fecha: new Date().toISOString().slice(0, 10), notas: 'Sesión con grabación (mock)', soap: null, attachments: [] };
+        try {
+            const resp = await fetch(API_BASE + '/api/sesiones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSess) });
+            if (resp && resp.ok) {
+                const j = await resp.json().catch(() => null);
+                const created = (j && j.sesion) ? j.sesion : j;
+                const sObj = Object.assign({}, newSess, { id: created && created.id ? created.id : null });
+                mockSesiones.push(sObj);
+                await saveData();
+                showPatient(p.id);
+                return;
+            }
+        } catch (e) { console.warn('Could not persist session to server; saving local', e); }
         mockSesiones.push(newSess);
         await saveData();
         showPatient(p.id);
@@ -3231,15 +3434,25 @@ async function createNewSessionForPatient(patientId, pushHistory = true) {
             grabacion: grabar ? 'Habilitada' : 'No'
         };
 
+        // Try to persist to server first
+        try {
+            const resp = await fetch(API_BASE + '/api/sesiones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSession) });
+            if (resp && resp.ok) {
+                const j = await resp.json().catch(() => null);
+                const created = (j && j.sesion) ? j.sesion : j;
+                const sObj = Object.assign({}, newSession, { id: created && created.id ? created.id : null });
+                mockSesiones.push(sObj);
+                await saveData();
+                modal.close();
+                showPatient(p.id);
+                return;
+            }
+        } catch (e) { console.warn('No se pudo persistir sesión en server, guardando localmente', e); }
+
+        // Fallback local
         mockSesiones.push(newSession);
         await saveData();
-
-        if (grabar) {
-            console.log('✅ Sesión creada con grabación habilitada');
-        } else {
-            console.log('✅ Sesión creada exitosamente');
-        }
-
+        if (grabar) console.log('✅ Sesión creada con grabación habilitada (local)'); else console.log('✅ Sesión creada (local)');
         modal.close();
         showPatient(p.id);
     };
@@ -3441,7 +3654,7 @@ async function openSessionDetail(sessionIndex, patientId) {
                 return { resp, data };
             }
 
-            async function postIcd11Score(clinicalText, searchQuery){
+            async function postIcd11Score(clinicalText, searchQuery) {
                 const resp = await fetch(`${API_BASE}/api/icd11/score`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -3454,7 +3667,7 @@ async function openSessionDetail(sessionIndex, patientId) {
                         collection: 'rag_ics_enfermedadesmundiales'
                     })
                 });
-                const data = await resp.json().catch(()=>null);
+                const data = await resp.json().catch(() => null);
                 return { resp, data };
             }
 
@@ -3480,7 +3693,7 @@ async function openSessionDetail(sessionIndex, patientId) {
                         'Disponibles: ' + data.available_collections.join(', ') + '\n\n' +
                         'Solución: ajusta QDRANT_URL/QDRANT_API_KEY o el mapeo del enfoque.'
                     );
-                } else if(data && (data.error || data.detail || data.hint)) {
+                } else if (data && (data.error || data.detail || data.hint)) {
                     const msg = [
                         'Fallo en RAG (servidor).',
                         data.error ? ('Código: ' + data.error) : '',
@@ -3501,37 +3714,37 @@ async function openSessionDetail(sessionIndex, patientId) {
             // ICD-11 scoring (robust JSON via backend endpoint)
             let icdSessionScores = [];
             let icdSessionNote = '';
-            try{
+            try {
                 const clinicalText = buildClinicalTextForIcd11(s, s.analisis);
                 const { resp: ir, data: idata } = await postIcd11Score(clinicalText, subjetivo);
 
-                if((!ir.ok || !idata || !idata.ok) && idata && idata.error === 'collection_not_found' && Array.isArray(idata.available_collections)){
+                if ((!ir.ok || !idata || !idata.ok) && idata && idata.error === 'collection_not_found' && Array.isArray(idata.available_collections)) {
                     const picked = pickClosestCollection('rag_ics_enfermedadesmundiales', idata.available_collections);
-                    if(picked && picked !== 'rag_ics_enfermedadesmundiales'){
+                    if (picked && picked !== 'rag_ics_enfermedadesmundiales') {
                         console.warn('ICD-11: colección no encontrada. Reintentando con:', picked);
                         const rr = await fetch(`${API_BASE}/api/icd11/score`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ clinical_text: clinicalText, search_query: subjetivo, out_top: 5, k: 8, top_n: 40, collection: picked })
                         });
-                        const dd = await rr.json().catch(()=>null);
-                        if(rr.ok && dd && dd.ok){
+                        const dd = await rr.json().catch(() => null);
+                        if (rr.ok && dd && dd.ok) {
                             icdSessionScores = Array.isArray(dd.scores) ? dd.scores : [];
                             icdSessionNote = String(dd.note || '').trim();
                         }
                     }
-                } else if(ir.ok && idata && idata.ok){
+                } else if (ir.ok && idata && idata.ok) {
                     icdSessionScores = Array.isArray(idata.scores) ? idata.scores : [];
                     icdSessionNote = String(idata.note || '').trim();
                 } else {
                     console.warn('ICD-11 score no disponible:', ir.status, idata);
                 }
-            }catch(e){
+            } catch (e) {
                 console.warn('ICD-11 score error:', e);
             }
 
             // Persist session + aggregated patient scores
-            try{
+            try {
                 s.icd11 = {
                     scores: icdSessionScores,
                     note: icdSessionNote,
@@ -3545,7 +3758,7 @@ async function openSessionDetail(sessionIndex, patientId) {
                 p.icd11.aggregate = mergeIcd11Aggregate(p.icd11.aggregate, icdSessionScores, alpha);
                 p.icd11.updatedAt = new Date().toISOString();
                 p.icd11.alpha = alpha;
-            }catch(e){ /* ignore persistence errors */ }
+            } catch (e) { /* ignore persistence errors */ }
 
             await saveData();
 
@@ -3556,7 +3769,7 @@ async function openSessionDetail(sessionIndex, patientId) {
                 aggTop
             });
 
-            if(outEl){
+            if (outEl) {
                 outEl.textContent = finalText;
             }
             console.log('✅ RAG OK:', data.collection, '| ICD-11 scores:', Array.isArray(icdSessionScores) ? icdSessionScores.length : 0);
@@ -4401,6 +4614,9 @@ function cleanupConsents() {
 }
 
 // Cargar módulo inicial (dashboard) — primero intentar cargar datos persistidos
+// Para garantizar que no se muestren pacientes previamente persistidos,
+// eliminar la clave 'pp_data' del localStorage antes de cargar datos.
+try { localStorage.removeItem('pp_data'); } catch (e) { /* ignore in non-browser env */ }
 loadData().then(() => {
     cleanupConsents();
     saveData();
@@ -4409,3 +4625,89 @@ loadData().then(() => {
     cleanupConsents();
     loadModule('dashboard');
 });
+
+// --- FUNCIONES SOPORTE GENOGRAMA ---
+async function checkExistingGenogram(patient) {
+    const previewArea = document.getElementById('genogramPreviewArea');
+    const headerActions = document.getElementById('genogramHeaderActions');
+    if (!previewArea) return;
+
+    try {
+        const folderName = nameToSlug(patient.nombre);
+        // Usar el prefijo 'patient_' que coincide con lo que el backend genera
+        const response = await fetch(`${API_BASE}/api/check-genogram/patient_${folderName}`);
+        const data = await response.json();
+
+        if (data.ok && data.exists) {
+            previewArea.innerHTML = `
+                <div class="genogram-frame-wrapper">
+                    <iframe src="${API_BASE}${data.path}" class="genogram-iframe-preview"></iframe>
+                    <div class="genogram-overlay" onclick="openGenogramFullscreen('${API_BASE}${data.path}')">
+                        <button class="expand-genogram-btn">Ampliar Genograma 🔍</button>
+                    </div>
+                </div>
+            `;
+            headerActions.innerHTML = `
+                <button class="header-action-btn refresh" onclick="generateGenogram(${patient.id}, true)">
+                    <span>🔄</span> Actualizar
+                </button>
+            `;
+        } else {
+            previewArea.innerHTML = `
+                <div class="empty-genogram">
+                    <p>No se ha generado un genograma para este paciente.</p>
+                    <button class="generate-now-btn" onclick="generateGenogram(${patient.id})">
+                        Generar ahora
+                    </button>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error al buscar genograma:', error);
+        previewArea.innerHTML = '<p class="error-text">Error al cargar genograma</p>';
+    }
+}
+
+async function generateGenogram(patientId, isUpdate = false) {
+    const patient = getPatientById(patientId);
+    if (!patient) return;
+
+    // Mostrar modal de loading (estilo app.js)
+    const loadingModal = createModal(`
+        <div style="padding:40px; text-align:center;">
+            <div class="spinner" style="margin:0 auto 20px;"></div>
+            <h3>${isUpdate ? 'Actualizando' : 'Generando'} genograma...</h3>
+            <p>Por favor espera mientras el servidor procesa la información familiar.</p>
+        </div>
+    `);
+
+    try {
+        const folderName = nameToSlug(patient.nombre);
+        const response = await fetch(`${API_BASE}/api/generate-genogram`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                patient_id: patientId,
+                patient_folder: `patient_${folderName}`
+            })
+        });
+
+        const data = await response.json();
+        loadingModal.close();
+
+        if (data.ok) {
+            alert('✅ Genograma generado exitosamente');
+            checkExistingGenogram(patient);
+        } else {
+            alert('❌ Error: ' + (data.detail || data.error));
+        }
+    } catch (error) {
+        if (loadingModal) loadingModal.close();
+        alert('Error de conexión');
+    }
+}
+
+function openGenogramFullscreen(path) {
+    window.open(path, '_blank');
+}
+

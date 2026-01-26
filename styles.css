@@ -2705,3 +2705,131 @@ textarea.modern-input {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* ============================================
+   GENOGRAM CARD STYLES
+   ============================================ */
+.genogram-card {
+    grid-column: 1 / -1;
+    overflow: hidden;
+    position: relative;
+    min-height: 450px;
+}
+
+.genogram-preview-container {
+    width: 100%;
+    height: 350px;
+    background: #f1f5f9;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border: 1px dashed var(--gray-light);
+    margin-top: 15px;
+}
+
+.genogram-frame-wrapper {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+}
+
+.genogram-iframe-preview {
+    width: 100%;
+    height: 100%;
+    border: none;
+    pointer-events: none; /* Evita scroll dentro del preview */
+}
+
+.genogram-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.genogram-frame-wrapper:hover .genogram-overlay {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.expand-genogram-btn {
+    background: var(--white);
+    color: var(--dark);
+    border: none;
+    padding: 12px 24px;
+    border-radius: 30px;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+}
+
+.genogram-frame-wrapper:hover .expand-genogram-btn {
+    transform: translateY(0);
+}
+
+.empty-genogram {
+    text-align: center;
+    padding: 40px;
+}
+
+.empty-genogram p {
+    color: var(--gray);
+    margin-bottom: 20px;
+}
+
+.generate-now-btn {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    transition: all 0.3s ease;
+}
+
+.generate-now-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(99, 102, 241, 0.4);
+}
+
+.header-action-btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.header-action-btn.refresh {
+    background: #f1f5f9;
+    color: var(--dark);
+    border: 1px solid var(--gray-light);
+}
+
+.header-action-btn.refresh:hover {
+    background: var(--gray-light);
+}
+
+.loading-genogram {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    color: var(--gray);
+}

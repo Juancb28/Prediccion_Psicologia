@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Tuple
 
 from qdrant_client import QdrantClient
 from sentence_transformers import SentenceTransformer
-import google.generativeai as genai
+from google import genai
 
 
 DEFAULT_COLLECTION = "rag_ics_enfermedadesmundiales"
@@ -253,8 +253,8 @@ def main() -> int:
     context = format_context(top_docs)
 
     try:
-        genai.configure(api_key=gemini_key)
-        model = genai.GenerativeModel(llm_model)
+        client = genai.Client(api_key=gemini_key)
+        model_id = llm_model.replace("models/", "")
     except Exception as e:
         _json_out({
             "ok": False,
@@ -287,7 +287,7 @@ CONTEXTO ICD-11:
 """
 
     try:
-        resp = model.generate_content(prompt)
+        resp = client.models.generate_content(model=model_id, contents=prompt)
         raw_answer = (getattr(resp, "text", "") or "").strip()
     except Exception as e:
         msg = _safe_str(e)

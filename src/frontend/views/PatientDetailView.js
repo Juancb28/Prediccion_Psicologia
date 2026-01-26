@@ -76,6 +76,20 @@ class PatientDetailView {
                     </div>
                 </div>
 
+                <div class="card genogram-card" id="genogramContainer">
+                    <div class="card-header-modern">
+                        <h3>🌳 Genograma Familiar</h3>
+                        <div id="genogramHeaderActions">
+                             <!-- Se cargará botón de generar si no existe -->
+                        </div>
+                    </div>
+                    <div class="genogram-preview-container" id="genogramPreviewArea">
+                        <div class="loading-genogram">
+                            <p>Buscando genograma...</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="card patient-history-card">
                     <div class="card-header-modern">
                         <h3>📚 Historial</h3>
@@ -122,8 +136,8 @@ class PatientDetailView {
                 </div>
                 <div class="sessions-list">
                     ${patientSessions.length ? patientSessions.map((s, idx) => {
-                        const globalIndex = sessionManager.getGlobalIndex(s);
-                        return `
+            const globalIndex = sessionManager.getGlobalIndex(s);
+            return `
                             <div class="session-list-item">
                                 <div class="session-item-content" onclick="navigateTo('/pacientes/${patient.id}/sesiones/${idx}')">
                                     <div class="session-date-badge">
@@ -138,12 +152,84 @@ class PatientDetailView {
                                 </button>
                             </div>
                         `;
-                    }).join('') : '<div class="empty-sessions">No hay sesiones registradas</div>'}
+        }).join('') : '<div class="empty-sessions">No hay sesiones registradas</div>'}
                 </div>
             </div>
         `;
 
         this.updateActiveMenuItem('/pacientes');
+        this.checkExistingGenogram(patient);
+    }
+
+    async checkExistingGenogram(patient) {
+        const previewArea = document.getElementById('genogramPreviewArea');
+        const headerActions = document.getElementById('genogramHeaderActions');
+
+        try {
+            const response = await fetch(`/api/check-genogram/${patient.id_folder || patient.nombre.toLowerCase().replace(/ /g, '_')}`);
+            const data = await response.json();
+
+            if (data.ok && data.exists) {
+                previewArea.innerHTML = `
+                    <div class="genogram-frame-wrapper">
+                        <iframe src="${data.path}" class="genogram-iframe-preview"></iframe>
+                        <div class="genogram-overlay" onclick="patientDetailView.openGenogramFullscreen('${data.path}')">
+                            <button class="expand-genogram-btn">Ampliar Genograma 🔍</button>
+                        </div>
+                    </div>
+                `;
+                headerActions.innerHTML = `
+                    <button class="header-action-btn refresh" onclick="patientDetailView.generateGenogram(${patient.id}, true)">
+                        <span>🔄</span> Actualizar
+                    </button>
+                `;
+            } else {
+                previewArea.innerHTML = `
+                    <div class="empty-genogram">
+                        <p>No se ha generado un genograma para este paciente.</p>
+                        <button class="generate-now-btn" onclick="patientDetailView.generateGenogram(${patient.id})">
+                            Generar ahora
+                        </button>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error al buscar genograma:', error);
+            previewArea.innerHTML = '<p class="error-text">Error al cargar genograma</p>';
+        }
+    }
+
+    async generateGenogram(patientId, isUpdate = false) {
+        const patient = patientManager.getById(patientId);
+        UIComponents.showLoading(isUpdate ? 'Actualizando genogram...' : 'Generando genograma...');
+
+        try {
+            const response = await fetch('/api/generate-genogram', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    patient_id: patientId,
+                    patient_folder: patient.id_folder || patient.nombre.toLowerCase().replace(/ /g, '_')
+                })
+            });
+
+            const data = await response.json();
+            UIComponents.hideLoading();
+
+            if (data.ok) {
+                UIComponents.showAlert('✅ Genograma generado exitosamente', 'success');
+                this.checkExistingGenogram(patient);
+            } else {
+                UIComponents.showAlert('❌ Error: ' + (data.detail || data.error), 'error');
+            }
+        } catch (error) {
+            UIComponents.hideLoading();
+            UIComponents.showAlert('Error de conexión', 'error');
+        }
+    }
+
+    openGenogramFullscreen(path) {
+        window.open(path, '_blank');
     }
 
     async editPatient(patientId) {

@@ -200,13 +200,123 @@ class UIComponents {
             
             m.backdrop.querySelector('#_m_cancel').onclick = () => { m.close(); resolve(null); };
             m.backdrop.querySelector('#_m_save').onclick = () => {
-                const inputs = m.backdrop.querySelectorAll('input, textarea, select');
+                const inputs = Array.from(m.backdrop.querySelectorAll('input, textarea, select'));
+                // Validación simple: campos con atributo 'required' no pueden estar vacíos
+                for (const inp of inputs) {
+                    if (inp.hasAttribute('required')) {
+                        const v = (inp.value || '').toString().trim();
+                        if (!v) {
+                            // Mostrar tooltip junto al input y no cerrar el modal
+                            UIComponents.showWarningTooltip(inp, 'Este campo es obligatorio.');
+                            // Enfocar el input problemático
+                            try { inp.focus(); } catch (e) {}
+                            return; // no cerrar
+                        } else {
+                            UIComponents.removeWarningTooltip(inp);
+                        }
+                    }
+                }
+
                 const data = {};
                 inputs.forEach(i => { if (i.name) data[i.name] = i.value; });
                 m.close();
                 resolve(data);
             };
         });
+    }
+
+    /**
+     * Abre el modal para crear un nuevo paciente (diseño consistente)
+     * - Crea el paciente usando `patientManager.create()` si existe (app modular)
+     * - Si no existe `patientManager`, usa `mockPacientes` como fallback (app monolítica)
+     * - Refresca la vista usando `pacientesView.render()` o `renderPacientes()` según lo disponible
+     */
+    static async openNewPatientModal() {
+        const form = `
+            <div class="modern-form-group">
+                <label class="modern-label"><span class="label-icon">👤</span><span>Nombre completo</span></label>
+                <input name="nombre" class="modern-input" required />
+            </div>
+            <div class="modern-form-row">
+                <div class="modern-form-group">
+                    <label class="modern-label"><span class="label-icon">🎂</span><span>Edad</span></label>
+                    <input name="edad" type="number" class="modern-input" required />
+                </div>
+                <div class="modern-form-group">
+                    <label class="modern-label"><span class="label-icon">📞</span><span>Contacto</span></label>
+                    <input name="contacto" class="modern-input" required />
+                </div>
+            </div>
+            <div class="modern-form-group">
+                <label class="modern-label"><span class="label-icon">📍</span><span>Dirección</span></label>
+                <input name="direccion" class="modern-input" required />
+            </div>
+            <div class="modern-form-group">
+                <label class="modern-label"><span class="label-icon">📝</span><span>Motivo de consulta</span></label>
+                <input name="motivo" class="modern-input" required />
+            </div>
+            <div class="modern-form-group">
+                <label class="modern-label"><span class="label-icon">📚</span><span>Antecedentes</span></label>
+                <textarea name="antecedentes" class="modern-input" rows="4"></textarea>
+            </div>
+        `;
+
+        try {
+            const data = await this.modalForm('Nuevo Paciente', form);
+            if (!data) return null;
+
+            // Normalize data
+            const patientData = {
+                nombre: (data.nombre || '').trim(),
+                edad: data.edad ? parseInt(data.edad) : 0,
+                motivo: data.motivo || '',
+                contacto: data.contacto || '',
+                direccion: data.direccion || '',
+                antecedentes: data.antecedentes || ''
+            };
+
+            let created = null;
+
+            // Preferir API/manager global si existe
+            if (window.patientManager && typeof window.patientManager.create === 'function') {
+                try {
+                    created = window.patientManager.create(patientData);
+                } catch (e) {
+                    console.error('patientManager.create error', e);
+                    // intentar fallback
+                }
+            }
+
+            // Fallback a mock array (app.js)
+            if (!created) {
+                try {
+                    if (!window.mockPacientes) window.mockPacientes = [];
+                    const newId = window.mockPacientes.length ? (Math.max(...window.mockPacientes.map(p => p.id)) + 1) : 1;
+                    created = Object.assign({ id: newId, consents: [], genogramaHtml: null }, patientData);
+                    window.mockPacientes.push(created);
+                } catch (e) {
+                    console.error('mockPacientes fallback error', e);
+                }
+            }
+
+            // Refrescar UI: preferir la vista modular
+            try {
+                if (window.pacientesView && typeof window.pacientesView.render === 'function') {
+                    await window.pacientesView.render();
+                } else if (typeof window.renderPacientes === 'function') {
+                    window.renderPacientes();
+                }
+            } catch (e) {
+                console.warn('Error refreshing patients view', e);
+            }
+
+            this.showAlert('✅ Paciente creado correctamente', 'success');
+            return created;
+        } catch (e) {
+            console.error('openNewPatientModal error', e);
+            this.showAlert('Error al crear paciente', 'error');
+            return null;
+        }
     }
 
     /**

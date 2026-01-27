@@ -49,6 +49,8 @@ function loadDotenvAndLog() {
                     if (!process.env[key]) process.env[key] = val;
                 }
             });
+        } else {
+            console.warn('[warn] .env no encontrado en', envPath);
         }
     } catch (e) { /* ignore */ }
 
@@ -63,6 +65,30 @@ function loadDotenvAndLog() {
             console.log('[info] No HUGGINGFACE_TOKEN found in environment or .env');
         }
     } catch (e) { /* ignore logging errors */ }
+
+    // Log required RAG env presence (masked)
+    try {
+        const qurl = process.env.QDRANT_URL;
+        const qkey = process.env.QDRANT_API_KEY;
+        const gkey = process.env.GEMINI_API_KEY;
+
+        const missing = [];
+        if (!qurl) missing.push('QDRANT_URL');
+        if (!qkey) missing.push('QDRANT_API_KEY');
+        if (!gkey) missing.push('GEMINI_API_KEY');
+
+        const qurlShort = qurl ? String(qurl).slice(0, 32) + '...' : '(missing)';
+        const qkeyMasked = qkey && String(qkey).length > 8 ? String(qkey).slice(0, 4) + '...' + String(qkey).slice(-4) : (qkey ? '(set)' : '(missing)');
+        const gkeyMasked = gkey && String(gkey).length > 8 ? String(gkey).slice(0, 4) + '...' + String(gkey).slice(-4) : (gkey ? '(set)' : '(missing)');
+
+        console.log('[info] RAG env check:');
+        console.log('  - QDRANT_URL:', qurlShort);
+        console.log('  - QDRANT_API_KEY:', qkeyMasked);
+        console.log('  - GEMINI_API_KEY:', gkeyMasked);
+        if (missing.length) {
+            console.warn('[warn] Missing env vars for RAG:', missing.join(', '));
+        }
+    } catch (e) { /* ignore */ }
 }
 
 loadDotenvAndLog();
@@ -1045,60 +1071,119 @@ app.post('/api/rag/ask', express.json({ limit: '1mb' }), (req, res) => {
 
         // Force venv Scripts into PATH for dependency resolution
         const childEnv = { ...process.env };
-        const venvDir = path.dirname(pyExec);
+        const venvDir = (pyExec && (pyExec.includes('\\') || pyExec.includes('/'))) ? path.dirname(pyExec) : '';
+        const pathKey = process.platform === 'win32' ? 'Path' : 'PATH';
 
-        if (process.platform === 'win32') {
-            childEnv['Path'] = `${venvDir}${path.delimiter}${childEnv['Path'] || ''}`;
-            childEnv['PATH'] = `${venvDir}${childEnv['Path']}`; // Sync them
-        } else {
-            childEnv['PATH'] = `${venvDir}${path.delimiter}${childEnv['PATH'] || ''}`;
+        // NOTE: On Windows, PATH/Path can easily get corrupted if we concatenate without delimiters.
+        // Keep both keys consistent and always include the delimiter.
+        if (venvDir) {
+            childEnv[pathKey] = `${venvDir}${path.delimiter}${childEnv[pathKey] || ''}`;
+            if (process.platform === 'win32') {
+                childEnv['PATH'] = childEnv['Path'];
+            }
         }
 
         try { childEnv.PYTHONIOENCODING = childEnv.PYTHONIOENCODING || 'utf-8'; } catch (e) { }
         try { childEnv.PYTHONUTF8 = childEnv.PYTHONUTF8 || '1'; } catch (e) { }
 
-        const child = spawn(pyExec, [scriptPath], { env: childEnv, cwd: __dirname });
+        const inputStr = JSON.stringify({ collection, query, k, top_n });
 
+        // Spawn python with fallbacks (common in Windows where only `py` exists).
+        const candidates = [];
+        candidates.push({ cmd: pyExec, argsPrefix: [], label: String(pyExec) });
+        if (process.platform === 'win32') {
+            // `py` launcher is common even when `python` isn't on PATH.
+            candidates.push({ cmd: 'py', argsPrefix: ['-3'], label: 'py -3' });
+            candidates.push({ cmd: 'py', argsPrefix: [], label: 'py' });
+        }
+        // Some setups use python3 instead of python.
+        candidates.push({ cmd: 'python3', argsPrefix: [], label: 'python3' });
+
+        let child = null;
         let out = '';
         let err = '';
-        if (child.stdout) child.stdout.on('data', (d) => { out += d.toString(); });
-        if (child.stderr) child.stderr.on('data', (d) => { err += d.toString(); });
-        child.on('error', (e) => {
-            return res.status(500).json({ ok: false, error: 'rag_spawn_error', detail: String(e && e.message) });
-        });
-        child.on('close', (code) => {
-            // Always try to parse JSON (even on non-zero exit codes) so we can return
-            // structured errors from Python instead of opaque rag_failed messages.
-            let parsed = null;
-            parsed = parsePossiblyNoisyJson(out);
 
-            if (parsed && typeof parsed === 'object') {
-                // Choose status codes that help debugging and avoid generic 500s when it's a bad request.
-                const isOk = parsed.ok === true;
-                if (isOk) return res.json(parsed);
+        const startCandidate = (idx) => {
+            if (res.headersSent) return;
+            const c = candidates[idx];
 
-                const errCode = String(parsed.error || 'rag_error');
-                const clientErrors = new Set([
-                    'missing_collection_or_query',
-                    'bad_json_in',
-                    'collection_not_found'
-                ]);
-                const status = clientErrors.has(errCode) ? 400 : 500;
-                return res.status(status).json(Object.assign({ ok: false, code, stderr: (err || '').slice(0, 8000) }, parsed));
-            }
+            out = '';
+            err = '';
 
-            if (code !== 0) {
-                return res.status(500).json({ ok: false, error: 'rag_failed', code, detail: err || out || `exit_${code}` });
-            }
             try {
-                return res.json(JSON.parse(out));
+                child = spawn(c.cmd, [...(c.argsPrefix || []), scriptPath], { env: childEnv, cwd: __dirname });
             } catch (e) {
-                return res.status(500).json({ ok: false, error: 'bad_python_json', detail: String(e && e.message), raw: out, stderr: (err || '').slice(0, 8000) });
+                if (idx + 1 < candidates.length) return startCandidate(idx + 1);
+                return res.status(500).json({
+                    ok: false,
+                    error: 'rag_spawn_error',
+                    detail: String(e && e.message),
+                    tried: candidates.map(x => x.label),
+                });
             }
-        });
 
-        child.stdin.write(JSON.stringify({ collection, query, k, top_n }));
-        child.stdin.end();
+            if (child.stdout) child.stdout.on('data', (d) => { out += d.toString(); });
+            if (child.stderr) child.stderr.on('data', (d) => { err += d.toString(); });
+
+            child.on('error', (e) => {
+                // ENOENT = executable not found. Try next candidate.
+                const code = e && e.code;
+                if (code === 'ENOENT' && idx + 1 < candidates.length) {
+                    return startCandidate(idx + 1);
+                }
+                if (res.headersSent) return;
+                return res.status(500).json({
+                    ok: false,
+                    error: 'rag_spawn_error',
+                    detail: String(e && e.message),
+                    spawn_code: code,
+                    tried: candidates.map(x => x.label),
+                });
+            });
+
+            child.on('close', (code) => {
+                // Always try to parse JSON (even on non-zero exit codes) so we can return
+                // structured errors from Python instead of opaque rag_failed messages.
+                let parsed = null;
+                parsed = parsePossiblyNoisyJson(out);
+
+                if (parsed && typeof parsed === 'object') {
+                    // Choose status codes that help debugging and avoid generic 500s when it's a bad request.
+                    const isOk = parsed.ok === true;
+                    if (isOk) return res.json(parsed);
+
+                    const errCode = String(parsed.error || 'rag_error');
+                    const clientErrors = new Set([
+                        'missing_collection_or_query',
+                        'bad_json_in',
+                        'collection_not_found'
+                    ]);
+                    const status = clientErrors.has(errCode) ? 400 : 500;
+                    return res.status(status).json(Object.assign({ ok: false, code, stderr: (err || '').slice(0, 8000) }, parsed));
+                }
+
+                if (code !== 0) {
+                    return res.status(500).json({ ok: false, error: 'rag_failed', code, detail: err || out || `exit_${code}` });
+                }
+                try {
+                    return res.json(JSON.parse(out));
+                } catch (e) {
+                    return res.status(500).json({ ok: false, error: 'bad_python_json', detail: String(e && e.message), raw: out, stderr: (err || '').slice(0, 8000) });
+                }
+            });
+
+            try {
+                child.stdin.write(inputStr);
+                child.stdin.end();
+            } catch (e) {
+                // If stdin write fails, surface it as a spawn failure.
+                if (!res.headersSent) {
+                    return res.status(500).json({ ok: false, error: 'rag_stdin_error', detail: String(e && e.message) });
+                }
+            }
+        };
+
+        startCandidate(0);
     } catch (e) {
         return res.status(500).json({ ok: false, error: 'server_error', detail: String(e && e.message) });
     }
@@ -1170,16 +1255,54 @@ app.post('/api/icd11/score', express.json({ limit: '1mb' }), (req, res) => {
         try { childEnv.PYTHONIOENCODING = childEnv.PYTHONIOENCODING || 'utf-8'; } catch (e) { }
         try { childEnv.PYTHONUTF8 = childEnv.PYTHONUTF8 || '1'; } catch (e) { }
 
-        const child = spawn(pyExec, [scriptPath], { env: childEnv, cwd: __dirname });
+        const inputStr = JSON.stringify({
+            clinical_text,
+            search_query,
+            k,
+            top_n,
+            out_top,
+            collection,
+        });
+
+        const candidates = [];
+        candidates.push({ cmd: pyExec, argsPrefix: [], label: String(pyExec) });
+        if (process.platform === 'win32') {
+            candidates.push({ cmd: 'py', argsPrefix: ['-3'], label: 'py -3' });
+            candidates.push({ cmd: 'py', argsPrefix: [], label: 'py' });
+        }
+        candidates.push({ cmd: 'python3', argsPrefix: [], label: 'python3' });
+
+        let child = null;
 
         let out = '';
         let err = '';
-        if (child.stdout) child.stdout.on('data', (d) => { out += d.toString(); });
-        if (child.stderr) child.stderr.on('data', (d) => { err += d.toString(); });
-        child.on('error', (e) => {
-            return res.status(500).json({ ok: false, error: 'icd11_spawn_error', detail: String(e && e.message) });
-        });
-        child.on('close', (code) => {
+
+        const startCandidate = (idx) => {
+            if (res.headersSent) return;
+            const c = candidates[idx];
+            out = '';
+            err = '';
+
+            try {
+                child = spawn(c.cmd, [...(c.argsPrefix || []), scriptPath], { env: childEnv, cwd: __dirname });
+            } catch (e) {
+                if (idx + 1 < candidates.length) return startCandidate(idx + 1);
+                return res.status(500).json({ ok: false, error: 'icd11_spawn_error', detail: String(e && e.message), tried: candidates.map(x => x.label) });
+            }
+
+            if (child.stdout) child.stdout.on('data', (d) => { out += d.toString(); });
+            if (child.stderr) child.stderr.on('data', (d) => { err += d.toString(); });
+
+            child.on('error', (e) => {
+                const code = e && e.code;
+                if (code === 'ENOENT' && idx + 1 < candidates.length) {
+                    return startCandidate(idx + 1);
+                }
+                if (res.headersSent) return;
+                return res.status(500).json({ ok: false, error: 'icd11_spawn_error', detail: String(e && e.message), spawn_code: code, tried: candidates.map(x => x.label) });
+            });
+
+            child.on('close', (code) => {
             let parsed = null;
             parsed = parsePossiblyNoisyJson(out);
 
@@ -1203,17 +1326,19 @@ app.post('/api/icd11/score', express.json({ limit: '1mb' }), (req, res) => {
                 return res.status(500).json({ ok: false, error: 'icd11_failed', code, detail: err || out || `exit_${code}` });
             }
             return res.status(500).json({ ok: false, error: 'bad_python_json', code, raw: out, stderr: (err || '').slice(0, 8000) });
-        });
+            });
 
-        child.stdin.write(JSON.stringify({
-            clinical_text,
-            search_query,
-            k,
-            top_n,
-            out_top,
-            collection,
-        }));
-        child.stdin.end();
+            try {
+                child.stdin.write(inputStr);
+                child.stdin.end();
+            } catch (e) {
+                if (!res.headersSent) {
+                    return res.status(500).json({ ok: false, error: 'icd11_stdin_error', detail: String(e && e.message) });
+                }
+            }
+        };
+
+        startCandidate(0);
     } catch (e) {
         return res.status(500).json({ ok: false, error: 'server_error', detail: String(e && e.message) });
     }
